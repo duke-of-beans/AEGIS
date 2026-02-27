@@ -1,0 +1,179 @@
+<html>
+<head>
+<HTA:APPLICATION
+  ID="AEGISSettings"
+  APPLICATIONNAME="AEGIS Settings"
+  CAPTION="yes"
+  SHOWINTASKBAR="yes"
+  SYSMENU="yes"
+  SCROLL="no"
+  BORDER="normal"
+  SINGLEINSTANCE="yes"
+/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+<title>AEGIS Settings</title>
+<link rel="stylesheet" href="status.css"/>
+<style>
+html { height: 100%; } body { height: 100%; width: 540px; min-height: 600px; }
+</style>
+</head>
+<body class="settings-body">
+
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab-btn active" data-tab="general" onclick="switchTab('general')">General</button>
+  <button class="tab-btn" data-tab="profiles" onclick="switchTab('profiles')">Profiles</button>
+  <button class="tab-btn" data-tab="integrations" onclick="switchTab('integrations')">Integrations</button>
+  <button class="tab-btn" data-tab="startup" onclick="switchTab('startup')">Startup</button>
+  <button class="tab-btn" data-tab="about" onclick="switchTab('about')">About</button>
+</div>
+
+<!-- General Tab -->
+<div class="tab-content active" id="tab-general">
+  <div class="settings-section">
+    <h3>Default Profile</h3>
+    <div class="settings-row">
+      <label>Default profile</label>
+      <select id="setting-default-profile"><option>idle</option></select>
+    </div>
+    <div class="settings-note">Applied on startup and after timer/auto-detection.</div>
+  </div>
+  <div class="settings-section">
+    <h3>Status Window</h3>
+    <div class="settings-row">
+      <label>Open status window on startup</label>
+      <input type="checkbox" id="setting-auto-open"/>
+    </div>
+    <div class="settings-row">
+      <label>Status window port (advanced)</label>
+      <input type="number" id="setting-port" value="8743"/>
+    </div>
+  </div>
+  <div class="settings-section">
+    <h3>Auto-Detection</h3>
+    <div class="settings-row">
+      <label>Enable auto-detection</label>
+      <input type="checkbox" id="setting-auto-detect"/>
+    </div>
+    <div class="settings-row">
+      <label>Mode</label>
+      <select id="setting-detect-mode">
+        <option value="suggest">Suggest with notification</option>
+        <option value="auto">Switch automatically</option>
+      </select>
+    </div>
+    <div class="settings-note">AEGIS watches running apps and suggests or switches profiles automatically.</div>
+  </div>
+  <div class="settings-section">
+    <h3>Notifications</h3>
+    <div class="settings-row"><label>Profile switch notifications</label><input type="checkbox" id="notif-switch"/></div>
+    <div class="settings-row"><label>Timer expired notifications</label><input type="checkbox" id="notif-timer" checked/></div>
+    <div class="settings-row"><label>Watchdog restart notifications</label><input type="checkbox" id="notif-watchdog" checked/></div>
+    <div class="settings-row"><label>Worker crash notifications</label><input type="checkbox" id="notif-worker" checked/></div>
+    <div class="settings-row"><label>KERNL state change notifications</label><input type="checkbox" id="notif-kernl"/></div>
+  </div>
+</div>
+
+<!-- Profiles Tab -->
+<div class="tab-content" id="tab-profiles">
+  <div id="profile-list" style="margin-bottom:12px"></div>
+  <div style="display:flex;gap:8px;margin-top:8px">
+    <button class="settings-btn">+ Import Profile...</button>
+    <button class="settings-btn" onclick="openProfilesFolder()">Open Profiles Folder</button>
+  </div>
+</div>
+
+<!-- Integrations Tab -->
+<div class="tab-content" id="tab-integrations">
+  <div class="settings-section">
+    <h3>KERNL</h3>
+    <div class="settings-row"><label>Enable KERNL integration</label><input type="checkbox" id="kernl-enabled" checked/></div>
+    <div class="settings-row"><label>Host</label><input type="text" id="kernl-host" value="localhost" style="width:120px"/></div>
+    <div class="settings-row"><label>Port</label><input type="number" id="kernl-port" value="3001" style="width:80px"/></div>
+    <div style="margin-top:8px;display:flex;gap:10px;align-items:center">
+      <button class="settings-btn" onclick="testKernl()">Test Connection</button>
+      <span id="kernl-status" class="status-indicator" id="kernl-test-result"></span>
+    </div>
+  </div>
+  <div class="settings-section">
+    <h3>AEGIS MCP Server</h3>
+    <div class="settings-row"><label>Enable MCP Server</label><input type="checkbox" id="mcp-enabled" checked/></div>
+    <div class="settings-row"><label>Port</label><input type="number" id="mcp-port" value="3742" style="width:80px"/></div>
+    <div style="margin-top:8px">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">Claude Desktop config (copy this into claude_desktop_config.json):</div>
+      <div class="code-block">"aegis": {<br>&nbsp;&nbsp;"command": "C:\\Program Files\\AEGIS\\AEGIS.exe",<br>&nbsp;&nbsp;"args": ["--mcp"]<br>}</div>
+      <button class="settings-btn" id="copy-mcp-btn" onclick="copyMcpConfig()">Copy to Clipboard</button>
+    </div>
+    <div style="margin-top:8px">
+      <span class="status-indicator">MCP Server: <span id="mcp-status" style="margin-left:6px">—</span></span>
+    </div>
+  </div>
+</div>
+
+<!-- Startup Tab -->
+<div class="tab-content" id="tab-startup">
+  <div class="settings-section">
+    <h3>Task Scheduler</h3>
+    <div class="settings-row"><label>Task name</label><span style="color:var(--text-muted)">AEGIS_Startup</span></div>
+    <div style="margin-top:8px;display:flex;gap:8px">
+      <button class="settings-btn">Verify Task</button>
+      <button class="settings-btn">Repair Task</button>
+      <button class="settings-btn">Remove Task</button>
+    </div>
+  </div>
+  <div class="settings-section">
+    <h3>Worker</h3>
+    <div class="settings-row"><label>Transport</label><select><option>stdin/stdout</option><option>Named pipe (advanced)</option></select></div>
+    <div style="margin-top:8px;display:flex;gap:10px;align-items:center">
+      <button class="settings-btn">Test Worker</button>
+      <span id="worker-test-result" style="font-size:12px;color:var(--text-muted)"></span>
+    </div>
+  </div>
+</div>
+
+<!-- About Tab -->
+<div class="tab-content" id="tab-about">
+  <div class="about-section">
+    <div class="about-title">AEGIS</div>
+    <div class="about-subtitle">Cognitive Resource Manager</div>
+    <div style="color:var(--text-muted);font-size:13px;margin-bottom:16px">Version 2.0.0</div>
+    <div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px">
+      <button class="settings-btn">Check for Updates</button>
+    </div>
+    <div style="color:var(--text-muted);font-size:12px;margin-bottom:8px">
+      GitHub: <a href="https://github.com/duke-of-beans/AEGIS" style="color:var(--accent)">github.com/duke-of-beans/AEGIS</a>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:16px">
+      <button class="settings-btn" onclick="openLogFolder()">Open Log Folder</button>
+      <button class="settings-btn" onclick="copyDebugInfo()">Copy Debug Info</button>
+    </div>
+  </div>
+</div>
+
+<script src="status.js"></script>
+<script>
+window.onload = function() {
+  // Load current settings from status API
+  httpGet(BASE_URL + '/status', function(err, data) {
+    if (data) { currentSnapshot = data }
+  })
+  // Load profiles for General tab dropdown
+  httpGet(BASE_URL + '/profiles', function(err, data) {
+    if (!err && data) {
+      allProfiles = data
+      var sel = document.getElementById('setting-default-profile')
+      if (sel) {
+        sel.innerHTML = ''
+        data.forEach(function(p) {
+          var opt = document.createElement('option')
+          opt.value = p.name
+          opt.textContent = p.display_name
+          sel.appendChild(opt)
+        })
+      }
+    }
+  })
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+profile:
+  name: performance
+  display_name: "Performance"
+  description: "General high-performance mode. EcoQoS disabled. Background services throttled."
+  icon: performance
+  color: "#f59e0b"
+
+  power_plan: high_performance
+
+  auto_detect:
+    triggers: []
+    require_all: false
+    mode: suggest
+
+  on_activate:
+    script: null
+  on_deactivate:
+    script: null
+
+  elevated_processes: []
+
+  throttled_processes:
+    - name: OneDrive.exe
+      cpu_priority: idle
+      io_priority: background
+      memory_priority: idle
+      cpu_affinity: null
+      disable_power_throttling: false
+
+    - name: SearchIndexer.exe
+      cpu_priority: idle
+      io_priority: background
+      memory_priority: idle
+      cpu_affinity: null
+      disable_power_throttling: false
+
+    - name: MsMpEng.exe
+      cpu_priority: idle
+      io_priority: background
+      memory_priority: idle
+      cpu_affinity: null
+      disable_power_throttling: false
+
+    - name: Teams.exe
+      cpu_priority: idle
+      io_priority: background
+      memory_priority: below_normal
+      cpu_affinity: null
+      disable_power_throttling: false
+
+    - name: SgrmBroker.exe
+      cpu_priority: idle
+      io_priority: background
+      memory_priority: idle
+      cpu_affinity: null
+      disable_power_throttling: false
+
+  network_qos: []
+
+  watchdog: []
+
+  memory:
+    trim_background_working_sets: true
+    trim_interval_min: 5
+    low_memory_threshold_mb: 2048
+    preflight_trim_on_activate: true
+
+  system:
+    purge_standby_memory: true
+    standby_purge_interval_min: 10
+    reenforce_priorities: true
+    reenforce_interval_sec: 90
+    pause_services:
+      - SysMain
+      - DiagTrack
+    disable_power_throttling: true
+    flush_temp_on_activate: false

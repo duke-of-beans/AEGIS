@@ -1,0 +1,60 @@
+version: "2.0"
+default_profile: idle
+profile_order:
+  - idle
+  - build-mode
+  - deep-research
+  - performance
+  - wartime
+  - presentation
+
+profiles_dir: "%APPDATA%\\AEGIS\\profiles"
+
+status_window:
+  enabled: true
+  port: 8743
+  auto_open_on_launch: false
+  prefetch_on_tray_hover: true
+
+mcp_server:
+  enabled: true
+  port: 3742
+
+kernl:
+  enabled: true
+  port: 3001
+  host: "localhost"
+  reconnect_interval_sec: 5
+  reconnect_max_sec: 300
+  silent_failures: true
+
+auto_detect:
+  enabled: false
+  mode: suggest
+  debounce_sec: 30
+  cooldown_min: 15
+  anti_flap_max_switches: 3
+  anti_flap_window_min: 10
+
+worker:
+  transport: stdio
+  heartbeat_interval_sec: 30
+  heartbeat_timeout_sec: 45
+  max_restarts: 10
+  restart_delay_sec: 2
+
+logging:
+  level: info
+  log_dir: "%APPDATA%\\AEGIS\\logs"
+  rotate: daily
+  max_files: 30
+
+notifications:
+  profile_switch: false
+  timer_expired: true
+  watchdog_restart: true
+  worker_crash: true
+  kernl_state_change: false
+
+startup:
+  task_name: "AEGIS_Startup"

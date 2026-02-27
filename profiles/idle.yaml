@@ -1,0 +1,41 @@
+profile:
+  name: idle
+  display_name: "Idle"
+  description: "Balanced power. No process overrides. System runs at defaults."
+  icon: idle
+  color: "#6b7280"
+
+  power_plan: balanced
+
+  auto_detect:
+    triggers: []
+    require_all: false
+    mode: suggest
+
+  on_activate:
+    script: null
+  on_deactivate:
+    script: null
+
+  elevated_processes: []
+
+  throttled_processes: []
+
+  network_qos: []
+
+  watchdog: []
+
+  memory:
+    trim_background_working_sets: false
+    trim_interval_min: 10
+    low_memory_threshold_mb: 2048
+    preflight_trim_on_activate: false
+
+  system:
+    purge_standby_memory: false
+    standby_purge_interval_min: 15
+    reenforce_priorities: false
+    reenforce_interval_sec: 120
+    pause_services: []
+    disable_power_throttling: false
+    flush_temp_on_activate: false

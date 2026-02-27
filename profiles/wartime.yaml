@@ -1,0 +1,136 @@
+profile:
+  name: wartime
+  display_name: "Wartime"
+  description: "Everything runs full speed. Claude, Chrome, builds get top priority. No compromises."
+  icon: wartime
+  color: "#ef4444"
+
+  power_plan: high_performance
+
+  auto_detect:
+    triggers:
+      - process: Claude.exe
+      - process: chrome.exe
+    require_all: false
+    mode: suggest
+
+  on_activate:
+    script: null
+  on_deactivate:
+    script: null
+
+  elevated_processes:
+    - name: Claude.exe
+      cpu_priority: high
+      io_priority: high
+      memory_priority: high
+      cpu_affinity: null
+      disable_power_throttling: true
+
+    - name: chrome.exe
+      cpu_priority: high
+      io_priority: high
+      memory_priority: high
+      cpu_affinity: null
+      disable_power_throttling: true
+
+    - name: node.exe
+      cpu_priority: high
+      io_priority: high
+      memory_priority: above_normal
+      cpu_affinity: null
+      disable_power_throttling: true
+
+    - name: Code.exe
+      cpu_priority: above_normal
+      io_priority: high
+      memory_priority: normal
+      cpu_affinity: null
+      disable_power_throttling: true
+
+  throttled_processes:
+    - name: OneDrive.exe
+      cpu_priority: idle
+      io_priority: background
+      memory_priority: idle
+      cpu_affinity: null
+      disable_power_throttling: false
+
+    - name: SearchIndexer.exe
+      cpu_priority: idle
+      io_priority: background
+      memory_priority: idle
+      cpu_affinity: null
+      disable_power_throttling: false
+
+    - name: MsMpEng.exe
+      cpu_priority: idle
+      io_priority: background
+      memory_priority: idle
+      cpu_affinity: null
+      disable_power_throttling: false
+
+    - name: Teams.exe
+      cpu_priority: idle
+      io_priority: background
+      memory_priority: idle
+      cpu_affinity: null
+      disable_power_throttling: false
+
+    - name: SgrmBroker.exe
+      cpu_priority: idle
+      io_priority: background
+      memory_priority: idle
+      cpu_affinity: null
+      disable_power_throttling: false
+
+  network_qos:
+    - app: Claude.exe
+      priority: critical
+      dscp: 46
+    - app: chrome.exe
+      priority: critical
+      dscp: 46
+    - app: node.exe
+      priority: high
+      dscp: 34
+    - app: OneDrive.exe
+      priority: background
+      dscp: 8
+    - app: Teams.exe
+      priority: background
+      dscp: 8
+
+  watchdog:
+    - process: Claude.exe
+      restart_on_crash: true
+      restart_delay_sec: 2
+      max_restarts: 5
+      backoff: exponential
+      pre_restart_script: null
+      post_restart_script: null
+    - process: node.exe
+      restart_on_crash: true
+      restart_delay_sec: 1
+      max_restarts: 10
+      backoff: fixed
+      pre_restart_script: null
+      post_restart_script: null
+
+  memory:
+    trim_background_working_sets: true
+    trim_interval_min: 3
+    low_memory_threshold_mb: 3072
+    preflight_trim_on_activate: true
+
+  system:
+    purge_standby_memory: true
+    standby_purge_interval_min: 5
+    reenforce_priorities: true
+    reenforce_interval_sec: 60
+    pause_services:
+      - WSearch
+      - SysMain
+      - DiagTrack
+    disable_power_throttling: true
+    flush_temp_on_activate: true

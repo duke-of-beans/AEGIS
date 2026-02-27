@@ -1,0 +1,11 @@
+node_modules/
+dist/
+release/
+*.exe
+!installer/
+*.log
+.env
+state.json
+.DS_Store
+Thumbs.db
+*.js.map
