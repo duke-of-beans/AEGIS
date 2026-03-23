@@ -244,13 +244,13 @@ export async function startup(configPath?: string): Promise<void> {
           await globalTabManager.restoreAll()
         }
       },
-      onLaunchBrave: async (): Promise<void> => {
+      onLaunchBrave: (): void => {
         const cdpPort = config.browser_manager.tab_suspension.cdp_port
         if (globalTabManager !== null && globalTabManager.isCdpConnected()) {
           notify({ title: 'AEGIS', message: 'Brave already running (CDP active)' })
           return
         }
-        await launchBrave(cdpPort)
+        launchBrave(cdpPort)
       },
     })
 

@@ -282,7 +282,7 @@ export class TabManager {
   }
 }
 
-export async function launchBrave(port: number): Promise<void> {
+export function launchBrave(port: number): void {
   const logger = getLogger()
 
   const candidates = [

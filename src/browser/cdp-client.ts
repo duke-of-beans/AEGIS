@@ -81,6 +81,8 @@ export class CdpClient {
       return
     }
 
+    const resolvedDebuggerUrl: string = debuggerUrl
+
     return new Promise<void>((resolve) => {
       const timeout = setTimeout(() => {
         this.logger.warn('CDP navigateTab timed out', { targetId, url })
@@ -89,7 +91,7 @@ export class CdpClient {
       }, CDP_TIMEOUT_MS)
 
       let resolved = false
-      const ws = new WebSocket(debuggerUrl as string)
+      const ws = new WebSocket(resolvedDebuggerUrl)
 
       ws.on('open', () => {
         const msg = JSON.stringify({
@@ -102,7 +104,7 @@ export class CdpClient {
 
       ws.on('message', (data: WebSocket.RawData) => {
         try {
-          const parsed = JSON.parse(data.toString()) as { id?: number }
+          const parsed = JSON.parse((data as Buffer).toString('utf-8')) as { id?: number }
           if (parsed.id === 1 && !resolved) {
             resolved = true
             clearTimeout(timeout)

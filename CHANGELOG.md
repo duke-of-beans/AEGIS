@@ -1,8 +1,34 @@
 # AEGIS Changelog
 
 ## [Unreleased]
+- AEGIS-ELEV-01: elevation gate in manager.ts
 
-### AEGIS-BRAVE-02 — Status Window Tab Panel + Brave Launch Helper + Per-Profile Config (2026-03-22)
+## [AEGIS-PM2-01] — 2026-03-22
+### Shipped — pm2 Migration + ESLint Gate Fix
+
+**Added**
+- `D:\Meta\ecosystem.config.cjs` — pm2 process config for dashboard-server.js. Name: `dashboard`, port 7171, autorestart, max_restarts 10, min_uptime 2s, log files at D:\Meta\dashboard-pm2.log / dashboard-pm2-err.log.
+- `D:\Meta\bounce.bat` — single-command dashboard restart: `pm2 restart dashboard && pm2 list`.
+- `D:\Meta\pm2-startup.bat` — placed in Windows Startup folder for logon-time pm2 resurrect (no elevation needed).
+- `D:\Meta\PORTFOLIO_OS.md` — Appendix C: Infrastructure Notes documenting pm2 ownership of dashboard.
+
+**Fixed**
+- `src/browser/tab-manager.ts` — `launchBrave()` removed `async` keyword (function uses no `await`; fixes `@typescript-eslint/require-await`).
+- `src/browser/cdp-client.ts` — removed unnecessary `as string` type assertion on `debuggerUrl` (introduced `resolvedDebuggerUrl` const after undefined guard); fixed `data.toString()` → `(data as Buffer).toString('utf-8')` to satisfy `no-base-to-string`.
+- `src/tray/menu.ts` — removed dead `cdpPort` variable (assigned but never used; fixes `no-unused-vars`).
+- `src/tray/lifecycle.ts` — removed `async`/`await` from `onLaunchBrave` callback (cascade from tab-manager fix).
+- `src/tray/index.ts` — updated `onLaunchBrave` interface type from `() => Promise<void>` to `() => void`.
+
+**Removed**
+- Task Scheduler task `Dashboard-7171` confirmed absent (was already removed before this sprint).
+
+**Design decisions**
+- `pm2 startup` is Linux/macOS only — Windows boot integration uses Startup folder bat calling `pm2 resurrect` instead.
+- `launchBrave` is synchronous by nature (uses `spawn` with `detached: true` + `unref()`); `async` was never needed and was a BRAVE-02 oversight.
+- pm2 will take full port ownership after the pre-existing dashboard process (PID 13444, started outside pm2) is cycled. Dashboard serves correctly in the interim.
+
+## [BRAVE-02] — 2026-03-22 — a364fd3
+### Shipped — Status Window Tab Panel + Brave Launch Helper + Per-Profile Config (2026-03-22)
 
 **Added**
 - `src/browser/tab-manager.ts` — `getTabList()` returns tab array with id, title (truncated 40 chars), suspended flag, suspended_ago_min. `isCdpConnected()` exposes CDP connection state. `updateSuspensionConfig()` merges per-profile suspension overrides into active config (only defined fields overridden). `launchBrave(port)` exported function: searches standard Brave install locations, spawns with `--remote-debugging-port`, detached + unref'd. Shows toast if Brave not found.

@@ -120,7 +120,6 @@ export function buildMenu(options: MenuBuildOptions): Menu {
 
   if (options.browserStats !== undefined) {
     const { active, suspended } = options.browserStats
-    const cdpPort = options.browserCdpPort ?? 9222
     const cdpConnected = options.browserCdpConnected ?? false
     const launchLabel = cdpConnected
       ? 'Brave already running (CDP active)'

@@ -19,7 +19,7 @@ export interface TrayDependencies {
   onQuit?: () => Promise<void>
   onSuspendTabs?: () => Promise<void>
   onRestoreTabs?: () => Promise<void>
-  onLaunchBrave?: () => Promise<void>
+  onLaunchBrave?: () => void
 }
 
 export class TrayManager {
