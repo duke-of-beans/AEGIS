@@ -13,6 +13,8 @@ export interface MenuBuildOptions {
   cpuPercent: number
   activeProfileColor: string
   browserStats?: BrowserMenuStats
+  browserCdpPort?: number
+  browserCdpConnected?: boolean
 }
 
 export function buildMenu(options: MenuBuildOptions): Menu {
@@ -118,12 +120,23 @@ export function buildMenu(options: MenuBuildOptions): Menu {
 
   if (options.browserStats !== undefined) {
     const { active, suspended } = options.browserStats
+    const cdpPort = options.browserCdpPort ?? 9222
+    const cdpConnected = options.browserCdpConnected ?? false
+    const launchLabel = cdpConnected
+      ? 'Brave already running (CDP active)'
+      : 'Launch Brave (with CDP)'
     items.push({
       title: 'Browser',
       tooltip: 'Brave tab suspension',
       checked: false,
       enabled: true,
       items: [
+        {
+          title: launchLabel,
+          tooltip: cdpConnected ? 'CDP connection is active' : 'Start Brave with --remote-debugging-port',
+          checked: false,
+          enabled: !cdpConnected,
+        },
         {
           title: `Tabs: ${active} active / ${suspended} suspended`,
           tooltip: '',

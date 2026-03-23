@@ -75,6 +75,12 @@ export interface AutoDetectConfig {
 // Profile YAML Structure
 // ============================================================
 
+export interface BrowserSuspensionOverride {
+  enabled?: boolean
+  inactivity_threshold_min?: number
+  memory_pressure_threshold_mb?: number
+}
+
 export interface LoadedProfile {
   name: string
   display_name: string
@@ -95,6 +101,7 @@ export interface LoadedProfile {
   watchdog: WatchdogEntry[]
   memory: MemoryConfig
   system: SystemConfig
+  browser_suspension?: BrowserSuspensionOverride | undefined
 }
 
 // ============================================================
@@ -253,6 +260,23 @@ export interface ProcessStats {
   status: string
 }
 
+export interface BrowserTabEntry {
+  id: string
+  title: string
+  suspended: boolean
+  suspended_ago_min: number | null
+}
+
+export interface BrowserTabsSnapshot {
+  enabled: boolean
+  connected: boolean
+  total: number
+  active: number
+  suspended: number
+  memory_recovered_mb: number
+  tabs: BrowserTabEntry[]
+}
+
 export interface SystemSnapshot {
   timestamp: string
   version: string
@@ -266,6 +290,7 @@ export interface SystemSnapshot {
   processes: ProcessStats[]
   timer: TimerState
   worker_status: 'online' | 'restarting' | 'failed'
+  browser_tabs?: BrowserTabsSnapshot
 }
 
 // ============================================================
@@ -383,6 +408,13 @@ export const profileSchema = z.object({
   watchdog: z.array(watchdogEntrySchema).default([]),
   memory: memoryConfigSchema,
   system: systemConfigSchema,
+  browser_suspension: z
+    .object({
+      enabled: z.boolean().optional(),
+      inactivity_threshold_min: z.number().optional(),
+      memory_pressure_threshold_mb: z.number().optional(),
+    })
+    .optional(),
 })
 
 const statusWindowConfigSchema: z.ZodType<StatusWindowConfig> = z.object({

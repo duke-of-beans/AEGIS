@@ -1,6 +1,7 @@
 import { getLogger } from '../logger/index.js'
-import { SystemSnapshot, ProcessStats } from '../config/types.js'
+import { SystemSnapshot, ProcessStats, BrowserTabsSnapshot } from '../config/types.js'
 import { WorkerIpc } from '../worker/ipc.js'
+import { TabManager } from '../browser/tab-manager.js'
 
 export class StatsCollector {
   private ipc: WorkerIpc
@@ -10,9 +11,16 @@ export class StatsCollector {
   private logger = getLogger()
   private pollIntervalMs = 2000
   private isRunning = false
+  private tabManager: TabManager | null = null
+  private browserEnabled = false
 
   constructor(ipc: WorkerIpc, _activeProfile: string) {
     this.ipc = ipc
+  }
+
+  setTabManager(tabManager: TabManager | null, browserEnabled: boolean): void {
+    this.tabManager = tabManager
+    this.browserEnabled = browserEnabled
   }
 
   start(): void {
@@ -115,6 +123,35 @@ export class StatsCollector {
         expires_at?: unknown
       }
 
+      // Build browser_tabs snapshot from live TabManager if available
+      let browserTabs: BrowserTabsSnapshot | undefined
+      if (this.browserEnabled) {
+        if (this.tabManager !== null) {
+          const stats = this.tabManager.getStats()
+          const tabList = this.tabManager.getTabList()
+          const connected = this.tabManager.isCdpConnected()
+          browserTabs = {
+            enabled: true,
+            connected,
+            total: stats.total,
+            active: stats.active,
+            suspended: stats.suspended,
+            memory_recovered_mb: stats.suspended * 80,
+            tabs: tabList,
+          }
+        } else {
+          browserTabs = {
+            enabled: true,
+            connected: false,
+            total: 0,
+            active: 0,
+            suspended: 0,
+            memory_recovered_mb: 0,
+            tabs: [],
+          }
+        }
+      }
+
       this.latestStats = {
         timestamp: new Date().toISOString(),
         version: String(response['version'] ?? '2.0.0'),
@@ -143,6 +180,7 @@ export class StatsCollector {
             (workerTimer.expires_at as string | null | undefined) ?? null,
         },
         worker_status: 'online',
+        ...(browserTabs !== undefined ? { browser_tabs: browserTabs } : {}),
       }
 
       if (this.updateCallback !== null) {

@@ -22,13 +22,14 @@ import { ProfileTimer } from '../profiles/timer.js'
 import { WatchdogEngine } from '../watchdog/engine.js'
 import { AutoDetectEngine } from '../watchdog/detector.js'
 import { StatusServer } from '../status/server.js'
+import { StatsCollector } from '../status/collector.js'
 
 import { McpServer } from '../mcp/server.js'
 import { KernlClient } from '../mcp/kernl-client.js'
 import { TrayManager } from './index.js'
 import { notify } from './notifications.js'
 import { MemoryManager } from '../memory/manager.js'
-import { TabManager } from '../browser/tab-manager.js'
+import { TabManager, launchBrave } from '../browser/tab-manager.js'
 
 let globalWorkerManager: WorkerManager | null = null
 let globalProfileManager: ProfileManager | null = null
@@ -39,6 +40,7 @@ let globalWatchdogEngine: WatchdogEngine | null = null
 let globalAutoDetectEngine: AutoDetectEngine | null = null
 let globalMemoryManager: MemoryManager | null = null
 let globalTabManager: TabManager | null = null
+let globalStatsCollector: StatsCollector | null = null
 
 export async function startup(configPath?: string): Promise<void> {
   if (!acquireSingleInstance()) {
@@ -142,6 +144,16 @@ export async function startup(configPath?: string): Promise<void> {
       }
     }
 
+    // Start StatsCollector — feeds the status server with live snapshots
+    globalStatsCollector = new StatsCollector(ipc, state.active_profile || config.default_profile)
+    globalStatsCollector.setTabManager(globalTabManager, config.browser_manager.enabled)
+    globalStatsCollector.onStatsUpdated((snapshot) => {
+      if (globalStatusServer !== null) {
+        globalStatusServer.updateSnapshot(snapshot)
+      }
+    })
+    globalStatsCollector.start()
+
     globalProfileManager = new ProfileManager({
       registry,
       worker: globalWorkerManager,
@@ -186,6 +198,14 @@ export async function startup(configPath?: string): Promise<void> {
           await globalProfileManager.switchProfile(profileName)
           globalTimer?.cancel()
         }
+        // Apply per-profile browser_suspension override if defined
+        const switchedProfile = registry.getProfile(profileName)
+        if (
+          switchedProfile?.browser_suspension !== undefined &&
+          globalTabManager !== null
+        ) {
+          globalTabManager.updateSuspensionConfig(switchedProfile.browser_suspension)
+        }
       },
       onTimerSet: (target: string, returnProf: string, durationMin: number): Promise<void> => {
         globalTimer?.start(target, returnProf, durationMin)
@@ -223,6 +243,14 @@ export async function startup(configPath?: string): Promise<void> {
         if (globalTabManager !== null) {
           await globalTabManager.restoreAll()
         }
+      },
+      onLaunchBrave: async (): Promise<void> => {
+        const cdpPort = config.browser_manager.tab_suspension.cdp_port
+        if (globalTabManager !== null && globalTabManager.isCdpConnected()) {
+          notify({ title: 'AEGIS', message: 'Brave already running (CDP active)' })
+          return
+        }
+        await launchBrave(cdpPort)
       },
     })
 
@@ -292,6 +320,11 @@ export async function startup(configPath?: string): Promise<void> {
 export async function shutdown(): Promise<void> {
   const logger = getLogger()
   logger.info('AEGIS shutting down')
+
+  if (globalStatsCollector !== null) {
+    globalStatsCollector.stop()
+    globalStatsCollector = null
+  }
 
   if (globalTabManager !== null) {
     globalTabManager.stop()

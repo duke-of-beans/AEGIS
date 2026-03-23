@@ -39,3 +39,6 @@ profile:
     pause_services: []
     disable_power_throttling: false
     flush_temp_on_activate: false
+
+  browser_suspension:
+    enabled: false

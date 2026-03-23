@@ -19,6 +19,7 @@ export interface TrayDependencies {
   onQuit?: () => Promise<void>
   onSuspendTabs?: () => Promise<void>
   onRestoreTabs?: () => Promise<void>
+  onLaunchBrave?: () => Promise<void>
 }
 
 export class TrayManager {
@@ -92,7 +93,9 @@ export class TrayManager {
     activeProfile: string,
     profileOrder: string[],
     cpuPercent: number,
-    browserStats?: BrowserMenuStats
+    browserStats?: BrowserMenuStats,
+    browserCdpPort?: number,
+    browserCdpConnected?: boolean
   ): void {
     if (this.systray === null) {
       return
@@ -105,6 +108,8 @@ export class TrayManager {
       cpuPercent,
       activeProfileColor: '',
       ...(browserStats !== undefined ? { browserStats } : {}),
+      ...(browserCdpPort !== undefined ? { browserCdpPort } : {}),
+      ...(browserCdpConnected !== undefined ? { browserCdpConnected } : {}),
     })
 
     if (this.currentMenu?.icon !== undefined) {
@@ -178,6 +183,13 @@ export class TrayManager {
         if (activeProfile !== undefined) {
           void this.deps.onTimerSet(activeProfile, activeProfile, durationMin)
         }
+      }
+      return
+    }
+
+    if (item.title === 'Launch Brave (with CDP)') {
+      if (this.deps.onLaunchBrave !== undefined) {
+        void this.deps.onLaunchBrave()
       }
       return
     }

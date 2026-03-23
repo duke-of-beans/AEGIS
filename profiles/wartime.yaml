@@ -134,3 +134,8 @@ profile:
       - DiagTrack
     disable_power_throttling: true
     flush_temp_on_activate: true
+
+  browser_suspension:
+    enabled: true
+    inactivity_threshold_min: 5
+    memory_pressure_threshold_mb: 2000

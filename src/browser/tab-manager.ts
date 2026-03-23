@@ -1,6 +1,9 @@
+import { spawn } from 'child_process'
+import { existsSync } from 'fs'
 import { getLogger } from '../logger/index.js'
-import { BrowserManagerConfig, TabState } from '../config/types.js'
+import { BrowserManagerConfig, TabState, TabSuspensionConfig } from '../config/types.js'
 import { CdpClient } from './cdp-client.js'
+import { notify } from '../tray/notifications.js'
 
 // Suspension holding page — a data: URI so CDP can navigate to it
 const SUSPENSION_PAGE_HTML =
@@ -229,6 +232,10 @@ export class TabManager {
     }
   }
 
+  isCdpConnected(): boolean {
+    return this.cdp.isConnected()
+  }
+
   notifyMemoryPressure(pressureActive: boolean): void {
     this.pressureActive = pressureActive
     if (pressureActive) {
@@ -236,4 +243,66 @@ export class TabManager {
       void this.evaluateSuspensions(true)
     }
   }
+
+  getTabList(): Array<{
+    id: string
+    title: string
+    suspended: boolean
+    suspended_ago_min: number | null
+  }> {
+    const now = Date.now()
+    return [...this.tabs.values()].map((tab) => ({
+      id: tab.id,
+      title: tab.title.length > 40 ? tab.title.slice(0, 40) : tab.title,
+      suspended: tab.suspended,
+      suspended_ago_min:
+        tab.suspended && tab.suspended_at_ms !== null
+          ? Math.floor((now - tab.suspended_at_ms) / 60000)
+          : null,
+    }))
+  }
+
+  updateSuspensionConfig(
+    override: Partial<Pick<TabSuspensionConfig, 'enabled' | 'inactivity_threshold_min' | 'memory_pressure_threshold_mb'>>
+  ): void {
+    if (override.enabled !== undefined) {
+      this.config.tab_suspension.enabled = override.enabled
+    }
+    if (override.inactivity_threshold_min !== undefined) {
+      this.config.tab_suspension.inactivity_threshold_min = override.inactivity_threshold_min
+    }
+    if (override.memory_pressure_threshold_mb !== undefined) {
+      this.config.tab_suspension.memory_pressure_threshold_mb = override.memory_pressure_threshold_mb
+    }
+    this.logger.info('TabManager: suspension config updated from profile override', {
+      enabled: this.config.tab_suspension.enabled,
+      inactivity_threshold_min: this.config.tab_suspension.inactivity_threshold_min,
+      memory_pressure_threshold_mb: this.config.tab_suspension.memory_pressure_threshold_mb,
+    })
+  }
+}
+
+export async function launchBrave(port: number): Promise<void> {
+  const logger = getLogger()
+
+  const candidates = [
+    (process.env['LOCALAPPDATA'] ?? '') + '\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+    (process.env['PROGRAMFILES'] ?? '') + '\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+    (process.env['PROGRAMFILES(X86)'] ?? '') + '\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
+  ]
+
+  const bravePath = candidates.find((p) => p !== '' && existsSync(p))
+
+  if (bravePath === undefined) {
+    notify({ title: 'AEGIS', message: 'Brave not found. Install Brave or update path.' })
+    logger.warn('launchBrave: Brave executable not found in standard locations')
+    return
+  }
+
+  const child = spawn(bravePath, [`--remote-debugging-port=${port}`], {
+    detached: true,
+    stdio: 'ignore',
+  })
+  child.unref()
+  logger.info(`Launched Brave with --remote-debugging-port=${port}`, { bravePath })
 }

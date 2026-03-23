@@ -86,6 +86,9 @@ function renderStatus(s) {
   // [E] Throttled
   renderProcessSection('throttled-section', 'throttled-list', 'throttled-count', s.processes.throttled)
 
+  // [K] Browser tabs
+  renderBrowserTabs(s.browser_tabs)
+
   // [F] Health
   renderHealth(s.health)
 
@@ -139,6 +142,64 @@ function renderProcessSection(sectionId, listId, countId, processes) {
     list.appendChild(more)
   }
 }
+function renderBrowserTabs(bt) {
+  var section = document.getElementById('browser-section')
+  var headerLabel = document.getElementById('browser-header-label')
+  var memBadge = document.getElementById('browser-memory-badge')
+  var tabList = document.getElementById('browser-tab-list')
+  if (!section || !headerLabel || !memBadge || !tabList) return
+
+  // Not enabled or not present in response — hide section
+  if (!bt || !bt.enabled) {
+    section.style.display = 'none'
+    return
+  }
+
+  section.style.display = ''
+
+  if (!bt.connected) {
+    headerLabel.textContent = 'BRAVE'
+    memBadge.textContent = ''
+    tabList.innerHTML = '<div style="font-size:11px;color:var(--text-muted);padding:2px 0">Browser tab manager: disabled</div>'
+    return
+  }
+
+  headerLabel.textContent = 'BRAVE  ' + bt.active + ' active / ' + bt.suspended + ' suspended'
+  memBadge.textContent = bt.memory_recovered_mb > 0 ? '~' + bt.memory_recovered_mb + 'MB freed' : ''
+
+  tabList.innerHTML = ''
+  var tabs = bt.tabs || []
+  tabs.forEach(function(tab) {
+    var row = document.createElement('div')
+    row.className = 'process-row'
+    var prefix = tab.suspended ? '⏸ ' : ''
+    var titleEl = document.createElement('span')
+    titleEl.className = 'process-name'
+    titleEl.title = tab.title
+    titleEl.textContent = prefix + tab.title
+    if (tab.suspended) {
+      titleEl.style.color = 'var(--text-muted)'
+      titleEl.style.fontStyle = 'italic'
+    }
+    var agoEl = document.createElement('span')
+    agoEl.className = 'process-cpu'
+    agoEl.style.color = 'var(--text-muted)'
+    agoEl.textContent = tab.suspended && tab.suspended_ago_min !== null
+      ? tab.suspended_ago_min + 'm ago'
+      : ''
+    row.appendChild(titleEl)
+    row.appendChild(agoEl)
+    tabList.appendChild(row)
+  })
+
+  if (tabs.length === 0) {
+    var empty = document.createElement('div')
+    empty.style.cssText = 'font-size:11px;color:var(--text-muted);padding:2px 0'
+    empty.textContent = 'No tabs tracked yet'
+    tabList.appendChild(empty)
+  }
+}
+
 function renderHealth(health) {
   function setDot(id, state) {
     var el = document.getElementById(id)
