@@ -1,0 +1,14 @@
+feat(elev): AEGIS-ELEV-01 — elevation gate and graceful degradation
+
+Add checkIsElevated() utility (src/system/elevation.ts) with session-level
+caching. Guard all privileged IPC operations in ProfileManager.applyProfile()
+— process priority, service management, power plan, QoS, and memory trim are
+skipped with warn log when not elevated. Non-privileged ops (state updates,
+callbacks, scripts) always run. Profile switches complete correctly in both modes.
+
+Startup check in lifecycle.ts fires a one-time toast when AEGIS is running
+without elevation. isElevated added to SystemSnapshot type and populated by
+StatsCollector. Status window shows amber indicator when resource control is
+inactive.
+
+Quality gates: tsc --noEmit 0 errors, eslint --max-warnings 0 clean.

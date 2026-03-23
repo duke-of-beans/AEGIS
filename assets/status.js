@@ -74,6 +74,10 @@ function renderStatus(s) {
   if (name) name.textContent = s.profile.display_name || s.profile.active
   if (desc) desc.textContent = ''
 
+  // [B2] Elevation warning
+  var elevWarn = document.getElementById('elevation-warning')
+  if (elevWarn) elevWarn.style.display = (s.isElevated === false) ? '' : 'none'
+
   // [C] Vitals
   renderBar('cpu-bar', 'cpu-val', s.system.cpu_percent, s.system.cpu_percent.toFixed(1) + '%')
   renderBar('ram-bar', 'ram-val', s.system.ram_percent,

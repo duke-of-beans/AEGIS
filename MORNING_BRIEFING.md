@@ -1,85 +1,57 @@
-# MORNING BRIEFING
-**Session:** 2026-03-22T03:35:00
-**Environment:** DEV
-**Project:** AEGIS
-**Blueprint:** SPRINT_AEGIS-PM2-01_COWORK_PROMPT.md
+# MORNING BRIEFING — AEGIS
+**Sprint:** AEGIS-ELEV-01
+**Date:** 2026-03-22
+**Status:** SHIPPED
 
 ---
 
 ## SHIPPED
-| Item | Status | Files Modified |
-|------|--------|----------------|
-| ESLint gate fix — tab-manager.ts | COMPLETE | src/browser/tab-manager.ts |
-| ESLint gate fix — cdp-client.ts | COMPLETE | src/browser/cdp-client.ts |
-| ESLint gate fix — menu.ts | COMPLETE | src/tray/menu.ts |
-| ESLint cascade fix — lifecycle.ts + index.ts | COMPLETE | src/tray/lifecycle.ts, src/tray/index.ts |
-| pm2 ecosystem config | COMPLETE | D:\Meta\ecosystem.config.cjs |
-| pm2 bounce.bat | COMPLETE | D:\Meta\bounce.bat |
-| pm2 startup resurrect | COMPLETE | Windows Startup\pm2-resurrect.bat |
-| Task Scheduler cleanup | COMPLETE | Confirmed absent — no action needed |
-| PORTFOLIO_OS.md Appendix C | COMPLETE | D:\Meta\PORTFOLIO_OS.md |
+
+**Elevation gate** — AEGIS now detects whether it's running as administrator and degrades gracefully when it isn't. Privileged IPC operations (process priority, service management, power plan, QoS, memory trim) are all gated behind a single cached elevation check. Non-privileged operations (state updates, callbacks, activate/deactivate scripts, temp flush) always run regardless of elevation. Profile switches complete and state is correct in both modes — there's just no resource control effect when not elevated.
+
+Files shipped:
+- `src/system/elevation.ts` — new. `checkIsElevated()`: async, PS-based, session-cached.
+- `src/profiles/manager.ts` — elevation gate added to `applyProfile()`. All six privileged call groups guarded.
+- `src/tray/lifecycle.ts` — elevation check after worker start. One-time toast + warn log when not elevated.
+- `src/config/types.ts` — `isElevated?: boolean` added to `SystemSnapshot`.
+- `src/status/collector.ts` — `isElevated` populated via `checkIsElevated()` on every poll.
+- `assets/status.hta` — amber warning div added between profile badge and vitals.
+- `assets/status.js` — `renderStatus()` shows/hides amber warning based on `s.isElevated`.
 
 ---
 
 ## QUALITY GATES
-- **tsc --noEmit:** PASS — 0 errors
-- **ESLint (26 files):** PASS — 0 errors, 0 warnings
-- **Dashboard /api/projects:** PASS — HTTP 200, 44 projects returned
-- **pm2 list:** dashboard online (port 7171 ownership pending cycle of pre-existing PID 13444)
-- **Git:** pending commit this session
+
+- `npx tsc --noEmit` — ✅ 0 errors
+- `npx eslint src/ --max-warnings 0` — ✅ 0 warnings
 
 ---
 
-## DECISIONS MADE BY AGENT
+## DECISIONS MADE
 
-- Removed `async` from `launchBrave()` rather than adding a dummy `await` — the function body is synchronous (`spawn` + `unref`), async was a BRAVE-02 oversight. Confidence: HIGH.
-- Cascaded the sync change to `onLaunchBrave` callback in lifecycle.ts and updated interface in index.ts — cleaner than leaving a `Promise<void>` type on a void function. Confidence: HIGH.
-- Used `resolvedDebuggerUrl` const (assigned after the undefined guard) to eliminate the `as string` assertion in cdp-client.ts, rather than restructuring the Promise closure — minimal diff, correct semantics. Confidence: HIGH.
-- Used `(data as Buffer).toString('utf-8')` rather than `String(data)` for the CDP message handler — CDP always sends Buffer on Node.js ws, this is explicit and accurate. Confidence: HIGH.
-- Windows Startup folder bat for pm2 resurrect instead of schtasks — schtasks /Create returned access denied from sandbox; Startup folder works without elevation and is the standard user-space boot pattern. Confidence: HIGH.
-- `min_uptime` adjusted from `5s` to `2s` — the server starts in ~100ms, 5s was causing legitimate restarts to be counted as crashes during the initial troubleshooting cycle. Confidence: MEDIUM (could revisit if restart loops recur).
+**No auto-relaunch / UAC prompt.** Inform and let the user decide. Silent UAC elevation is a security anti-pattern regardless of intent.
+
+**Single check at `applyProfile()` entry, not per-call.** Elevation doesn't change mid-session. Caching at the utility level keeps the guard cheap and the code readable.
+
+**`flush_temp_files` not gated.** The worker handles this; it may or may not require elevation depending on which directories it targets. Left ungated per existing behavior — if it fails, it warns, same as before.
 
 ---
 
 ## UNEXPECTED FINDINGS
 
-- `activate.ts` does not exist in src/ — the sprint spec referred to it by name but the actual ESLint errors were spread across tab-manager.ts, cdp-client.ts, and menu.ts. The pre-commit hook blocks on whichever files have errors; the spec was slightly imprecise about the filenames. No impact on outcome.
-- `pm2 startup` throws `Init system not found` on Windows — it only supports systemd/upstart/launchd. Windows requires Startup folder or Task Scheduler. Startup folder is simpler and elevation-free.
-- PID 13444 (pre-existing dashboard-server.js process) cannot be killed from the Cowork sandbox (EPERM). pm2 will take full ownership after next reboot or manual cycle. Dashboard is serving correctly in the interim — no user-visible disruption.
-- Desktop Commander `read_file` tool returns empty content for files in D:\Dev\ — all file reads required Python subprocess workarounds. Added ~15 extra tool calls to the session. Logged as TOOL friction below.
+The `edit_block` Desktop Commander MCP tool is currently broken — returns "file_path required" validation error even when `file_path` is correctly provided. Worked around with Python patch scripts (cleaned up before commit). This needs a repro filed.
 
 ---
 
 ## FRICTION LOG
 
-### Fixed This Session
-
-| # | Category | What happened | Fix applied | Files |
-|---|----------|--------------|-------------|-------|
-| 1 | SPEC | Sprint spec named `activate.ts` as the ESLint target — file doesn't exist. Errors were in tab-manager.ts, cdp-client.ts, menu.ts. | Ran eslint on actual file list; fixed all errors found. | src/browser/tab-manager.ts, src/browser/cdp-client.ts, src/tray/menu.ts |
-| 2 | PATTERN | Removing `async` from `launchBrave` caused cascade to lifecycle.ts (await call site) and index.ts (interface type). | Fixed all three sites. Lesson: grep call sites before changing function signature. | src/tray/lifecycle.ts, src/tray/index.ts |
-
-### Backlogged
-
-| # | Category | What happened | Recommended fix | Destination | Effort |
-|---|----------|--------------|-----------------|-------------|--------|
-| 1 | ENV | pm2 cannot own port 7171 while PID 13444 (pre-existing process) holds it. Sandbox EPERM prevents kill. | At next manual reboot or admin session, confirm pm2 takes ownership. Add note to MORNING_BRIEFING next session. | D:\Dev\aegis\BACKLOG.md (P3 pm2 health-check) | S |
-
-### Logged Only
-
-| # | Category | What happened |
-|---|----------|--------------|
-| 1 | TOOL | Desktop Commander `read_file` returns empty content for D:\Dev\ files. Workaround: Python scripts via `start_process`. Added ~15 extra tool calls. Should be reported via feedback tool. |
-| 2 | ENV | `pm2 startup` not supported on Windows — throws `Init system not found`. Standard behaviour, not a bug. Startup folder approach is correct for Windows user-space. |
+- **BACKLOG** — `edit_block` MCP tool broken. Needs repro + bug report to Desktop Commander maintainer.
+- **LOG ONLY** — No `disable_power_throttling` call for new profile's throttled processes on activation. Pre-existing gap, out of scope for this sprint.
 
 ---
 
-## NEXT QUEUE (RECOMMENDED)
+## NEXT QUEUE
 
-1. **AEGIS-ELEV-01** — elevation gate in manager.ts — only remaining P1, clean codebase post ESLint fix, ready to execute
-2. **AEGIS-BRAVE-03** — tab suspension UI (activate/restore from status window) — P2, browser feature set extension, no blockers
-3. **Per-profile CDP port config** — P2, small targeted change to replace hardcoded port with profile config field
-
----
-
-*Written by Cowork agent at session end. Do not edit — this is a point-in-time record.*
+- [ ] AEGIS-BRAVE-03: tab suspension UI — activate/restore from status window (P2)
+- [ ] Per-profile CDP port config (currently hardcoded) (P2)
+- [ ] pm2 boot health-check — verify resurrect succeeded at logon (P3)

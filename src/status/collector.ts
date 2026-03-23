@@ -2,6 +2,7 @@ import { getLogger } from '../logger/index.js'
 import { SystemSnapshot, ProcessStats, BrowserTabsSnapshot } from '../config/types.js'
 import { WorkerIpc } from '../worker/ipc.js'
 import { TabManager } from '../browser/tab-manager.js'
+import { checkIsElevated } from '../system/elevation.js'
 
 export class StatsCollector {
   private ipc: WorkerIpc
@@ -181,6 +182,7 @@ export class StatsCollector {
         },
         worker_status: 'online',
         ...(browserTabs !== undefined ? { browser_tabs: browserTabs } : {}),
+        isElevated: await checkIsElevated(),
       }
 
       if (this.updateCallback !== null) {

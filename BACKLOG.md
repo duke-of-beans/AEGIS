@@ -1,8 +1,7 @@
 # AEGIS — BACKLOG
-Last Updated: 2026-03-22 (AEGIS-PM2-01 closed)
+Last Updated: 2026-03-22 (AEGIS-ELEV-01 closed)
 
 ## P1 — High Priority
-- [ ] AEGIS-ELEV-01: elevation gate missing from manager.ts — flagged BRAVE-02, browser features unaffected but gap exists
 
 ## P2 — Normal Queue
 - [ ] AEGIS-BRAVE-03: tab suspension UI — activate/restore from status window
@@ -14,6 +13,7 @@ Last Updated: 2026-03-22 (AEGIS-PM2-01 closed)
 - [ ] pm2 boot health-check — verify resurrect succeeded at logon (write a small check script)
 
 ## Completed
+- [x] AEGIS-ELEV-01: elevation gate — checkIsElevated(), applyProfile() guard, startup toast, status indicator (2026-03-22)
 - [x] AEGIS-PM2-01: pm2 migration — ecosystem.config.cjs, bounce.bat, startup resurrect (2026-03-22)
 - [x] ESLint gate: tab-manager.ts, cdp-client.ts, menu.ts, lifecycle.ts, index.ts (2026-03-22)
 - [x] BRAVE-02: status window tab panel, Brave launch helper, per-profile suspension config (a364fd3)

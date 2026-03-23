@@ -291,6 +291,7 @@ export interface SystemSnapshot {
   timer: TimerState
   worker_status: 'online' | 'restarting' | 'failed'
   browser_tabs?: BrowserTabsSnapshot
+  isElevated?: boolean
 }
 
 // ============================================================

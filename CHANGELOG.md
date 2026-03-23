@@ -1,6 +1,13 @@
 # AEGIS Changelog
 
 ## [Unreleased]
+
+### Added — AEGIS-ELEV-01
+- `src/system/elevation.ts`: `checkIsElevated()` — async, PowerShell-based, session-cached
+- Elevation gate in `ProfileManager.applyProfile()` — all privileged IPC calls guarded
+- Startup elevation check in `lifecycle.ts` — one-time toast + warn log when not elevated
+- `isElevated?: boolean` added to `SystemSnapshot` type and populated by `StatsCollector`
+- Amber elevation warning indicator in status window (hidden when elevated)
 - AEGIS-ELEV-01: elevation gate in manager.ts
 
 ## [AEGIS-PM2-01] — 2026-03-22

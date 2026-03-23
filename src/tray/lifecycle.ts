@@ -30,6 +30,7 @@ import { TrayManager } from './index.js'
 import { notify } from './notifications.js'
 import { MemoryManager } from '../memory/manager.js'
 import { TabManager, launchBrave } from '../browser/tab-manager.js'
+import { checkIsElevated } from '../system/elevation.js'
 
 let globalWorkerManager: WorkerManager | null = null
 let globalProfileManager: ProfileManager | null = null
@@ -306,8 +307,19 @@ export async function startup(configPath?: string): Promise<void> {
       }
     })
 
+    // Check elevation once after startup — log + toast if not elevated
+    const isElevated = await checkIsElevated()
+    if (!isElevated) {
+      logger.warn('AEGIS running without elevation — resource control disabled')
+      notify({
+        title: 'AEGIS — No Elevation',
+        message: 'Process priority and service control are disabled. Restart as administrator to enable full functionality.',
+      })
+    }
+
     logger.info('AEGIS started successfully', {
       profile: state.active_profile,
+      elevated: isElevated,
     })
   } catch (error) {
     const logger = getLogger()
