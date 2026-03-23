@@ -2,6 +2,7 @@ import { readFileSync } from 'fs'
 import SysTray from 'systray2'
 import { getLogger } from '../logger/index.js'
 import { buildMenu } from './menu.js'
+import type { BrowserMenuStats } from './menu.js'
 import type { Menu, ClickAction } from 'systray2'
 import type { LoadedProfile } from '../config/types.js'
 
@@ -16,6 +17,8 @@ export interface TrayDependencies {
   onStatusWindowOpen?: () => Promise<void>
   onSettingsOpen?: () => Promise<void>
   onQuit?: () => Promise<void>
+  onSuspendTabs?: () => Promise<void>
+  onRestoreTabs?: () => Promise<void>
 }
 
 export class TrayManager {
@@ -88,7 +91,8 @@ export class TrayManager {
     profiles: LoadedProfile[],
     activeProfile: string,
     profileOrder: string[],
-    cpuPercent: number
+    cpuPercent: number,
+    browserStats?: BrowserMenuStats
   ): void {
     if (this.systray === null) {
       return
@@ -100,6 +104,7 @@ export class TrayManager {
       profileOrder,
       cpuPercent,
       activeProfileColor: '',
+      ...(browserStats !== undefined ? { browserStats } : {}),
     })
 
     if (this.currentMenu?.icon !== undefined) {
@@ -173,6 +178,20 @@ export class TrayManager {
         if (activeProfile !== undefined) {
           void this.deps.onTimerSet(activeProfile, activeProfile, durationMin)
         }
+      }
+      return
+    }
+
+    if (item.title === 'Suspend Inactive Tabs Now') {
+      if (this.deps.onSuspendTabs !== undefined) {
+        void this.deps.onSuspendTabs()
+      }
+      return
+    }
+
+    if (item.title === 'Restore All Tabs') {
+      if (this.deps.onRestoreTabs !== undefined) {
+        void this.deps.onRestoreTabs()
       }
       return
     }

@@ -27,6 +27,8 @@ import { McpServer } from '../mcp/server.js'
 import { KernlClient } from '../mcp/kernl-client.js'
 import { TrayManager } from './index.js'
 import { notify } from './notifications.js'
+import { MemoryManager } from '../memory/manager.js'
+import { TabManager } from '../browser/tab-manager.js'
 
 let globalWorkerManager: WorkerManager | null = null
 let globalProfileManager: ProfileManager | null = null
@@ -35,6 +37,8 @@ let globalStatusServer: StatusServer | null = null
 let globalTrayManager: TrayManager | null = null
 let globalWatchdogEngine: WatchdogEngine | null = null
 let globalAutoDetectEngine: AutoDetectEngine | null = null
+let globalMemoryManager: MemoryManager | null = null
+let globalTabManager: TabManager | null = null
 
 export async function startup(configPath?: string): Promise<void> {
   if (!acquireSingleInstance()) {
@@ -115,6 +119,29 @@ export async function startup(configPath?: string): Promise<void> {
 
     const ipc = globalWorkerManager.ipc
 
+    // Start MemoryManager with the default/active profile's config
+    const startupProfile = registry.getProfile(
+      state.active_profile || config.default_profile
+    )
+    if (startupProfile !== undefined) {
+      globalMemoryManager = new MemoryManager()
+      globalMemoryManager.start(
+        startupProfile.memory,
+        startupProfile.system,
+        startupProfile.elevated_processes.map((p) => p.name),
+        ipc
+      )
+    }
+
+    // Start TabManager if browser_manager is enabled
+    if (config.browser_manager.enabled) {
+      globalTabManager = new TabManager(config.browser_manager)
+      globalTabManager.start()
+      if (globalMemoryManager !== null) {
+        globalMemoryManager.setTabManager(globalTabManager)
+      }
+    }
+
     globalProfileManager = new ProfileManager({
       registry,
       worker: globalWorkerManager,
@@ -187,6 +214,16 @@ export async function startup(configPath?: string): Promise<void> {
         await shutdown()
         process.exit(0)
       },
+      onSuspendTabs: async (): Promise<void> => {
+        if (globalTabManager !== null) {
+          await globalTabManager.suspendAll()
+        }
+      },
+      onRestoreTabs: async (): Promise<void> => {
+        if (globalTabManager !== null) {
+          await globalTabManager.restoreAll()
+        }
+      },
     })
 
     const iconPath = join(__dirname, '../../assets/icon.ico')
@@ -255,6 +292,14 @@ export async function startup(configPath?: string): Promise<void> {
 export async function shutdown(): Promise<void> {
   const logger = getLogger()
   logger.info('AEGIS shutting down')
+
+  if (globalTabManager !== null) {
+    globalTabManager.stop()
+  }
+
+  if (globalMemoryManager !== null) {
+    globalMemoryManager.stop()
+  }
 
   if (globalAutoDetectEngine !== null) {
     globalAutoDetectEngine.stop()

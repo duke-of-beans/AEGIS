@@ -58,3 +58,19 @@ notifications:
 
 startup:
   task_name: "AEGIS_Startup"
+
+browser_manager:
+  enabled: false
+  browser: brave
+  tab_suspension:
+    enabled: true
+    cdp_port: 9222
+    inactivity_threshold_min: 30
+    max_suspended_tabs: 10
+    whitelist:
+      - "localhost"
+      - "127.0.0.1"
+      - "claude.ai"
+      - "about:newtab"
+    memory_pressure_threshold_mb: 1500
+    poll_interval_sec: 60

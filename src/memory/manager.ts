@@ -1,6 +1,7 @@
 import { getLogger } from '../logger/index.js'
 import { MemoryConfig, SystemConfig } from '../config/types.js'
 import { WorkerIpc } from '../worker/ipc.js'
+import { TabManager } from '../browser/tab-manager.js'
 
 export class MemoryManager {
   private config: MemoryConfig | null = null
@@ -9,7 +10,14 @@ export class MemoryManager {
   private elevatedProcesses: string[] = []
   private trimInterval: NodeJS.Timeout | null = null
   private purgeInterval: NodeJS.Timeout | null = null
+  private pressureInterval: NodeJS.Timeout | null = null
+  private tabManager: TabManager | null = null
+  private pressureActive = false
   private logger = getLogger()
+
+  setTabManager(tm: TabManager): void {
+    this.tabManager = tm
+  }
 
   start(
     config: MemoryConfig,
@@ -25,7 +33,12 @@ export class MemoryManager {
     if (config.trim_background_working_sets && config.trim_interval_min > 0) {
       this.trimInterval = setInterval(() => {
         void this.trimNow(elevatedProcesses)
+        void this.checkMemoryPressure()
       }, config.trim_interval_min * 60 * 1000)
+    } else {
+      this.pressureInterval = setInterval(() => {
+        void this.checkMemoryPressure()
+      }, 60 * 1000)
     }
 
     if (
@@ -52,6 +65,11 @@ export class MemoryManager {
     if (this.purgeInterval !== null) {
       clearInterval(this.purgeInterval)
       this.purgeInterval = null
+    }
+
+    if (this.pressureInterval !== null) {
+      clearInterval(this.pressureInterval)
+      this.pressureInterval = null
     }
 
     this.logger.info('Memory manager stopped')
@@ -84,6 +102,33 @@ export class MemoryManager {
       this.logger.debug('Purged standby memory')
     } catch (error) {
       this.logger.warn('Failed to purge standby memory', { error })
+    }
+  }
+
+  private async checkMemoryPressure(): Promise<void> {
+    if (this.tabManager === null || this.config === null || this.ipc === null) {
+      return
+    }
+
+    try {
+      const result = await this.ipc.call('get_memory_stats', {})
+      const availableMb = result['memory_mb_available']
+      if (typeof availableMb !== 'number') return
+
+      const threshold = this.config.low_memory_threshold_mb
+      const nowUnderPressure = availableMb < threshold
+
+      if (nowUnderPressure !== this.pressureActive) {
+        this.pressureActive = nowUnderPressure
+        this.tabManager.notifyMemoryPressure(this.pressureActive)
+        this.logger.info('Memory pressure state changed', {
+          pressureActive: this.pressureActive,
+          availableMb,
+          threshold,
+        })
+      }
+    } catch (error) {
+      this.logger.warn('checkMemoryPressure: stats fetch failed', { error })
     }
   }
 

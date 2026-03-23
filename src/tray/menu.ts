@@ -1,12 +1,18 @@
 import type { Menu, MenuItem } from 'systray2'
 import { LoadedProfile } from '../config/types.js'
 
+export interface BrowserMenuStats {
+  active: number
+  suspended: number
+}
+
 export interface MenuBuildOptions {
   profiles: LoadedProfile[]
   activeProfile: string
   profileOrder: string[]
   cpuPercent: number
   activeProfileColor: string
+  browserStats?: BrowserMenuStats
 }
 
 export function buildMenu(options: MenuBuildOptions): Menu {
@@ -109,6 +115,42 @@ export function buildMenu(options: MenuBuildOptions): Menu {
     checked: false,
     enabled: false,
   })
+
+  if (options.browserStats !== undefined) {
+    const { active, suspended } = options.browserStats
+    items.push({
+      title: 'Browser',
+      tooltip: 'Brave tab suspension',
+      checked: false,
+      enabled: true,
+      items: [
+        {
+          title: `Tabs: ${active} active / ${suspended} suspended`,
+          tooltip: '',
+          checked: false,
+          enabled: false,
+        },
+        {
+          title: 'Suspend Inactive Tabs Now',
+          tooltip: 'Suspend all eligible tabs',
+          checked: false,
+          enabled: true,
+        },
+        {
+          title: 'Restore All Tabs',
+          tooltip: 'Restore all suspended tabs',
+          checked: false,
+          enabled: true,
+        },
+      ],
+    })
+    items.push({
+      title: '─────────────',
+      tooltip: '',
+      checked: false,
+      enabled: false,
+    })
+  }
 
   items.push({
     title: 'Status Window',

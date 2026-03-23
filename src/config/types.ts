@@ -149,6 +149,36 @@ export interface StartupConfig {
   task_name: string
 }
 
+// ============================================================
+// Browser Manager Types (AEGIS-BRAVE-01)
+// ============================================================
+
+export interface TabSuspensionConfig {
+  enabled: boolean
+  cdp_port: number
+  inactivity_threshold_min: number
+  max_suspended_tabs: number
+  whitelist: string[]
+  memory_pressure_threshold_mb: number
+  poll_interval_sec: number
+}
+
+export interface BrowserManagerConfig {
+  enabled: boolean
+  browser: 'brave' | 'chrome' | 'chromium'
+  tab_suspension: TabSuspensionConfig
+}
+
+export interface TabState {
+  id: string
+  url: string
+  title: string
+  suspended: boolean
+  original_url: string | null
+  last_active_ms: number
+  suspended_at_ms: number | null
+}
+
 export interface AegisConfig {
   version: string
   default_profile: string
@@ -162,6 +192,7 @@ export interface AegisConfig {
   logging: LoggingConfig
   notifications: NotificationsConfig
   startup: StartupConfig
+  browser_manager: BrowserManagerConfig
 }
 
 // ============================================================
@@ -411,6 +442,22 @@ const startupConfigSchema: z.ZodType<StartupConfig> = z.object({
   task_name: z.string(),
 })
 
+const tabSuspensionConfigSchema: z.ZodType<TabSuspensionConfig> = z.object({
+  enabled: z.boolean(),
+  cdp_port: z.number(),
+  inactivity_threshold_min: z.number(),
+  max_suspended_tabs: z.number(),
+  whitelist: z.array(z.string()),
+  memory_pressure_threshold_mb: z.number(),
+  poll_interval_sec: z.number(),
+})
+
+export const browserManagerConfigSchema: z.ZodType<BrowserManagerConfig> = z.object({
+  enabled: z.boolean(),
+  browser: z.enum(['brave', 'chrome', 'chromium']),
+  tab_suspension: tabSuspensionConfigSchema,
+})
+
 export const aegisConfigSchema: z.ZodType<AegisConfig> = z.object({
   version: z.string(),
   default_profile: z.string(),
@@ -424,6 +471,7 @@ export const aegisConfigSchema: z.ZodType<AegisConfig> = z.object({
   logging: loggingConfigSchema,
   notifications: notificationsConfigSchema,
   startup: startupConfigSchema,
+  browser_manager: browserManagerConfigSchema,
 })
 
 export const runtimeStateSchema: z.ZodType<RuntimeState> = z.object({
