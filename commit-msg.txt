@@ -1,1 +1,9 @@
-fix: windowsHide on all PS spawns, no more popup
+feat: Task Manager layout v4
+
+Left nav metric cards (CPU/RAM/Disk/Net/GPU/Context) with sparklines.
+Click any metric to see full scrolling history graph + stat summary + detail table.
+Graphs scroll right-to-left, newest data enters right edge.
+Profile activation markers: amber dashed line + label at switch point.
+Line color shifts dim->bright when performance profile is active.
+Native OS stats (no elevation needed) for CPU/RAM/uptime.
+Worker-gated tabs (Disk/Net/GPU/Process tree) show elevation notice when offline.

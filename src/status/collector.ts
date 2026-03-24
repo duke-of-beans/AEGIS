@@ -11,6 +11,7 @@ import type { SniperEngine, SniperEvent } from '../sniper/engine.js'
 import type { LearningStore } from '../learning/store.js'
 import type { CognitiveLoadEngine } from '../learning/load.js'
 import { CognitiveLoadEngine as LoadEngineClass } from '../learning/load.js'
+import * as os from 'os'
 
 export class StatsCollector {
   private ipc: WorkerIpc | null
@@ -18,6 +19,7 @@ export class StatsCollector {
   private latestStats: SystemSnapshot | null = null
   private updateCallback: ((snapshot: SystemSnapshot) => void) | null = null
   private logger = getLogger()
+  private lastCpuInfo: os.CpuInfo[] | null = null
   private pollIntervalMs = 2000
   private isRunning = false
   private tabManager: TabManager | null = null
@@ -129,13 +131,9 @@ export class StatsCollector {
     }
 
     try {
-      // Worker may be unavailable — emit minimal snapshot so status server stays alive
+      // Worker unavailable — use Node.js native os module for basic stats
       if (this.ipc === null || (this.ipc as unknown) === undefined) {
-        const minimal = this.getLatestStats()
-        minimal.worker_status = 'failed'
-        if (this.updateCallback !== null) {
-          this.updateCallback(minimal)
-        }
+        this.pollNative()
         this.pollInterval = setTimeout(() => { void this.poll() }, this.pollIntervalMs)
         return
       }
@@ -346,5 +344,114 @@ export class StatsCollector {
     this.pollInterval = setTimeout(() => {
       void this.poll()
     }, this.pollIntervalMs)
+  }
+
+  private pollNative(): void {
+    try {
+      const cpus = os.cpus()
+      let cpuPercent = 0
+      if (this.lastCpuInfo !== null && this.lastCpuInfo.length === cpus.length) {
+        let totalIdle = 0, totalTick = 0
+        for (let i = 0; i < cpus.length; i++) {
+          const prev = this.lastCpuInfo[i]!.times
+          const curr = cpus[i]!.times
+          const idle = curr.idle - prev.idle
+          const total = Object.values(curr).reduce((a, b) => a + b, 0) -
+                        Object.values(prev).reduce((a, b) => a + b, 0)
+          totalIdle += idle
+          totalTick += total
+        }
+        cpuPercent = totalTick > 0 ? Math.round((1 - totalIdle / totalTick) * 100) : 0
+      }
+      this.lastCpuInfo = cpus
+
+      const totalMem = os.totalmem()
+      const freeMem = os.freemem()
+      const usedMem = totalMem - freeMem
+      const memPercent = Math.round((usedMem / totalMem) * 100)
+
+      const base = this.latestStats ?? this.getLatestStats()
+      const snapshot: SystemSnapshot = {
+        ...base,
+        timestamp: new Date().toISOString(),
+        version: '3.0.0',
+        cpu_percent: cpuPercent,
+        memory_percent: memPercent,
+        memory_mb_used: Math.round(usedMem / 1024 / 1024),
+        memory_mb_available: Math.round(freeMem / 1024 / 1024),
+        worker_status: 'failed',
+        system_extended: base.system_extended ?? {
+          dpc_rate: 0,
+          interrupt_rate: 0,
+          page_faults_sec: 0,
+          page_reads_sec: 0,
+          uptime_sec: Math.round(os.uptime()),
+        },
+      }
+
+      // Merge in context/sniper/cognitive_load if engines are running
+      this.latestStats = snapshot
+      this.enrichSnapshot()
+
+      if (this.updateCallback !== null && this.latestStats !== null) {
+        this.updateCallback(this.latestStats)
+      }
+    } catch (e) {
+      this.logger.warn('Native poll failed', { error: e })
+    }
+  }
+
+  private enrichSnapshot(): void {
+    if (this.latestStats === null) return
+
+    if (this.contextEngine !== null) {
+      const cs = this.contextEngine.getState()
+      this.latestStats.context = {
+        current: cs.current,
+        previous: cs.previous,
+        confidence: cs.confidence,
+        switched_at: cs.switched_at,
+        idle_since: cs.idle_since,
+        active_overlays: this.policyManager?.getStack().overlays.map(o => o.name) ?? [],
+      }
+    }
+
+    if (this.sniperEngine !== null) {
+      const watches = this.sniperEngine.getActiveWatches?.() ?? []
+      this.latestStats.sniper = {
+        active_watches: watches.length,
+        recent_actions: this.recentSniperEvents.slice(0, 20).map(e => ({
+          name: e.name,
+          pid: e.pid,
+          action: e.action ?? '',
+          reason: e.reason,
+          timestamp: e.timestamp,
+        })),
+      }
+    }
+
+    if (this.loadEngine !== null) {
+      const watches = this.sniperEngine?.getActiveWatches?.()?.length ?? 0
+      const breakdown = this.loadEngine.compute(this.latestStats, watches)
+      const tier = breakdown.score <= 40 ? 'green' : breakdown.score <= 70 ? 'amber' : 'red'
+      this.latestStats.cognitive_load = {
+        score: breakdown.score,
+        tier: tier as 'green' | 'amber' | 'red',
+        cpu_pressure: breakdown.cpu_pressure,
+        memory_pressure: breakdown.memory_pressure,
+        disk_queue_pressure: breakdown.disk_queue_pressure,
+        dpc_pressure: breakdown.dpc_pressure,
+      }
+    }
+
+    if (this.learningStore !== null) {
+      const conf = this.learningStore.getConfidenceState()
+      this.latestStats.confidence = {
+        score: conf.confidence_score,
+        total_decisions: conf.total_decisions,
+        auto_mode_unlocked: conf.auto_mode_unlocked,
+        decisions_until_auto: conf.decisions_until_auto,
+      }
+    }
   }
 }
