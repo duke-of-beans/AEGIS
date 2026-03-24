@@ -1,5 +1,33 @@
 # AEGIS Changelog
 
+## [3.0.0-alpha.6] — 2026-03-24 (AEGIS-MCP-02)
+
+### Changed
+- `src/mcp/server.ts` — Full rewrite. v2 stub (5 tools) replaced with rich v3 publisher
+  (14 tools). setIntelligence() method wires all v3 engines post-construction.
+
+### New Tools
+- aegis_status: Concise health summary — context, load tier, watches, confidence
+- aegis_get_cognitive_load: Score + breakdown + human-readable interpretation
+- aegis_get_context: Current context, confidence, active overlays
+- aegis_get_system_snapshot: Full SystemSnapshot (all monitors + intelligence fields)
+- aegis_get_process_tree: Spawn tree — parent/child relationships, memory, CPU
+- aegis_get_runaways: Active sniper watches — z-scores, escalation state, duration
+- aegis_get_action_log: Recent sniper actions with reasons and timestamps
+- aegis_get_confidence: Confidence score, total decisions, auto mode unlock status
+- aegis_get_session_summary: Current/recent session — duration, avg load, actions taken
+- aegis_apply_policy_overlay: Programmatically apply context overlays (GREGORE integration)
+- aegis_preflight: Audit + optimize machine for a target context (preview or apply)
+- aegis_switch_profile: Switch resource profile
+- aegis_set_timer / aegis_cancel_timer: Profile timer management
+
+### Architecture
+- GREGORE integration protocol: call aegis_get_cognitive_load before spawning intensive
+  work. Call aegis_apply_policy_overlay('build') before a build sprint. Call
+  aegis_get_runaways to check for active runaway processes before committing work.
+- The preflight tool is the GREGORE entry point: aegis_preflight({context: 'build', apply: true})
+  pre-configures the machine with one call before the first keystroke.
+
 ## [3.0.0-alpha.5] — 2026-03-24 (AEGIS-LEARN-01)
 
 ### Added

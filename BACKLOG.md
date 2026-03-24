@@ -27,7 +27,7 @@ Last Updated: 2026-03-24 (AEGIS-MONITOR-01 shipped)
 
 ## P2 — Learning + MCP
 
-- [ ] AEGIS-MCP-02: Rich MCP publisher
+- [ ] AEGIS-MCP-02: Rich MCP publisher — completed, see Completed section
       Tools: get_cognitive_load, get_context, get_process_tree, get_system_snapshot,
       apply_policy_overlay, get_runaways, get_action_log, get_session_summary.
       GREGORE + GregLite integration protocols documented.

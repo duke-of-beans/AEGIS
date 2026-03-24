@@ -1,30 +1,22 @@
-feat(learning): AEGIS-LEARN-01 — learning store + cognitive load engine
+feat(mcp): AEGIS-MCP-02 — rich MCP publisher v3
 
-src/learning/store.ts: LearningStore — SQLite sessions.db, work_sessions +
-action_outcomes + cognitive_load_samples + confidence_state tables.
-startSession/endSession lifecycle (context-driven boundaries).
-recordAction() → outcome ID. updateActionOutcome() implicit approval.
-recordExplicitFeedback() with signal + intensity (strong=5x weight).
-Confidence: (approvals - rejections*2) / total, auto unlocks at >=30 + >=0.75.
-getConfidenceState(), getRecentSessions(), getBestSession().
-Singleton initLearningStore()/getLearningStore().
+src/mcp/server.ts: Full rewrite. v2 stub (5 tools) → v3 publisher (14 tools).
 
-src/learning/load.ts: CognitiveLoadEngine — 6-signal weighted composite 0-100.
-CPU / memory / disk queue / DPC rate / runaway count / tab count.
-Normalized against reference values. Equal weights at launch.
-getTier() → green/amber/red. compute() returns full LoadBreakdown.
+New tools: aegis_status (concise health), aegis_get_cognitive_load (score +
+breakdown + interpretation), aegis_get_context (context + confidence + overlays),
+aegis_get_system_snapshot (full snapshot), aegis_get_process_tree (spawn tree),
+aegis_get_runaways (sniper watches with z-scores + escalation),
+aegis_get_action_log (recent actions with reasons), aegis_get_confidence
+(score + auto mode unlock status), aegis_get_session_summary (session stats),
+aegis_apply_policy_overlay (programmatic context overlay for GREGORE),
+aegis_preflight (audit + optimize machine for target context),
+aegis_switch_profile, aegis_set_timer, aegis_cancel_timer.
 
-src/config/types.ts: cognitive_load + confidence added to SystemSnapshot
+setIntelligence() method accepts all v3 engines post-construction.
+interpretLoad() maps score to human-readable pressure description.
 
-src/status/server.ts: POST /feedback route, onFeedback() callback,
-renderLoad() (header badge with tier color), renderConfidence()
-(progress bar + decisions until auto), both in render(d)
-
-src/tray/lifecycle.ts: learning store + load engine init, setLearningEngine()
-on collector, session started at startup, context_changed boundaries,
-onFeedback wired to recordExplicitFeedback(), store stopped on shutdown
-
-src/status/collector.ts: setLearningEngine(), load computed each poll,
-load sample recorded, confidence state in snapshot
+src/tray/lifecycle.ts: setIntelligence() called with all engines after
+full initialization — contextEngine, policyManager, sniperEngine,
+learningStore, loadEngine.
 
 TypeScript: 0 errors

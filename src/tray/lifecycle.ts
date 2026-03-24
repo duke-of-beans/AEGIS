@@ -384,6 +384,13 @@ export async function startup(configPath?: string): Promise<void> {
         globalProfileManager,
         globalTimer
       )
+      mcpServer.setIntelligence({
+        contextEngine: globalContextEngine!,
+        policyManager: globalPolicyManager!,
+        sniperEngine: globalSniperEngine!,
+        learningStore: globalLearningStore!,
+        loadEngine: globalLoadEngine!,
+      })
       mcpServer.startStdio()
     }
 
