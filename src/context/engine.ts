@@ -174,7 +174,8 @@ while($true) {
 }
 `.trim()
 
-    this.pollProcess = spawn('pwsh.exe', [
+    this.pollProcess = spawn('powershell.exe', [
+      '-NoProfile',
       '-NonInteractive',
       '-ExecutionPolicy', 'Bypass',
       '-Command', psScript,

@@ -34,7 +34,8 @@ export class WorkerManager {
 
     const workerPath = join(__dirname, '../../scripts/aegis-worker.ps1')
 
-    this.process = spawn('pwsh.exe', [
+    this.process = spawn('powershell.exe', [
+      '-NoProfile',
       '-NonInteractive',
       '-ExecutionPolicy',
       'Bypass',
