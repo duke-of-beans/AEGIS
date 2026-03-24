@@ -1,5 +1,36 @@
 # AEGIS Changelog
 
+## [3.0.0-alpha.1] — 2026-03-24 (AEGIS-CATALOG-01)
+
+### Added
+- `src/catalog/schema.ts` — CatalogDb class with full SQLite schema (process_catalog +
+  unknown_processes tables), all interfaces (CatalogEntry, UnknownEntry, SeedEntry, etc.),
+  WAL mode, foreign keys, indexed queries
+- `src/catalog/seed.json` — 210 pre-seeded processes across all trust tiers:
+  CRITICAL_SYSTEM (tier 1, no actions), DO_NOT_TOUCH (tier 2), CAUTION (tier 2, throttle only),
+  SAFE apps/dev/browsers (tier 3, full action set). Includes node.exe and claude.exe with
+  accurate blast radius ratings.
+- `src/catalog/manager.ts` — CatalogManager singleton: recordObservation(), canActOn() gate,
+  suspicion heuristics (no publisher + AppData/Temp path + external network + obs > 3),
+  requestIdentification() with pending_identifications.json fallback, resolveProcess(),
+  seedIfEmpty(), initCatalog() / getCatalog() factory
+- `src/status/server.ts` — POST /catalog/identify (queues identification request),
+  POST /catalog/resolve (moves unknown to catalog), onIdentificationRequest() +
+  onCatalogResolve() callback registration, catalog HTML section with suspicious (red)
+  and unresolved (amber) banners + counts
+- `src/status/collector.ts` — setCatalog() method, recordObservation() called per process
+  in poll loop, unresolved_count + suspicious_count in SystemSnapshot
+- `src/config/types.ts` — unresolved_count? and suspicious_count? added to SystemSnapshot
+- `src/tray/lifecycle.ts` — initCatalog() at startup, seedIfEmpty(), server callbacks wired
+  (onIdentificationRequest → catalog.requestIdentification, onCatalogResolve → catalog.resolveProcess),
+  catalog passed to StatsCollector via setCatalog()
+
+### Architecture
+- canActOn() is the process action gate — returns false for all unknown and suspicious processes.
+  No sniper action can bypass this. The catalog is the prerequisite for all v3 intelligence.
+- Catalog = factual knowledge only. Behavioral baselines observed fresh per machine.
+  Two databases, never contaminating each other.
+
 ## [Unreleased]
 
 ### Added — AEGIS-ELEV-01

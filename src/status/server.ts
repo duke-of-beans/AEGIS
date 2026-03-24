@@ -17,6 +17,8 @@ export class StatusServer {
   private timerCancelCallback: (() => Promise<void>) | null = null
   private tabSuspendCallback: ((tabId: string) => Promise<void>) | null = null
   private tabRestoreCallback: ((tabId: string) => Promise<void>) | null = null
+  private identificationRequestCallback: ((req: { name: string; path?: string; publisher?: string; network?: string[] }) => Promise<void>) | null = null
+  private catalogResolveCallback: ((req: { name: string; trust_tier: number; risk_label: string; action_permissions: string[]; notes?: string; source: string }) => Promise<void>) | null = null
   private logger = getLogger()
 
   constructor(port: number) {
@@ -150,6 +152,58 @@ export class StatusServer {
         }
       })()
     })
+
+    this.app.post('/catalog/identify', (req, res): void => {
+      void (async (): Promise<void> => {
+        const body = req.body as Record<string, unknown> | undefined
+        const name = body?.name
+        if (typeof name !== 'string') {
+          res.status(400).json({ error: 'Missing name' })
+          return
+        }
+        try {
+          if (this.identificationRequestCallback !== null) {
+            const identReq: { name: string; path?: string; publisher?: string; network?: string[] } = { name }
+            if (typeof body?.path === 'string') identReq.path = body.path
+            if (typeof body?.publisher === 'string') identReq.publisher = body.publisher
+            if (Array.isArray(body?.network)) identReq.network = body.network as string[]
+            await this.identificationRequestCallback(identReq)
+          }
+          res.json({ queued: true })
+        } catch (error) {
+          this.logger.error('Catalog identify failed', { name, error })
+          res.status(500).json({ error: 'Identify failed' })
+        }
+      })()
+    })
+
+    this.app.post('/catalog/resolve', (req, res): void => {
+      void (async (): Promise<void> => {
+        const body = req.body as Record<string, unknown> | undefined
+        const name = body?.name
+        if (typeof name !== 'string') {
+          res.status(400).json({ error: 'Missing name' })
+          return
+        }
+        try {
+          if (this.catalogResolveCallback !== null) {
+            const resolveReq: { name: string; trust_tier: number; risk_label: string; action_permissions: string[]; notes?: string; source: string } = {
+              name,
+              trust_tier: Number(body?.trust_tier ?? 3),
+              risk_label: String(body?.risk_label ?? 'SAFE'),
+              action_permissions: Array.isArray(body?.action_permissions) ? body.action_permissions as string[] : [],
+              source: String(body?.source ?? 'user'),
+            }
+            if (typeof body?.notes === 'string') resolveReq.notes = body.notes
+            await this.catalogResolveCallback(resolveReq)
+          }
+          res.json({ success: true })
+        } catch (error) {
+          this.logger.error('Catalog resolve failed', { name, error })
+          res.status(500).json({ error: 'Resolve failed' })
+        }
+      })()
+    })
   }
 
   async start(): Promise<void> {
@@ -205,6 +259,14 @@ export class StatusServer {
 
   onTabRestore(callback: (tabId: string) => Promise<void>): void {
     this.tabRestoreCallback = callback
+  }
+
+  onIdentificationRequest(callback: (req: { name: string; path?: string; publisher?: string; network?: string[] }) => Promise<void>): void {
+    this.identificationRequestCallback = callback
+  }
+
+  onCatalogResolve(callback: (req: { name: string; trust_tier: number; risk_label: string; action_permissions: string[]; notes?: string; source: string }) => Promise<void>): void {
+    this.catalogResolveCallback = callback
   }
 }
 
@@ -314,6 +376,12 @@ function buildStatusHtml(): string {
     <div id="proc-list"><div class="empty">Loading…</div></div>
   </div>
 
+  <div id="catalog-section" class="section" style="display:none">
+    <div class="section-title">Process Catalog <span id="catalog-sub" class="section-sub"></span></div>
+    <div id="catalog-suspicious"></div>
+    <div id="catalog-unresolved"></div>
+  </div>
+
   <script>
     let currentTabs = [];
 
@@ -332,6 +400,30 @@ function buildStatusHtml(): string {
     }
     async function restoreAll() {
       await Promise.all(currentTabs.filter(t => t.suspended).map(t => restoreTab(t.id)));
+    }
+
+    async function requestId(name) {
+      await fetch('/catalog/identify', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name }) });
+    }
+
+    function renderCatalog(d) {
+      const suspicious = d.suspicious_count || 0;
+      const unresolved = d.unresolved_count || 0;
+      const sec = document.getElementById('catalog-section');
+      if (suspicious === 0 && unresolved === 0) { sec.style.display = 'none'; return; }
+      sec.style.display = '';
+      document.getElementById('catalog-sub').textContent =
+        (suspicious > 0 ? suspicious + ' suspicious' : '') +
+        (suspicious > 0 && unresolved > 0 ? ' · ' : '') +
+        (unresolved > 0 ? unresolved + ' unresolved' : '');
+      const suspEl = document.getElementById('catalog-suspicious');
+      suspEl.innerHTML = suspicious > 0
+        ? '<div class="warn-banner" style="background:#2a1a1a;border-color:#f85149;color:#f85149;margin-bottom:8px">⛔ ' + suspicious + ' suspicious process' + (suspicious > 1 ? 'es' : '') + ' detected — unknown origin with external network connections. Review immediately.</div>'
+        : '';
+      const unresEl = document.getElementById('catalog-unresolved');
+      if (unresolved > 0) {
+        unresEl.innerHTML = '<div style="color:#f0883e;font-size:11px;margin-bottom:6px">⚠ ' + unresolved + ' unrecognized process' + (unresolved > 1 ? 'es' : '') + ' being observed (no actions taken)</div>';
+      } else { unresEl.innerHTML = ''; }
     }
 
     function render(d) {
@@ -412,6 +504,7 @@ function buildStatusHtml(): string {
           '</div>'
         ).join('') + '</div>';
       }
+      renderCatalog(d);
     }
 
     function chip(label, value) {

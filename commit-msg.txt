@@ -1,14 +1,31 @@
-feat(elev): AEGIS-ELEV-01 — elevation gate and graceful degradation
+feat(catalog): AEGIS-CATALOG-01 — process knowledge base
 
-Add checkIsElevated() utility (src/system/elevation.ts) with session-level
-caching. Guard all privileged IPC operations in ProfileManager.applyProfile()
-— process priority, service management, power plan, QoS, and memory trim are
-skipped with warn log when not elevated. Non-privileged ops (state updates,
-callbacks, scripts) always run. Profile switches complete correctly in both modes.
+src/catalog/schema.ts: CatalogDb — SQLite schema (process_catalog +
+unknown_processes), full interface suite, WAL mode, indexed queries,
+seedFromArray transaction, canActOn gate, resolveUnknown
 
-Startup check in lifecycle.ts fires a one-time toast when AEGIS is running
-without elevation. isElevated added to SystemSnapshot type and populated by
-StatsCollector. Status window shows amber indicator when resource control is
-inactive.
+src/catalog/seed.json: 210 processes seeded — CRITICAL_SYSTEM (tier 1,
+no actions), DO_NOT_TOUCH (tier 2), CAUTION (tier 2, throttle only),
+SAFE dev/app/browser (tier 3, full permissions). Blast radius rated.
+Includes node.exe, claude.exe, pm2 with accurate annotations.
 
-Quality gates: tsc --noEmit 0 errors, eslint --max-warnings 0 clean.
+src/catalog/manager.ts: CatalogManager singleton — recordObservation,
+canActOn gate, suspicion heuristics (no publisher + suspicious path +
+external network + obs>3), requestIdentification with pending file
+fallback, resolveProcess, seedIfEmpty, initCatalog/getCatalog factory
+
+src/status/server.ts: POST /catalog/identify + /catalog/resolve routes,
+onIdentificationRequest + onCatalogResolve callbacks, catalog HTML
+section (suspicious red banner, unresolved amber banner, counts)
+
+src/status/collector.ts: setCatalog(), recordObservation per process in
+poll loop, unresolved_count + suspicious_count in SystemSnapshot
+
+src/config/types.ts: unresolved_count + suspicious_count on SystemSnapshot
+
+src/tray/lifecycle.ts: initCatalog at startup, seedIfEmpty, server
+callbacks registered, catalog wired to StatsCollector
+
+TypeScript: 0 errors
+Acceptance: canActOn(lsass, kill)=false, canActOn(searchindexer, throttle)=true
+Seed count: 210 processes

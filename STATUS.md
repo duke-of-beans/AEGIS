@@ -1,10 +1,10 @@
 # AEGIS — STATUS
 
 **Status:** active
-**Phase:** v3.0 planning — AEGIS-CATALOG-01 next
-**Last Sprint:** AEGIS-BRAVE-03
+**Phase:** v3.0 — AEGIS-CATALOG-01 shipped, AEGIS-MONITOR-01 next
+**Last Sprint:** AEGIS-CATALOG-01
 **Last Updated:** 2026-03-24
-**Completion:** v2 92% / v3 0%
+**Completion:** v2 92% / v3 15%
 
 ---
 
@@ -32,8 +32,6 @@ Tab suspension, CDP integration, per-profile config, elevation gate all live.
 
 ## Open Work — v3 Sprint Queue
 
-- [ ] **[P0]** AEGIS-CATALOG-01: Process knowledge base — SQLite schema, 200-process seed,
-      trust scoring, unknown detection, Claude ID bridge via MCP
 - [ ] **[P0]** AEGIS-MONITOR-01: Extended monitoring — disk I/O delta, SMART health,
       network per-adapter, GPU, DPC/interrupt, spawn tree, hard fault rate
 - [ ] **[P1]** AEGIS-UI-01: Command surface redesign — cockpit model, spawn tree default,

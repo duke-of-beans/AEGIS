@@ -5,13 +5,6 @@ Last Updated: 2026-03-24 (v3 vision locked, sprint queue established)
 
 ## P0 — Foundation (prerequisite for all intelligence work)
 
-- [ ] AEGIS-CATALOG-01: Process knowledge base
-      SQLite catalog.db — schema, 200-process seed, trust tier, blast radius category,
-      publisher, risk label, action permissions. Unknown process detection gate —
-      observation-only until identified. Trust scoring engine. Claude ID bridge via MCP.
-      canActOn() gate: returns false for anything unknown or suspicious.
-      Depends on: nothing. Ships first.
-
 - [ ] AEGIS-MONITOR-01: Extended monitoring surface
       Worker: disk I/O per-drive delta (10s rolling), SMART health per drive,
       network per-adapter delta, GPU (nvidia-smi → WMI fallback), DPC/interrupt rate,
@@ -80,6 +73,10 @@ Last Updated: 2026-03-24 (v3 vision locked, sprint queue established)
 
 ## Completed
 
+- [x] AEGIS-CATALOG-01: Process knowledge base — SQLite catalog.db, 210-process seed,
+      CatalogDb + CatalogManager, canActOn gate, suspicion heuristics, Claude ID bridge,
+      /catalog/identify + /catalog/resolve endpoints, catalog HTML section in status window,
+      wired into lifecycle + collector (2026-03-24)
 - [x] AEGIS-BRAVE-03: tab suspension UI, HTML command surface v1, per-profile CDP port (ca936bc, 2026-03-24)
 - [x] AEGIS-ELEV-01: elevation gate, startup toast, amber indicator (2026-03-22)
 - [x] AEGIS-PM2-01: pm2 migration, bounce.bat, startup resurrect (2026-03-22)

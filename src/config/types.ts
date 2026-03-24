@@ -293,6 +293,8 @@ export interface SystemSnapshot {
   worker_status: 'online' | 'restarting' | 'failed'
   browser_tabs?: BrowserTabsSnapshot
   isElevated?: boolean
+  unresolved_count?: number
+  suspicious_count?: number
 }
 
 // ============================================================

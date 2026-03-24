@@ -3,6 +3,7 @@ import { SystemSnapshot, ProcessStats, BrowserTabsSnapshot } from '../config/typ
 import { WorkerIpc } from '../worker/ipc.js'
 import { TabManager } from '../browser/tab-manager.js'
 import { checkIsElevated } from '../system/elevation.js'
+import type { CatalogManager } from '../catalog/manager.js'
 
 export class StatsCollector {
   private ipc: WorkerIpc
@@ -14,6 +15,7 @@ export class StatsCollector {
   private isRunning = false
   private tabManager: TabManager | null = null
   private browserEnabled = false
+  private catalog: CatalogManager | null = null
 
   constructor(ipc: WorkerIpc, _activeProfile: string) {
     this.ipc = ipc
@@ -22,6 +24,10 @@ export class StatsCollector {
   setTabManager(tabManager: TabManager | null, browserEnabled: boolean): void {
     this.tabManager = tabManager
     this.browserEnabled = browserEnabled
+  }
+
+  setCatalog(catalog: CatalogManager): void {
+    this.catalog = catalog
   }
 
   start(): void {
@@ -183,6 +189,17 @@ export class StatsCollector {
         worker_status: 'online',
         ...(browserTabs !== undefined ? { browser_tabs: browserTabs } : {}),
         isElevated: await checkIsElevated(),
+        ...(this.catalog !== null ? {
+          unresolved_count: this.catalog.getStats().unknown,
+          suspicious_count: this.catalog.getStats().suspicious,
+        } : {}),
+      }
+
+      // Record observation for all processes
+      if (this.catalog !== null) {
+        for (const proc of processes) {
+          this.catalog.recordObservation({ name: proc.name })
+        }
       }
 
       if (this.updateCallback !== null) {

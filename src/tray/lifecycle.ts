@@ -31,6 +31,7 @@ import { notify } from './notifications.js'
 import { MemoryManager } from '../memory/manager.js'
 import { TabManager, launchBrave } from '../browser/tab-manager.js'
 import { checkIsElevated } from '../system/elevation.js'
+import { initCatalog } from '../catalog/manager.js'
 
 let globalWorkerManager: WorkerManager | null = null
 let globalProfileManager: ProfileManager | null = null
@@ -110,6 +111,20 @@ export async function startup(configPath?: string): Promise<void> {
     globalStatusServer = new StatusServer(config.status_window.port)
     await globalStatusServer.start()
 
+    // Initialize process catalog — prerequisite for all v3 intelligence
+    const catalog = initCatalog(appDataPath)
+    catalog.seedIfEmpty()
+
+    // Wire catalog identification request → persist to pending file
+    globalStatusServer.onIdentificationRequest(async (req): Promise<void> => {
+      catalog.requestIdentification(req.name)
+    })
+
+    // Wire catalog resolve → update catalog db
+    globalStatusServer.onCatalogResolve(async (req): Promise<void> => {
+      catalog.resolveProcess(req.name, req)
+    })
+
     globalTimer = new ProfileTimer()
     globalTimer.fromState(state.timer)
 
@@ -162,6 +177,7 @@ export async function startup(configPath?: string): Promise<void> {
     // Start StatsCollector — feeds the status server with live snapshots
     globalStatsCollector = new StatsCollector(ipc, state.active_profile || config.default_profile)
     globalStatsCollector.setTabManager(globalTabManager, config.browser_manager.enabled)
+    globalStatsCollector.setCatalog(catalog)
     globalStatsCollector.onStatsUpdated((snapshot) => {
       if (globalStatusServer !== null) {
         globalStatusServer.updateSnapshot(snapshot)
