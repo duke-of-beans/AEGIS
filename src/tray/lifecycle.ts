@@ -35,6 +35,8 @@ import { checkIsElevated } from '../system/elevation.js'
 import { initCatalog } from '../catalog/manager.js'
 import { ContextEngine } from '../context/engine.js'
 import { PolicyManager } from '../context/policies.js'
+import { initBaseline } from '../sniper/baseline.js'
+import { SniperEngine } from '../sniper/engine.js'
 
 let globalWorkerManager: WorkerManager | null = null
 let globalProfileManager: ProfileManager | null = null
@@ -49,6 +51,7 @@ let globalStatsCollector: StatsCollector | null = null
 let globalMonitorCollector: MonitorCollector | null = null
 let globalContextEngine: ContextEngine | null = null
 let globalPolicyManager: PolicyManager | null = null
+let globalSniperEngine: SniperEngine | null = null
 
 export async function startup(configPath?: string): Promise<void> {
   if (!acquireSingleInstance()) {
@@ -210,6 +213,33 @@ export async function startup(configPath?: string): Promise<void> {
 
     // Wire context state into collector now that engine is live
     globalStatsCollector.setContextEngine(globalContextEngine!, globalPolicyManager!)
+
+    // Start SniperEngine — baseline + deviation detection + graduated actions
+    const baseline = initBaseline(appDataPath)
+    baseline.start()
+    globalSniperEngine = new SniperEngine(baseline, catalog)
+
+    // Wire context changes into sniper
+    globalContextEngine.on('context_changed', ({ to }: { to: import('../context/engine.js').ContextName }) => {
+      globalSniperEngine?.setContext(to)
+    })
+
+    // Wire action callbacks through worker IPC
+    globalSniperEngine.onThrottle(async (_name: string, pid: number): Promise<void> => {
+      try { await ipc.call('throttle_process_pid', { pid }) }
+      catch (e) { logger.warn('Sniper throttle failed', { pid, error: e }) }
+    })
+    globalSniperEngine.onSuspend(async (_name: string, pid: number): Promise<void> => {
+      try { await ipc.call('suspend_process_pid', { pid }) }
+      catch (e) { logger.warn('Sniper suspend failed', { pid, error: e }) }
+    })
+    globalSniperEngine.onKill(async (_name: string, pid: number): Promise<void> => {
+      try { await ipc.call('kill_process_pid', { pid }) }
+      catch (e) { logger.warn('Sniper kill failed', { pid, error: e }) }
+    })
+
+    globalSniperEngine.start()
+    globalStatsCollector.setSniperEngine(globalSniperEngine)
 
     globalProfileManager = new ProfileManager({
       registry,
@@ -386,6 +416,11 @@ export async function shutdown(): Promise<void> {
   if (globalContextEngine !== null) {
     globalContextEngine.stop()
     globalContextEngine = null
+  }
+
+  if (globalSniperEngine !== null) {
+    globalSniperEngine.stop()
+    globalSniperEngine = null
   }
 
   if (globalMonitorCollector !== null) {

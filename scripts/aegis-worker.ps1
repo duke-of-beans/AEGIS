@@ -910,6 +910,66 @@ function Invoke-Shutdown {
     $script:RUNNING = $false
 }
 
+function Invoke-ThrottleProcessPid {
+    param($Id, $Params)
+    $pid_ = Get-Param $Params 'pid' $null
+    if ($null -eq $pid_) { Write-ErrorResponse -Id $Id -Code -32602 -Message 'pid is required'; return }
+    try {
+        $proc = Get-Process -Id $pid_ -ErrorAction Stop
+        $proc.PriorityClass = 'Idle'
+        # Set IO priority to background via NtSetInformationProcess
+        if (-not ('AEGIS.ThrottleApi' -as [type])) {
+            Add-Type -TypeDefinition @"
+using System; using System.Runtime.InteropServices;
+namespace AEGIS { public class ThrottleApi {
+    [DllImport("ntdll.dll")] public static extern int NtSetInformationProcess(IntPtr h, int cls, ref int info, int len);
+} }
+"@ -ErrorAction SilentlyContinue
+        }
+        $io = 1  # IO_PRIORITY_HINT.IoPriorityVeryLow
+        [AEGIS.ThrottleApi]::NtSetInformationProcess($proc.Handle, 0x21, [ref]$io, 4) | Out-Null
+        Write-Response -Id $Id -Result @{ success = $true; pid = $pid_; name = $proc.Name; action = 'throttle' }
+    } catch {
+        Write-ErrorResponse -Id $Id -Code -32000 -Message "$_"
+    }
+}
+
+function Invoke-SuspendProcessPid {
+    param($Id, $Params)
+    $pid_ = Get-Param $Params 'pid' $null
+    if ($null -eq $pid_) { Write-ErrorResponse -Id $Id -Code -32602 -Message 'pid is required'; return }
+    try {
+        if (-not ('AEGIS.SuspendApi' -as [type])) {
+            Add-Type -TypeDefinition @"
+using System; using System.Runtime.InteropServices;
+namespace AEGIS { public class SuspendApi {
+    [DllImport("ntdll.dll")] public static extern uint NtSuspendProcess(IntPtr h);
+    [DllImport("ntdll.dll")] public static extern uint NtResumeProcess(IntPtr h);
+} }
+"@ -ErrorAction SilentlyContinue
+        }
+        $proc = Get-Process -Id $pid_ -ErrorAction Stop
+        [AEGIS.SuspendApi]::NtSuspendProcess($proc.Handle) | Out-Null
+        Write-Response -Id $Id -Result @{ success = $true; pid = $pid_; name = $proc.Name; action = 'suspend' }
+    } catch {
+        Write-ErrorResponse -Id $Id -Code -32000 -Message "$_"
+    }
+}
+
+function Invoke-KillProcessPid {
+    param($Id, $Params)
+    $pid_ = Get-Param $Params 'pid' $null
+    if ($null -eq $pid_) { Write-ErrorResponse -Id $Id -Code -32602 -Message 'pid is required'; return }
+    try {
+        $proc = Get-Process -Id $pid_ -ErrorAction Stop
+        $name = $proc.Name
+        Stop-Process -Id $pid_ -Force -ErrorAction Stop
+        Write-Response -Id $Id -Result @{ success = $true; pid = $pid_; name = $name; action = 'kill' }
+    } catch {
+        Write-ErrorResponse -Id $Id -Code -32000 -Message "$_"
+    }
+}
+
 $handshake = @{
     type = 'version'
     version = $script:VERSION
@@ -970,6 +1030,9 @@ while ($script:RUNNING) {
                     'get_gpu_stats' { Invoke-GetGpuStats -Id $id -Params $params }
                     'get_system_extended' { Invoke-GetSystemExtended -Id $id -Params $params }
                     'get_process_tree' { Invoke-GetProcessTree -Id $id -Params $params }
+                    'throttle_process_pid' { Invoke-ThrottleProcessPid -Id $id -Params $params }
+                    'suspend_process_pid' { Invoke-SuspendProcessPid -Id $id -Params $params }
+                    'kill_process_pid' { Invoke-KillProcessPid -Id $id -Params $params }
                     'shutdown' { Invoke-Shutdown -Id $id -Params $params }
                     default {
                         Write-ErrorResponse -Id $id -Code -32601 -Message "Method not found: $method"

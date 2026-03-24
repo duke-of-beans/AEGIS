@@ -1,27 +1,29 @@
-feat(context): AEGIS-CONTEXT-01 — context detection engine + composable policies
+feat(sniper): AEGIS-SNIPER-01 — baseline engine + sniper rules engine
 
-src/context/engine.ts: ContextEngine — PowerShell WinEvent poller via Win32
-GetForegroundWindow p/invoke, weighted focus time accumulation per process,
-8 context types (deep_work/build/research/meeting/media/gaming/idle/unknown),
-rule evaluator with min_focus_sec thresholds, 20% weight decay every 30s,
-EventEmitter context_changed events, auto-respawn on subprocess exit
+src/sniper/baseline.ts: BaselineEngine — Welford online algorithm for running
+mean + variance, SQLite baselines.db, per-process per-context fingerprints,
+getDeviation() returning z-scores and ratios, MIN_SAMPLES=20 reliability gate,
+DEVIATION_ZSCORE_THRESHOLD=2.0, start/stop/flush, singleton factory
 
-src/context/policies.ts: PolicyManager — composable policy stack (base + overlays),
-BUILTIN_POLICIES (browser-default, searchindexer-throttle, diagtrack-throttle),
-CONTEXT_OVERLAY_TEMPLATES per context (deep_work aggressive browser+services,
-build CPU elevation, meeting tab suspension, gaming service stop),
-pushOverlay/popOverlay/applyContextOverlays/pruneExpired methods
+src/sniper/engine.ts: SniperEngine — 3 built-in rules (node-runaway 120s,
+searchindexer-hog 60s, generic-runaway 300s), blast radius duration multipliers
+(none=1x, low=1.5x, medium=2x, high=3x, critical=never), graduated action path
+(throttle→suspend→kill), catalog gate on every action, context exemptions,
+cooldown tracking, EventEmitter events (flagged/action_taken/recovered/deferred),
+getActiveWatches() + getRules() + ingest()
 
-src/config/types.ts: context field added to SystemSnapshot
+scripts/aegis-worker.ps1: throttle_process_pid (CPU=Idle + IO=VeryLow via NtApi),
+suspend_process_pid (NtSuspendProcess), kill_process_pid (Stop-Process -Force)
 
-src/status/collector.ts: setContextEngine() method, context merged into
-snapshot each poll, active_overlays surfaced from PolicyManager
+src/config/types.ts: sniper field added to SystemSnapshot
 
-src/tray/lifecycle.ts: ContextEngine + PolicyManager init, context_changed
-event wires to applyContextOverlays, setContextEngine called post-init,
-engine stopped on shutdown
+src/status/collector.ts: setSniperEngine(), recentSniperEvents buffer (20),
+ingest() called each poll, sniper stats merged into snapshot
 
-src/status/server.ts: renderContext() JS function, context section HTML
-(name, confidence chip, overlay badges), called from render(d)
+src/tray/lifecycle.ts: baseline + sniper init, action callbacks to worker IPC,
+context_changed → setContext(), engine stopped on shutdown
+
+src/status/server.ts: renderSniper() (watch count + color-coded action log),
+sniper HTML section, called from render(d)
 
 TypeScript: 0 errors

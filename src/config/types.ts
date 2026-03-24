@@ -375,6 +375,16 @@ export interface SystemSnapshot {
     idle_since: number | null
     active_overlays: string[]
   }
+  sniper?: {
+    active_watches: number
+    recent_actions: Array<{
+      name: string
+      pid: number
+      action: string
+      reason: string
+      timestamp: number
+    }>
+  }
 }
 
 // ============================================================

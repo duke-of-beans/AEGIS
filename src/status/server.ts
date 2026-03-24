@@ -465,6 +465,12 @@ function buildStatusHtml(): string {
     <div id="proctree-container"></div>
   </div>
 
+  <div id="sniper-section" class="section" style="display:none">
+    <div class="section-title">Sniper <span id="sniper-sub" class="section-sub"></span></div>
+    <div id="sniper-watches"></div>
+    <div id="sniper-log"></div>
+  </div>
+
   <script>
     let currentTabs = [];
 
@@ -494,6 +500,37 @@ function buildStatusHtml(): string {
       meeting: 'Meeting', media: 'Media', gaming: 'Gaming',
       idle: 'Idle', unknown: 'Unknown',
     };
+
+    function renderSniper(d) {
+      const sn = d.sniper;
+      const sec = document.getElementById('sniper-section');
+      if (!sec) return;
+      if (!sn) { sec.style.display = 'none'; return; }
+      const watches = sn.active_watches || 0;
+      const actions = sn.recent_actions || [];
+      if (watches === 0 && actions.length === 0) { sec.style.display = 'none'; return; }
+      sec.style.display = '';
+      document.getElementById('sniper-sub').textContent =
+        watches + ' watching' + (actions.length > 0 ? ' · ' + actions.length + ' recent action' + (actions.length > 1 ? 's' : '') : '');
+      const watchEl = document.getElementById('sniper-watches');
+      watchEl.innerHTML = watches > 0
+        ? '<div style="color:#f0883e;font-size:11px;margin-bottom:8px">⚠ ' + watches + ' process' + (watches > 1 ? 'es' : '') + ' flagged above personal baseline — monitoring</div>'
+        : '';
+      const logEl = document.getElementById('sniper-log');
+      if (actions.length > 0) {
+        const rows = actions.map(a => {
+          const t = new Date(a.timestamp).toLocaleTimeString();
+          const cls = a.action === 'kill' ? 'color:#f85149' : a.action === 'suspend' ? 'color:#f0883e' : 'color:#58a6ff';
+          return '<div style="display:flex;gap:8px;padding:5px 12px;border-bottom:1px solid #21262d;font-size:11px">' +
+            '<span style="color:#484f58;flex-shrink:0">' + t + '</span>' +
+            '<span style="' + cls + ';flex-shrink:0;text-transform:uppercase;font-size:10px;width:52px">' + esc(a.action) + '</span>' +
+            '<span style="color:#c9d1d9;flex-shrink:0;width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.name) + '</span>' +
+            '<span style="color:#6e7681;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(a.reason) + '</span>' +
+            '</div>';
+        }).join('');
+        logEl.innerHTML = '<div style="background:#0d1117;border:1px solid #21262d;border-radius:6px;overflow:hidden">' + rows + '</div>';
+      } else { logEl.innerHTML = ''; }
+    }
 
     function renderContext(d) {
       const ctx = d.context;
@@ -619,6 +656,7 @@ function buildStatusHtml(): string {
       }
       renderCatalog(d);
       renderContext(d);
+      renderSniper(d);
       renderDisk(d);
       renderNetwork(d);
       renderGpu(d);

@@ -1,5 +1,38 @@
 # AEGIS Changelog
 
+## [3.0.0-alpha.4] — 2026-03-24 (AEGIS-SNIPER-01)
+
+### Added
+- `src/sniper/baseline.ts` — BaselineEngine: Welford online algorithm for running mean +
+  variance per process per context. SQLite baselines.db. getDeviation() returns z-scores
+  and ratios vs personal baseline. MIN_SAMPLES=20 before baseline is considered reliable.
+  DEVIATION_ZSCORE_THRESHOLD=2.0. Singleton initBaseline()/getBaseline() factory.
+- `src/sniper/engine.ts` — SniperEngine: 3 built-in rules (node-runaway, searchindexer-hog,
+  generic-runaway), BLAST_DURATION_MULTIPLIER per blast radius category, graduated action
+  path (throttle→suspend→kill), catalog gate (canActOn checked before every action),
+  context exemptions per rule, cooldown tracking per process, EventEmitter sniper events
+  (flagged/action_taken/recovered/deferred). getActiveWatches(), getRules(), addRule().
+- `scripts/aegis-worker.ps1` — Three new PID-based IPC methods:
+  throttle_process_pid (CPU→Idle + IO→VeryLow), suspend_process_pid (NtSuspendProcess),
+  kill_process_pid (Stop-Process -Force)
+- `src/config/types.ts` — sniper field added to SystemSnapshot (active_watches,
+  recent_actions array)
+- `src/status/collector.ts` — setSniperEngine(), recentSniperEvents buffer (last 20),
+  sniper.ingest() called each poll with process data, sniper stats merged into snapshot
+- `src/tray/lifecycle.ts` — initBaseline() + SniperEngine init, action callbacks wired
+  to worker IPC (throttle/suspend/kill), context_changed wires to setContext(),
+  engine stopped on shutdown
+- `src/status/server.ts` — renderSniper() JS function (watch count + action log with
+  color-coded actions), sniper HTML section, called from render(d)
+
+### Architecture
+- Baseline engine uses Welford online algorithm — no need to store all historical samples
+  for variance computation. Mean + variance updated incrementally each sample.
+- Sniper never acts on processes below MIN_SAMPLES baseline reliability threshold.
+  "Not enough data" is always the right answer over a false positive.
+- Blast radius multiplies duration thresholds: critical = never auto-act.
+  The higher the blast radius, the more sustained the deviation must be before action.
+
 ## [3.0.0-alpha.3] — 2026-03-24 (AEGIS-CONTEXT-01)
 
 ### Added

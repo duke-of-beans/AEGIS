@@ -70,6 +70,11 @@ Last Updated: 2026-03-24 (AEGIS-MONITOR-01 shipped)
       (8 context types, rule evaluator, focus weight decay), PolicyManager (composable stack,
       overlay system, CONTEXT_OVERLAY_TEMPLATES), context field in SystemSnapshot,
       renderContext in status window, wired into collector + lifecycle (2026-03-24)
+- [x] AEGIS-SNIPER-01: BaselineEngine (Welford variance, baselines.db, per-process/context
+      fingerprints, getDeviation z-scores, MIN_SAMPLES=20), SniperEngine (3 built-in rules,
+      blast radius multipliers, graduated throttle→suspend→kill, catalog gate, context
+      exemptions, cooldown tracking), worker PID methods, sniper section in status window,
+      wired into collector + lifecycle (2026-03-24)
 - [x] AEGIS-BRAVE-03: tab suspension UI, HTML command surface v1, per-profile CDP port (ca936bc, 2026-03-24)
 - [x] AEGIS-ELEV-01: elevation gate, startup toast, amber indicator (2026-03-22)
 - [x] AEGIS-PM2-01: pm2 migration, bounce.bat, startup resurrect (2026-03-22)

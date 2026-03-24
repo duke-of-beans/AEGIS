@@ -7,6 +7,7 @@ import type { CatalogManager } from '../catalog/manager.js'
 import type { MonitorCollector } from './monitor-collector.js'
 import type { ContextEngine } from '../context/engine.js'
 import type { PolicyManager } from '../context/policies.js'
+import type { SniperEngine, SniperEvent } from '../sniper/engine.js'
 
 export class StatsCollector {
   private ipc: WorkerIpc
@@ -22,6 +23,8 @@ export class StatsCollector {
   private monitorCollector: MonitorCollector | null = null
   private contextEngine: ContextEngine | null = null
   private policyManager: PolicyManager | null = null
+  private sniperEngine: SniperEngine | null = null
+  private recentSniperEvents: SniperEvent[] = []
 
   constructor(ipc: WorkerIpc, _activeProfile: string) {
     this.ipc = ipc
@@ -43,6 +46,16 @@ export class StatsCollector {
   setContextEngine(engine: ContextEngine, policies: PolicyManager): void {
     this.contextEngine = engine
     this.policyManager = policies
+  }
+
+  setSniperEngine(engine: SniperEngine): void {
+    this.sniperEngine = engine
+    engine.on('event', (evt: SniperEvent) => {
+      this.recentSniperEvents.unshift(evt)
+      if (this.recentSniperEvents.length > 20) {
+        this.recentSniperEvents = this.recentSniperEvents.slice(0, 20)
+      }
+    })
   }
 
   start(): void {
@@ -234,6 +247,33 @@ export class StatsCollector {
       if (this.catalog !== null) {
         for (const proc of processes) {
           this.catalog.recordObservation({ name: proc.name })
+        }
+      }
+
+      // Feed process data to sniper for baseline recording + deviation detection
+      if (this.sniperEngine !== null) {
+        this.sniperEngine.ingest(processes.map(p => ({
+          name: p.name,
+          pid: p.pid,
+          cpu_percent: p.cpu_percent,
+          memory_mb: p.memory_mb,
+          handle_count: 0,
+        })))
+        // Attach sniper stats to snapshot
+        const watches = this.sniperEngine.getActiveWatches()
+        const recentActions = this.recentSniperEvents
+          .filter(e => e.type === 'action_taken')
+          .slice(0, 10)
+          .map(e => ({
+            name: e.name,
+            pid: e.pid,
+            action: e.action ?? 'notify',
+            reason: e.reason,
+            timestamp: e.timestamp,
+          }))
+        this.latestStats.sniper = {
+          active_watches: watches.length,
+          recent_actions: recentActions,
         }
       }
 
