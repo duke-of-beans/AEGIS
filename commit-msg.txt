@@ -1,12 +1,1 @@
-fix: replace pwsh.exe with powershell.exe + NoProfile everywhere
-
-Three files were spawning pwsh.exe (PowerShell 7 Core), which
-caused a persistent visible popup on every AEGIS startup and
-restart attempt since pwsh dies immediately without the handshake.
-
-src/worker/manager.ts: pwsh.exe -> powershell.exe + -NoProfile
-src/system/elevation.ts: pwsh.exe -> powershell.exe + -NoProfile
-src/context/engine.ts: pwsh.exe -> powershell.exe + -NoProfile
-
--NoProfile prevents GREGORE profile from outputting text to stdout
-before the JSON handshake, which was also causing IPC parse failures.
+fix: windowsHide on all PS spawns, no more popup

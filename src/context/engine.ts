@@ -179,7 +179,7 @@ while($true) {
       '-NonInteractive',
       '-ExecutionPolicy', 'Bypass',
       '-Command', psScript,
-    ], { stdio: ['ignore', 'pipe', 'ignore'] })
+    ], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true })
 
     this.pollProcess.stdout?.on('data', (chunk: Buffer) => {
       const lines = chunk.toString().split('\n').filter(l => l.trim().length > 0)

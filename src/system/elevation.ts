@@ -11,6 +11,7 @@ export async function checkIsElevated(): Promise<boolean> {
   return new Promise((resolve) => {
     exec(
       'powershell.exe -NoProfile -NonInteractive -Command "ConvertTo-Json ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"',
+      { windowsHide: true },
       (err, stdout) => {
         _elevated = !err && stdout.trim() === 'true'
         resolve(_elevated)
