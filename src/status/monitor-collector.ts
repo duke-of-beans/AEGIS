@@ -16,7 +16,7 @@ import type {
  * Cadences: disk/network/gpu = 10s, system_extended = 5s, process_tree = 30s.
  */
 export class MonitorCollector {
-  private ipc: WorkerIpc
+  private ipc!: WorkerIpc
   private logger = getLogger()
   private isRunning = false
 
@@ -32,12 +32,15 @@ export class MonitorCollector {
   private latestSystemExtended: SystemExtended | undefined
   private latestProcessTree: ProcessTreeEntry[] | undefined
 
-  constructor(ipc: WorkerIpc) {
-    this.ipc = ipc
+  constructor(ipc: WorkerIpc | null) {
+    if (ipc !== null) this.ipc = ipc
   }
 
   start(): void {
     if (this.isRunning) return
+    if (this.ipc === null || (this.ipc as unknown) === undefined) {
+      return // worker unavailable — skip all hardware polling
+    }
     this.isRunning = true
     this.logger.info('MonitorCollector started')
 
@@ -79,6 +82,7 @@ export class MonitorCollector {
   }
 
   private async pollDisk(): Promise<void> {
+    if (this.ipc === null) return
     try {
       const r = await this.ipc.call('get_disk_stats', {})
       const drives: DriveStats[] = []

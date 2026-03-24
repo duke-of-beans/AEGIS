@@ -1,6 +1,7 @@
 import { existsSync } from 'fs'
 import { spawn } from 'child_process'
-import { join } from 'path'
+import { join, dirname } from 'path'
+import { fileURLToPath } from 'url'
 import { getLogger, initLogger } from '../logger/index.js'
 import { loadConfig } from '../config/loader.js'
 import {
@@ -58,6 +59,10 @@ let globalLearningStore: ReturnType<typeof initLearningStore> | null = null
 let globalLoadEngine: CognitiveLoadEngine | null = null
 
 export async function startup(configPath?: string): Promise<void> {
+  // ESM-compatible __dirname shim
+  const __filename = fileURLToPath(import.meta.url)
+  const __dirname = dirname(__filename)
+
   if (!acquireSingleInstance()) {
     sendSignalToRunningInstance()
     process.exit(0)
@@ -77,11 +82,16 @@ export async function startup(configPath?: string): Promise<void> {
 
     let resolvedConfigPath = configPath
     if (!resolvedConfigPath) {
-      const appdata = process.env['APPDATA']
-      if (appdata === undefined) {
-        throw new Error('APPDATA environment variable not set')
+      const cwdConfig = join(process.cwd(), 'aegis-config.yaml')
+      if (existsSync(cwdConfig)) {
+        resolvedConfigPath = cwdConfig
+      } else {
+        const appdata = process.env['APPDATA']
+        if (appdata === undefined) {
+          throw new Error('APPDATA environment variable not set')
+        }
+        resolvedConfigPath = join(appdata, 'AEGIS', 'aegis-config.yaml')
       }
-      resolvedConfigPath = join(appdata, 'AEGIS', 'aegis-config.yaml')
     }
 
     if (cliArgs.includes('--config')) {
@@ -112,10 +122,7 @@ export async function startup(configPath?: string): Promise<void> {
     await registry.load()
     registry.startWatcher()
 
-    const appDataPath = process.env['APPDATA']
-    if (appDataPath === undefined) {
-      throw new Error('APPDATA environment variable not set')
-    }
+    const appDataPath = process.env['APPDATA'] ?? join(process.cwd(), 'data')
 
     const stateFilePath = join(appDataPath, 'AEGIS', 'state.json')
     const state = loadState(stateFilePath)
@@ -151,19 +158,20 @@ export async function startup(configPath?: string): Promise<void> {
     globalTimer.fromState(state.timer)
 
     globalWorkerManager = new WorkerManager()
-    await globalWorkerManager.start()
-
-    if (globalWorkerManager.ipc === null) {
-      throw new Error('Worker IPC not available')
+    let ipc: import('../worker/ipc.js').WorkerIpc | null = null
+    try {
+      await globalWorkerManager.start()
+      ipc = globalWorkerManager.ipc
+    } catch (workerErr) {
+      logger.warn('Worker failed to start — priority/memory ops unavailable', { error: String(workerErr) })
+      await globalWorkerManager.stop()
     }
-
-    const ipc = globalWorkerManager.ipc
 
     // Start MemoryManager with the default/active profile's config
     const startupProfile = registry.getProfile(
       state.active_profile || config.default_profile
     )
-    if (startupProfile !== undefined) {
+    if (startupProfile !== undefined && ipc !== null) {
       globalMemoryManager = new MemoryManager()
       globalMemoryManager.start(
         startupProfile.memory,
@@ -197,6 +205,7 @@ export async function startup(configPath?: string): Promise<void> {
     }
 
     // Start StatsCollector — feeds the status server with live snapshots
+    // ipc may be null if worker unavailable; StatsCollector and MonitorCollector handle null internally
     globalStatsCollector = new StatsCollector(ipc, state.active_profile || config.default_profile)
     globalStatsCollector.setTabManager(globalTabManager, config.browser_manager.enabled)
     globalStatsCollector.setCatalog(catalog)
@@ -239,14 +248,17 @@ export async function startup(configPath?: string): Promise<void> {
 
     // Wire action callbacks through worker IPC
     globalSniperEngine.onThrottle(async (_name: string, pid: number): Promise<void> => {
+      if (ipc === null) { logger.warn('Sniper throttle skipped — worker unavailable', { pid }); return }
       try { await ipc.call('throttle_process_pid', { pid }) }
       catch (e) { logger.warn('Sniper throttle failed', { pid, error: e }) }
     })
     globalSniperEngine.onSuspend(async (_name: string, pid: number): Promise<void> => {
+      if (ipc === null) { logger.warn('Sniper suspend skipped — worker unavailable', { pid }); return }
       try { await ipc.call('suspend_process_pid', { pid }) }
       catch (e) { logger.warn('Sniper suspend failed', { pid, error: e }) }
     })
     globalSniperEngine.onKill(async (_name: string, pid: number): Promise<void> => {
+      if (ipc === null) { logger.warn('Sniper kill skipped — worker unavailable', { pid }); return }
       try { await ipc.call('kill_process_pid', { pid }) }
       catch (e) { logger.warn('Sniper kill failed', { pid, error: e }) }
     })
@@ -294,7 +306,7 @@ export async function startup(configPath?: string): Promise<void> {
       await globalProfileManager.applyProfile(config.default_profile)
     }
 
-    if (globalWatchdogEngine !== null) {
+    if (globalWatchdogEngine !== null && ipc !== null) {
       const activeProfile = registry.getProfile(
         state.active_profile || config.default_profile
       )
@@ -303,7 +315,7 @@ export async function startup(configPath?: string): Promise<void> {
       }
     }
 
-    if (config.auto_detect.enabled && globalAutoDetectEngine !== null) {
+    if (config.auto_detect.enabled && globalAutoDetectEngine !== null && ipc !== null) {
       const profiles = registry.getAllProfiles()
       globalAutoDetectEngine.start(profiles, config.auto_detect, ipc)
     }

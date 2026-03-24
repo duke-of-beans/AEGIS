@@ -55,7 +55,7 @@ export class WorkerManager {
       this.logger.warn('Worker process exited unexpectedly', { code })
       this.ipcInstance = null
       this.process = null
-      if (this.status !== 'stopped') {
+      if (this.status !== 'stopped' && this.status !== 'failed') {
         void this.restart()
       }
     })

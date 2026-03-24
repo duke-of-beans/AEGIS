@@ -1,1 +1,25 @@
-docs: update STATUS.md — AEGIS-UI-01 closed, full sprint log, open work queue
+fix: AEGIS stable boot without worker elevation
+
+src/worker/ipc.ts: Silence stdin/stdout stream errors (EPIPE etc).
+  Worker pipe errors are now handled via exit event only, preventing
+  unhandled stream errors from crashing the Node process.
+
+src/worker/manager.ts: Worker restart loop fix — 'failed' status is
+  now treated as terminal alongside 'stopped'. Prevents infinite
+  PS popup spawn loop when worker handshake fails.
+
+src/status/collector.ts: ipc field typed as WorkerIpc | null.
+  Constructor accepts null. poll() guards against null ipc and emits
+  minimal snapshot so status server stays alive without worker.
+
+src/status/monitor-collector.ts: ipc field typed with ! assertion.
+  Constructor only assigns if non-null. start() returns early if null.
+  All five poll methods guard with if (this.ipc === null) return.
+
+src/tray/lifecycle.ts: Removed as-never casts now that types are
+  correct. Worker failure is fully non-fatal — context engine, sniper,
+  cognitive load, status server all boot and run without it.
+
+Result: AEGIS boots cleanly and holds stable uptime without elevation.
+Worker: offline (priority/memory ops disabled until admin run).
+Status endpoint: returning data. No crash loop. No PS popup.

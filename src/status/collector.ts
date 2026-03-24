@@ -13,7 +13,7 @@ import type { CognitiveLoadEngine } from '../learning/load.js'
 import { CognitiveLoadEngine as LoadEngineClass } from '../learning/load.js'
 
 export class StatsCollector {
-  private ipc: WorkerIpc
+  private ipc: WorkerIpc | null
   private pollInterval: NodeJS.Timeout | null = null
   private latestStats: SystemSnapshot | null = null
   private updateCallback: ((snapshot: SystemSnapshot) => void) | null = null
@@ -31,7 +31,7 @@ export class StatsCollector {
   private learningStore: LearningStore | null = null
   private loadEngine: CognitiveLoadEngine | null = null
 
-  constructor(ipc: WorkerIpc, _activeProfile: string) {
+  constructor(ipc: WorkerIpc | null, _activeProfile: string) {
     this.ipc = ipc
   }
 
@@ -129,6 +129,17 @@ export class StatsCollector {
     }
 
     try {
+      // Worker may be unavailable — emit minimal snapshot so status server stays alive
+      if (this.ipc === null || (this.ipc as unknown) === undefined) {
+        const minimal = this.getLatestStats()
+        minimal.worker_status = 'failed'
+        if (this.updateCallback !== null) {
+          this.updateCallback(minimal)
+        }
+        this.pollInterval = setTimeout(() => { void this.poll() }, this.pollIntervalMs)
+        return
+      }
+
       const response = await this.ipc.call('get_system_stats', {})
 
       const processes: ProcessStats[] = []

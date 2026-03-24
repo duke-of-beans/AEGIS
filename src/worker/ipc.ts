@@ -35,6 +35,10 @@ export class WorkerIpc {
       throw new Error('Worker process stdout is null')
     }
 
+    // Swallow EPIPE and similar stream errors — worker death is handled via exit event
+    this.process.stdin?.on('error', (_err) => { /* intentionally silent */ })
+    this.process.stdout.on('error', (_err) => { /* intentionally silent */ })
+
     this.process.stdout.on('data', (chunk) => {
       this.buffer += String(chunk)
       this.processLines()

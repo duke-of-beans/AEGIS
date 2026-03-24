@@ -1,4 +1,4 @@
-#Requires -Version 7.0
+#Requires -Version 5.1
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
@@ -1005,6 +1005,7 @@ while ($script:RUNNING) {
                 
                 switch ($method) {
                     'ping' { Invoke-Ping -Id $id -Params $params }
+                    'version' { Invoke-GetVersion -Id $id -Params $params }
                     'get_version' { Invoke-GetVersion -Id $id -Params $params }
                     'set_cpu_priority' { Invoke-SetCpuPriority -Id $id -Params $params }
                     'set_io_priority' { Invoke-SetIoPriority -Id $id -Params $params }
