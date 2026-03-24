@@ -1,48 +1,68 @@
 # AEGIS — STATUS
 
 **Status:** active
-**Phase:** v2.x feature development — browser integration
-**Last Sprint:** AEGIS-ELEV-01
-**Last Updated:** 2026-03-23
-**Completion:** 72%
+**Phase:** v3.0 planning — AEGIS-CATALOG-01 next
+**Last Sprint:** AEGIS-BRAVE-03
+**Last Updated:** 2026-03-24
+**Completion:** v2 92% / v3 0%
 
-## Architectural Direction — Independent Daemon (March 23, 2026)
+---
 
-GregLite's browser-native pivot decouples AEGIS from the GregLite window lifecycle entirely.
-AEGIS becomes (and in practice already is) an independent daemon — it runs whether or not
-the GregLite UI is open. This is the correct architecture: AEGIS monitors the system, not a
-window. Under Tauri, AEGIS was coupled to window events. Under browser-native, AEGIS
-communicates with the GregLite sidecar via local HTTP/socket. The daemon pattern also means
-AEGIS can serve multiple consumers (GregLite, GREGORE, standalone CLI queries, dashboard).
-pm2 lifecycle management already in place validates this direction.
+## Architectural Direction
 
-## Current State
+AEGIS is transitioning from resource optimizer to Cognitive Resource OS.
+Full vision: D:\Projects\AEGIS\VISION.md (locked 2026-03-24).
+Project DNA: D:\Projects\AEGIS\PROJECT_DNA.yaml
 
-ESLint pre-commit gate is now clean — zero errors across all 26 source files. The three files flagged after BRAVE-02 (tab-manager.ts, cdp-client.ts, menu.ts) are fixed, plus the lifecycle.ts/index.ts cascade from the async removal. `git commit` without `--no-verify` now succeeds.
+The v3 architecture replaces static profiles with composable policies, adds five
+intelligence systems (Catalog, Baseline, Context, Sniper, Learning), extends the
+monitoring surface to cover disk I/O, SMART, network, GPU, DPC, and spawn tree —
+and introduces a command surface (cockpit model) replacing the current status window.
+The MCP server becomes a first-class feature.
 
-Elevation gate is now live. AEGIS detects administrator status at startup and degrades gracefully — privileged ops (priority, services, power plan, QoS, memory trim) are skipped with a warn log + one-time toast when not elevated. Profile switches always complete. Status window shows amber indicator when not elevated.
+v3 prerequisite: AEGIS-CATALOG-01 (process knowledge base) must ship before any
+sniper or learning work begins. Nothing gets targeted before it is understood.
 
-Dashboard server is managed by pm2 (ecosystem.config.cjs at D:\Meta). Process name: `dashboard`. Bounce is `pm2 restart dashboard` or `D:\Meta\bounce.bat`. A `pm2-resurrect.bat` is in the Windows Startup folder so pm2 restores the process list on logon without elevation.
+## v2 Current State (ca936bc)
 
-Note: the existing dashboard-server.js process (PID 13444) that was running pre-sprint could not be killed from the Cowork sandbox (EPERM). pm2 will take full ownership after the next reboot or manual termination of that process. Dashboard is currently serving correctly on port 7171.
+TypeScript clean. Zero errors across 26 source files.
+Status window: HTML view at GET / with 2s auto-refresh, per-tab suspend/restore,
+process list, elevation warning. Running independently via pm2.
+Tab suspension, CDP integration, per-profile config, elevation gate all live.
 
-## What's Complete
+## Open Work — v3 Sprint Queue
 
-- [x] AEGIS-PM2-01: pm2 ecosystem config, bounce.bat, startup resurrect, Task Scheduler confirmed absent
-- [x] ESLint gate: tab-manager.ts (async removed), cdp-client.ts (assertion + toString), menu.ts (dead var), lifecycle.ts + index.ts (interface cascade)
-- [x] BRAVE-02: status window tab panel, Brave launch helper, per-profile suspension config (a364fd3)
-- [x] BRAVE-01: Brave tab manager — CDP client, tab tracking, suspension engine
-- [x] v2.0.0: installer built (AEGIS-Setup-2.0.0.exe), installed to D:\Dev\aegis\
-- [x] Startup tasks removed (AEGIS_Startup, AEGIS Cognitive Resource Manager)
+- [ ] **[P0]** AEGIS-CATALOG-01: Process knowledge base — SQLite schema, 200-process seed,
+      trust scoring, unknown detection, Claude ID bridge via MCP
+- [ ] **[P0]** AEGIS-MONITOR-01: Extended monitoring — disk I/O delta, SMART health,
+      network per-adapter, GPU, DPC/interrupt, spawn tree, hard fault rate
+- [ ] **[P1]** AEGIS-UI-01: Command surface redesign — cockpit model, spawn tree default,
+      action log centerpiece, all safety tiers, policy stack panel
+- [ ] **[P1]** AEGIS-CONTEXT-01: Context detection engine — WinEvent hooks, foreground
+      tracking, named contexts, composable policy layer replacing profiles
+- [ ] **[P1]** AEGIS-SNIPER-01: Sniper rules engine — baseline engine, deviation detection,
+      graduated throttle/suspend/kill, TESSRYX blast radius integration
+- [ ] **[P2]** AEGIS-LEARN-01: Learning loop + cognitive load score — SQLite sessions/outcomes,
+      weighted feedback, confidence score, composite load number
+- [ ] **[P2]** AEGIS-MCP-02: Rich MCP publisher — get_cognitive_load, get_context,
+      get_process_tree, get_runaways, apply_policy_overlay, get_action_log
+- [ ] **[P3]** AEGIS-INSTALLER-01: v3.0.0 installer rebuild
 
-## Open Work
+## Open Work — v2 Remaining
 
-- [x] **[P1]** AEGIS-ELEV-01: elevation gate — shipped 2026-03-22
-- [ ] **[P2]** AEGIS-BRAVE-03: tab suspension UI — activate/restore from status window
-- [ ] **[P2]** Per-profile CDP port config (currently hardcoded)
-- [ ] **[P3]** Visual rule editor for profiles
 - [ ] **[P3]** Historical performance graphs (CPU/RAM over time)
-- [ ] **[P3]** pm2 boot health-check — verify resurrect succeeded at logon (low effort)
+- [ ] **[P3]** pm2 boot health-check — verify resurrect succeeded at logon
+
+## Completed
+
+- [x] AEGIS-BRAVE-03: tab suspension UI, per-tab HTML controls, per-profile CDP port (ca936bc, 2026-03-24)
+- [x] AEGIS-ELEV-01: elevation gate — checkIsElevated(), applyProfile() guard, toast (2026-03-22)
+- [x] AEGIS-PM2-01: pm2 migration, bounce.bat, startup resurrect (2026-03-22)
+- [x] ESLint gate: all 26 source files clean (2026-03-22)
+- [x] BRAVE-02: status window tab panel, Brave launch helper, per-profile suspension config
+- [x] BRAVE-01: Brave tab manager — CDP client, tab tracking, suspension engine
+- [x] v2.0.0: installer built (AEGIS-Setup-2.0.0.exe)
+- [x] Startup tasks removed
 
 ## Blockers
 
@@ -52,10 +72,10 @@ None.
 
 | File | Purpose |
 |------|---------|
-| `src/browser/tab-manager.ts` | Brave tab tracking, suspension engine, launchBrave() |
-| `src/browser/cdp-client.ts` | WebSocket CDP client for Brave remote debugging |
-| `src/tray/lifecycle.ts` | Main process orchestration, tray wiring |
-| `src/tray/index.ts` | TrayDependencies interface, menu dispatch |
-| `D:\Meta\ecosystem.config.cjs` | pm2 process config for dashboard-server.js |
-| `D:\Meta\bounce.bat` | One-liner restart: pm2 restart dashboard |
-| `D:\Meta\dashboard-server.js` | Portfolio dashboard HTTP server (port 7171) |
+| `VISION.md` | v3 vision document (locked 2026-03-24) |
+| `PROJECT_DNA.yaml` | Project identity, decisions, sprint queue |
+| `src/browser/tab-manager.ts` | Brave tab tracking, suspension engine |
+| `src/browser/cdp-client.ts` | WebSocket CDP client |
+| `src/tray/lifecycle.ts` | Main process orchestration |
+| `src/status/server.ts` | Express status server + HTML command surface |
+| `scripts/aegis-worker.ps1` | PowerShell worker — all privileged ops |
