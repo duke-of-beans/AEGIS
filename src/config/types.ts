@@ -367,6 +367,14 @@ export interface SystemSnapshot {
   gpu_stats?: GpuStats
   system_extended?: SystemExtended
   process_tree?: ProcessTreeEntry[]
+  context?: {
+    current: string
+    previous: string
+    confidence: number
+    switched_at: number
+    idle_since: number | null
+    active_overlays: string[]
+  }
 }
 
 // ============================================================

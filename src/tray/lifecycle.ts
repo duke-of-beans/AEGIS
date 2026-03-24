@@ -33,6 +33,8 @@ import { MemoryManager } from '../memory/manager.js'
 import { TabManager, launchBrave } from '../browser/tab-manager.js'
 import { checkIsElevated } from '../system/elevation.js'
 import { initCatalog } from '../catalog/manager.js'
+import { ContextEngine } from '../context/engine.js'
+import { PolicyManager } from '../context/policies.js'
 
 let globalWorkerManager: WorkerManager | null = null
 let globalProfileManager: ProfileManager | null = null
@@ -45,6 +47,8 @@ let globalMemoryManager: MemoryManager | null = null
 let globalTabManager: TabManager | null = null
 let globalStatsCollector: StatsCollector | null = null
 let globalMonitorCollector: MonitorCollector | null = null
+let globalContextEngine: ContextEngine | null = null
+let globalPolicyManager: PolicyManager | null = null
 
 export async function startup(configPath?: string): Promise<void> {
   if (!acquireSingleInstance()) {
@@ -191,6 +195,21 @@ export async function startup(configPath?: string): Promise<void> {
     globalMonitorCollector = new MonitorCollector(ipc)
     globalMonitorCollector.start()
     globalStatsCollector.setMonitorCollector(globalMonitorCollector)
+
+    // Start ContextEngine — foreground window tracking, context detection
+    globalContextEngine = new ContextEngine()
+    globalPolicyManager = new PolicyManager()
+
+    globalContextEngine.on('context_changed', ({ to }: { from: string; to: import('../context/engine.js').ContextName; confidence: number }) => {
+      if (globalPolicyManager !== null) {
+        globalPolicyManager.applyContextOverlays(to)
+      }
+    })
+
+    globalContextEngine.start()
+
+    // Wire context state into collector now that engine is live
+    globalStatsCollector.setContextEngine(globalContextEngine!, globalPolicyManager!)
 
     globalProfileManager = new ProfileManager({
       registry,
@@ -363,6 +382,11 @@ export async function startup(configPath?: string): Promise<void> {
 export async function shutdown(): Promise<void> {
   const logger = getLogger()
   logger.info('AEGIS shutting down')
+
+  if (globalContextEngine !== null) {
+    globalContextEngine.stop()
+    globalContextEngine = null
+  }
 
   if (globalMonitorCollector !== null) {
     globalMonitorCollector.stop()

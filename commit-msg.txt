@@ -1,31 +1,27 @@
-feat(catalog): AEGIS-CATALOG-01 — process knowledge base
+feat(context): AEGIS-CONTEXT-01 — context detection engine + composable policies
 
-src/catalog/schema.ts: CatalogDb — SQLite schema (process_catalog +
-unknown_processes), full interface suite, WAL mode, indexed queries,
-seedFromArray transaction, canActOn gate, resolveUnknown
+src/context/engine.ts: ContextEngine — PowerShell WinEvent poller via Win32
+GetForegroundWindow p/invoke, weighted focus time accumulation per process,
+8 context types (deep_work/build/research/meeting/media/gaming/idle/unknown),
+rule evaluator with min_focus_sec thresholds, 20% weight decay every 30s,
+EventEmitter context_changed events, auto-respawn on subprocess exit
 
-src/catalog/seed.json: 210 processes seeded — CRITICAL_SYSTEM (tier 1,
-no actions), DO_NOT_TOUCH (tier 2), CAUTION (tier 2, throttle only),
-SAFE dev/app/browser (tier 3, full permissions). Blast radius rated.
-Includes node.exe, claude.exe, pm2 with accurate annotations.
+src/context/policies.ts: PolicyManager — composable policy stack (base + overlays),
+BUILTIN_POLICIES (browser-default, searchindexer-throttle, diagtrack-throttle),
+CONTEXT_OVERLAY_TEMPLATES per context (deep_work aggressive browser+services,
+build CPU elevation, meeting tab suspension, gaming service stop),
+pushOverlay/popOverlay/applyContextOverlays/pruneExpired methods
 
-src/catalog/manager.ts: CatalogManager singleton — recordObservation,
-canActOn gate, suspicion heuristics (no publisher + suspicious path +
-external network + obs>3), requestIdentification with pending file
-fallback, resolveProcess, seedIfEmpty, initCatalog/getCatalog factory
+src/config/types.ts: context field added to SystemSnapshot
 
-src/status/server.ts: POST /catalog/identify + /catalog/resolve routes,
-onIdentificationRequest + onCatalogResolve callbacks, catalog HTML
-section (suspicious red banner, unresolved amber banner, counts)
+src/status/collector.ts: setContextEngine() method, context merged into
+snapshot each poll, active_overlays surfaced from PolicyManager
 
-src/status/collector.ts: setCatalog(), recordObservation per process in
-poll loop, unresolved_count + suspicious_count in SystemSnapshot
+src/tray/lifecycle.ts: ContextEngine + PolicyManager init, context_changed
+event wires to applyContextOverlays, setContextEngine called post-init,
+engine stopped on shutdown
 
-src/config/types.ts: unresolved_count + suspicious_count on SystemSnapshot
-
-src/tray/lifecycle.ts: initCatalog at startup, seedIfEmpty, server
-callbacks registered, catalog wired to StatsCollector
+src/status/server.ts: renderContext() JS function, context section HTML
+(name, confidence chip, overlay badges), called from render(d)
 
 TypeScript: 0 errors
-Acceptance: canActOn(lsass, kill)=false, canActOn(searchindexer, throttle)=true
-Seed count: 210 processes

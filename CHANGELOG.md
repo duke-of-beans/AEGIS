@@ -1,5 +1,36 @@
 # AEGIS Changelog
 
+## [3.0.0-alpha.3] — 2026-03-24 (AEGIS-CONTEXT-01)
+
+### Added
+- `src/context/engine.ts` — ContextEngine: PowerShell subprocess polls foreground window
+  via Win32 GetForegroundWindow p/invoke every 2s. Tracks weighted focus time per process.
+  8 context types: deep_work, build, research, meeting, media, gaming, idle, unknown.
+  Rule evaluator: first rule with sufficient focus seconds wins. 20% weight decay every 30s.
+  EventEmitter: emits 'foreground' and 'context_changed' events. Auto-respawns on exit.
+- `src/context/policies.ts` — PolicyManager: composable policy stack (base + overlays).
+  BUILTIN_POLICIES: browser-default, searchindexer-throttle, diagtrack-throttle.
+  CONTEXT_OVERLAY_TEMPLATES: per-context overlay sets (deep_work, build, meeting, gaming).
+  Methods: applyContextOverlays, pushOverlay, popOverlay, addBasePolicy, pruneExpired.
+  Policy domains: browser, cpu, memory, services, network, watchdog.
+- `src/config/types.ts` — context field added to SystemSnapshot (current, previous,
+  confidence, switched_at, idle_since, active_overlays)
+- `src/status/collector.ts` — setContextEngine() method, context state merged into
+  snapshot each poll cycle, policyManager overlays surfaced as active_overlays
+- `src/tray/lifecycle.ts` — ContextEngine + PolicyManager instantiated, context_changed
+  event applies context overlays, engine started, setContextEngine called post-init,
+  engine stopped on shutdown
+- `src/status/server.ts` — Context section in HTML (context name, confidence chip,
+  active overlay badges), renderContext() JS function, called from main render(d)
+
+### Architecture
+- Composable policy layer replaces static profiles. Context detection is event-driven
+  (foreground window polling), not polling-based on process lists.
+- Policy overlays are temporary and auto-applied on context transition. Base policies
+  are permanent. Stack model: base + overlays, merged at action time.
+- ContextEngine and PolicyManager are decoupled. Engine emits events; lifecycle.ts
+  bridges them to policy application.
+
 ## [3.0.0-alpha.2] — 2026-03-24 (AEGIS-MONITOR-01)
 
 ### Added

@@ -434,6 +434,11 @@ function buildStatusHtml(): string {
     <div id="catalog-unresolved"></div>
   </div>
 
+  <div id="context-section" class="section">
+    <div class="section-title">Context <span id="context-sub" class="section-sub"></span></div>
+    <div id="context-body"></div>
+  </div>
+
   <div id="disk-section" class="section" style="display:none">
     <div class="section-title">Disk I/O <span class="section-sub">per drive · 10s delta</span></div>
     <div id="disk-list"></div>
@@ -482,6 +487,36 @@ function buildStatusHtml(): string {
 
     async function requestId(name) {
       await fetch('/catalog/identify', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name }) });
+    }
+
+    const CONTEXT_LABELS = {
+      deep_work: 'Deep Work', build: 'Build', research: 'Research',
+      meeting: 'Meeting', media: 'Media', gaming: 'Gaming',
+      idle: 'Idle', unknown: 'Unknown',
+    };
+
+    function renderContext(d) {
+      const ctx = d.context;
+      const el = document.getElementById('context-body');
+      const sub = document.getElementById('context-sub');
+      if (!ctx || !el || !sub) return;
+      const label = CONTEXT_LABELS[ctx.current] || ctx.current;
+      const pct = Math.round((ctx.confidence || 0) * 100);
+      const overlays = ctx.active_overlays || [];
+      sub.textContent = label + ' · ' + pct + '%';
+      let html = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">';
+      html += chip(label, '') + chip('Confidence', pct + '%');
+      if (ctx.idle_since) html += chip('Idle', Math.round((Date.now() - ctx.idle_since) / 60000) + 'm');
+      html += '</div>';
+      if (overlays.length > 0) {
+        html += '<div style="color:#58a6ff;font-size:11px;margin-bottom:4px">Active overlays</div>';
+        html += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+        for (const o of overlays) {
+          html += '<span style="background:#161b22;border:1px solid #58a6ff40;border-radius:3px;padding:2px 8px;font-size:11px;color:#58a6ff">' + esc(o) + '</span>';
+        }
+        html += '</div>';
+      }
+      el.innerHTML = html;
     }
 
     function renderCatalog(d) {
@@ -583,6 +618,7 @@ function buildStatusHtml(): string {
         ).join('') + '</div>';
       }
       renderCatalog(d);
+      renderContext(d);
       renderDisk(d);
       renderNetwork(d);
       renderGpu(d);

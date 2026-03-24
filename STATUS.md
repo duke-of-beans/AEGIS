@@ -1,10 +1,10 @@
 # AEGIS — STATUS
 
 **Status:** active
-**Phase:** v3.0 — AEGIS-MONITOR-01 shipped, AEGIS-CONTEXT-01 next
-**Last Sprint:** AEGIS-MONITOR-01
+**Phase:** v3.0 — AEGIS-CONTEXT-01 shipped, AEGIS-SNIPER-01 next
+**Last Sprint:** AEGIS-CONTEXT-01
 **Last Updated:** 2026-03-24
-**Completion:** v2 92% / v3 30%
+**Completion:** v2 92% / v3 50%
 
 ---
 
@@ -33,7 +33,9 @@ Tab suspension, CDP integration, per-profile config, elevation gate all live.
 ## Open Work — v3 Sprint Queue
 
 - [x] **[P0]** AEGIS-MONITOR-01: Extended monitoring — disk I/O delta, SMART health,
-      network per-adapter, GPU, DPC/interrupt, spawn tree, hard fault rate (2227b10, 2026-03-24)
+      network per-adapter, GPU, DPC/interrupt, spawn tree, hard fault rate (f88a926, 2026-03-24)
+- [x] **[P1]** AEGIS-CONTEXT-01: Context detection engine — WinEvent hooks, foreground
+      tracking, named contexts, composable policy layer replacing profiles (2026-03-24)
 - [ ] **[P1]** AEGIS-UI-01: Command surface redesign — cockpit model, spawn tree default,
       action log centerpiece, all safety tiers, policy stack panel
 - [ ] **[P1]** AEGIS-CONTEXT-01: Context detection engine — WinEvent hooks, foreground

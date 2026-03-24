@@ -5,6 +5,8 @@ import { TabManager } from '../browser/tab-manager.js'
 import { checkIsElevated } from '../system/elevation.js'
 import type { CatalogManager } from '../catalog/manager.js'
 import type { MonitorCollector } from './monitor-collector.js'
+import type { ContextEngine } from '../context/engine.js'
+import type { PolicyManager } from '../context/policies.js'
 
 export class StatsCollector {
   private ipc: WorkerIpc
@@ -18,6 +20,8 @@ export class StatsCollector {
   private browserEnabled = false
   private catalog: CatalogManager | null = null
   private monitorCollector: MonitorCollector | null = null
+  private contextEngine: ContextEngine | null = null
+  private policyManager: PolicyManager | null = null
 
   constructor(ipc: WorkerIpc, _activeProfile: string) {
     this.ipc = ipc
@@ -34,6 +38,11 @@ export class StatsCollector {
 
   setMonitorCollector(mc: MonitorCollector): void {
     this.monitorCollector = mc
+  }
+
+  setContextEngine(engine: ContextEngine, policies: PolicyManager): void {
+    this.contextEngine = engine
+    this.policyManager = policies
   }
 
   start(): void {
@@ -199,6 +208,20 @@ export class StatsCollector {
           unresolved_count: this.catalog.getStats().unknown,
           suspicious_count: this.catalog.getStats().suspicious,
         } : {}),
+        ...(this.contextEngine !== null ? (() => {
+          const cs = this.contextEngine.getState()
+          const overlays = this.policyManager?.getStack().overlays.map((o) => o.name) ?? []
+          return {
+            context: {
+              current: cs.current,
+              previous: cs.previous,
+              confidence: cs.confidence,
+              switched_at: cs.switched_at,
+              idle_since: cs.idle_since,
+              active_overlays: overlays,
+            },
+          }
+        })() : {}),
       }
 
       // Merge extended monitor data (disk, network, GPU, system_extended, process_tree)

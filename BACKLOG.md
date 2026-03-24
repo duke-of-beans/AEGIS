@@ -15,14 +15,7 @@ Last Updated: 2026-03-24 (AEGIS-MONITOR-01 shipped)
       Cognitive load score in header. Tier color system (gray/amber/red).
       Depends on: AEGIS-MONITOR-01.
 
-- [ ] AEGIS-CONTEXT-01: Context detection engine
-      WinEvent hook — foreground window tracking, weighted focus time accumulation.
-      Named contexts: Deep Work, Build, Research, Meeting, Idle, Media, Gaming.
-      Composable policy layer — replace static profiles with stackable policy objects.
-      Overlay system — temporary stack on top of base, auto-pop on context change.
-      Depends on: AEGIS-CATALOG-01.
-
-- [ ] AEGIS-SNIPER-01: Sniper rules engine v1
+- [ ] AEGIS-UI-01: Command surface redesign
       Per-process baseline engine — rolling mean + stddev per context per time bucket.
       Deviation detection — personal baseline trigger, not absolute values.
       Graduated action: throttle → suspend → kill with configurable thresholds.
@@ -73,6 +66,10 @@ Last Updated: 2026-03-24 (AEGIS-MONITOR-01 shipped)
       CatalogDb + CatalogManager, canActOn gate, suspicion heuristics, Claude ID bridge,
       /catalog/identify + /catalog/resolve endpoints, catalog HTML section in status window,
       wired into lifecycle + collector (2026-03-24)
+- [x] AEGIS-CONTEXT-01: Context detection engine — PowerShell WinEvent poller, ContextEngine
+      (8 context types, rule evaluator, focus weight decay), PolicyManager (composable stack,
+      overlay system, CONTEXT_OVERLAY_TEMPLATES), context field in SystemSnapshot,
+      renderContext in status window, wired into collector + lifecycle (2026-03-24)
 - [x] AEGIS-BRAVE-03: tab suspension UI, HTML command surface v1, per-profile CDP port (ca936bc, 2026-03-24)
 - [x] AEGIS-ELEV-01: elevation gate, startup toast, amber indicator (2026-03-22)
 - [x] AEGIS-PM2-01: pm2 migration, bounce.bat, startup resurrect (2026-03-22)
