@@ -1,22 +1,43 @@
-feat(mcp): AEGIS-MCP-02 — rich MCP publisher v3
+feat(ui): AEGIS-UI-01 — Command Surface Redesign + Installer
 
-src/mcp/server.ts: Full rewrite. v2 stub (5 tools) → v3 publisher (14 tools).
+src/status/html.ts: New file. Full HTML cockpit builder.
+  Design: deep midnight blue base, cold electric cyan, amber heat,
+  red danger. JetBrains Mono → Consolas cascade. CRT scanline overlay,
+  grid atmosphere, phosphor glow on cognitive load score.
 
-New tools: aegis_status (concise health), aegis_get_cognitive_load (score +
-breakdown + interpretation), aegis_get_context (context + confidence + overlays),
-aegis_get_system_snapshot (full snapshot), aegis_get_process_tree (spawn tree),
-aegis_get_runaways (sniper watches with z-scores + escalation),
-aegis_get_action_log (recent actions with reasons), aegis_get_confidence
-(score + auto mode unlock status), aegis_get_session_summary (session stats),
-aegis_apply_policy_overlay (programmatic context overlay for GREGORE),
-aegis_preflight (audit + optimize machine for target context),
-aegis_switch_profile, aegis_set_timer, aegis_cancel_timer.
+  Layout: 3-column cockpit. Left panel (194px): CPU/RAM/DiskQ/DPC meter
+  bars with GPU when available, context + active overlays, profile
+  switcher, active timer. Center panel (flex): process tree as default
+  view with full parent-child hierarchy (│ ├─ └─), tabs for DRIVES /
+  NETWORK / GPU / BROWSER tabs. Right panel (264px): permanent action
+  log with reasoning text + feedback buttons, confidence bar.
 
-setIntelligence() method accepts all v3 engines post-construction.
-interpretLoad() maps score to human-readable pressure description.
+  Process tree: full spawn hierarchy reconstruction from process_tree
+  array. Runaway processes highlighted amber (WATCH) or red (CRITICAL)
+  with deviation indicator (△/▲). Genuinely better than Process Lasso.
 
-src/tray/lifecycle.ts: setIntelligence() called with all engines after
-full initialization — contextEngine, policyManager, sniperEngine,
-learningStore, loadEngine.
+  Action log: each entry shows time ago, process name, action badge
+  (THROTTLE/SUSPEND/KILL), and the full reason text — reasoning not
+  conclusions. Feedback buttons wire to POST /feedback.
+
+  Cognitive load score: hero element. Big glowing number, color-shifts
+  green/amber/red with phosphor text-shadow. Updates every 3s.
+
+  ASCII art: structural — panel headers use ┌─ SECTION ─── style
+  box-drawing. Process tree uses full │ ├─ └─ hierarchy characters.
+  Wordmark ▌AEGIS▐. Not cliché — earned.
+
+  Footer: version, uptime, watch count, last updated.
+  Profile switch: modal input overlay, keyboard-navigable.
+  Spinner: ◐◓◑◒ cycling at 700ms.
+
+src/status/server.ts: Added import for buildStatusHtml from html.ts.
+
+installer/install.ps1: Rich PowerShell installer.
+  Banner: full 6-line block-art AEGIS wordmark (██╗  ██╗ style, cyan
+  border, white letters). Prerequisite check (Node 18+, npm, git, pm2).
+  6 steps: copy, npm install + build, pm2 start + save, startup task,
+  claude_desktop_config.json MCP entry, open status window.
+  Completion ceremony with status/logs/MCP quick-reference.
 
 TypeScript: 0 errors
