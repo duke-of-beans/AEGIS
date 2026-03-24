@@ -4,6 +4,7 @@ import { WorkerIpc } from '../worker/ipc.js'
 import { TabManager } from '../browser/tab-manager.js'
 import { checkIsElevated } from '../system/elevation.js'
 import type { CatalogManager } from '../catalog/manager.js'
+import type { MonitorCollector } from './monitor-collector.js'
 
 export class StatsCollector {
   private ipc: WorkerIpc
@@ -16,6 +17,7 @@ export class StatsCollector {
   private tabManager: TabManager | null = null
   private browserEnabled = false
   private catalog: CatalogManager | null = null
+  private monitorCollector: MonitorCollector | null = null
 
   constructor(ipc: WorkerIpc, _activeProfile: string) {
     this.ipc = ipc
@@ -28,6 +30,10 @@ export class StatsCollector {
 
   setCatalog(catalog: CatalogManager): void {
     this.catalog = catalog
+  }
+
+  setMonitorCollector(mc: MonitorCollector): void {
+    this.monitorCollector = mc
   }
 
   start(): void {
@@ -193,6 +199,12 @@ export class StatsCollector {
           unresolved_count: this.catalog.getStats().unknown,
           suspicious_count: this.catalog.getStats().suspicious,
         } : {}),
+      }
+
+      // Merge extended monitor data (disk, network, GPU, system_extended, process_tree)
+      if (this.monitorCollector !== null) {
+        const ext = this.monitorCollector.getLatestExtended()
+        Object.assign(this.latestStats, ext)
       }
 
       // Record observation for all processes

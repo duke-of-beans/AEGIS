@@ -23,6 +23,7 @@ import { WatchdogEngine } from '../watchdog/engine.js'
 import { AutoDetectEngine } from '../watchdog/detector.js'
 import { StatusServer } from '../status/server.js'
 import { StatsCollector } from '../status/collector.js'
+import { MonitorCollector } from '../status/monitor-collector.js'
 
 import { McpServer } from '../mcp/server.js'
 import { KernlClient } from '../mcp/kernl-client.js'
@@ -43,6 +44,7 @@ let globalAutoDetectEngine: AutoDetectEngine | null = null
 let globalMemoryManager: MemoryManager | null = null
 let globalTabManager: TabManager | null = null
 let globalStatsCollector: StatsCollector | null = null
+let globalMonitorCollector: MonitorCollector | null = null
 
 export async function startup(configPath?: string): Promise<void> {
   if (!acquireSingleInstance()) {
@@ -184,6 +186,11 @@ export async function startup(configPath?: string): Promise<void> {
       }
     })
     globalStatsCollector.start()
+
+    // Start MonitorCollector — extended hardware metrics on slower cadences
+    globalMonitorCollector = new MonitorCollector(ipc)
+    globalMonitorCollector.start()
+    globalStatsCollector.setMonitorCollector(globalMonitorCollector)
 
     globalProfileManager = new ProfileManager({
       registry,
@@ -356,6 +363,11 @@ export async function startup(configPath?: string): Promise<void> {
 export async function shutdown(): Promise<void> {
   const logger = getLogger()
   logger.info('AEGIS shutting down')
+
+  if (globalMonitorCollector !== null) {
+    globalMonitorCollector.stop()
+    globalMonitorCollector = null
+  }
 
   if (globalStatsCollector !== null) {
     globalStatsCollector.stop()

@@ -689,6 +689,221 @@ function Invoke-FlushTempFiles {
     }
 }
 
+function Invoke-GetDiskStats {
+    param($Id, $Params)
+    try {
+        $drives = @()
+        $logicalDisks = Get-CimInstance -ClassName Win32_PerfFormattedData_PerfDisk_LogicalDisk -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -ne '_Total' }
+        foreach ($d in $logicalDisks) {
+            $vol = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='$($d.Name)'" -ErrorAction SilentlyContinue
+            $drives += @{
+                letter          = $d.Name
+                label           = if ($null -ne $vol -and $vol.VolumeName) { $vol.VolumeName } else { '' }
+                size_gb         = if ($null -ne $vol -and $vol.Size) { [Math]::Round($vol.Size / 1GB, 1) } else { 0 }
+                free_gb         = if ($null -ne $vol -and $vol.FreeSpace) { [Math]::Round($vol.FreeSpace / 1GB, 1) } else { 0 }
+                read_bytes_sec  = [long]($d.DiskReadBytesPersec)
+                write_bytes_sec = [long]($d.DiskWriteBytesPersec)
+                queue_depth     = [float]($d.CurrentDiskQueueLength)
+            }
+        }
+        $physicalDisks = @()
+        $pdisks = Get-PhysicalDisk -ErrorAction SilentlyContinue
+        foreach ($pd in $pdisks) {
+            $physicalDisks += @{
+                device_id          = $pd.DeviceId
+                friendly_name      = $pd.FriendlyName
+                media_type         = if ($pd.MediaType -eq 'SSD') { 'SSD' } elseif ($pd.MediaType -eq 'HDD') { 'HDD' } else { 'Unspecified' }
+                operational_status = $pd.OperationalStatus
+                health_status      = if ($pd.HealthStatus -eq 'Healthy') { 'Healthy' } elseif ($pd.HealthStatus -eq 'Warning') { 'Warning' } elseif ($pd.HealthStatus -eq 'Unhealthy') { 'Unhealthy' } else { 'Unknown' }
+                size_gb            = [Math]::Round($pd.Size / 1GB, 1)
+            }
+        }
+        Write-Response -Id $Id -Result @{
+            drives        = $drives
+            physical_disks = $physicalDisks
+            timestamp     = [DateTime]::UtcNow.ToString('o')
+        }
+    } catch {
+        Write-ErrorResponse -Id $Id -Code -32000 -Message "$_"
+    }
+}
+
+function Invoke-GetNetworkStats {
+    param($Id, $Params)
+    try {
+        $adapters = @()
+        $perfAdapters = Get-CimInstance -ClassName Win32_PerfFormattedData_Tcpip_NetworkInterface -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -notmatch 'Loopback' }
+        foreach ($pa in $perfAdapters) {
+            # Skip adapters that are completely silent
+            if ($pa.BytesTotalPersec -eq 0 -and $pa.PacketsSentPersec -eq 0 -and $pa.PacketsReceivedPersec -eq 0) { continue }
+            # Match to Get-NetAdapter by sanitising the name (WMI replaces special chars with _)
+            $netAdapter = $null
+            try {
+                $netAdapter = Get-NetAdapter -ErrorAction SilentlyContinue |
+                    Where-Object { ($_.InterfaceDescription -replace '[^A-Za-z0-9]', '_') -eq ($pa.Name -replace '[^A-Za-z0-9]', '_') } |
+                    Select-Object -First 1
+            } catch {}
+            $adapters += @{
+                name                 = $pa.Name
+                bytes_sent_sec       = [long]($pa.BytesSentPersec)
+                bytes_recv_sec       = [long]($pa.BytesReceivedPersec)
+                packets_sent_sec     = [long]($pa.PacketsSentPersec)
+                packets_recv_sec     = [long]($pa.PacketsReceivedPersec)
+                status               = if ($null -ne $netAdapter) { $netAdapter.Status } else { 'Unknown' }
+                link_speed_mbps      = if ($null -ne $netAdapter -and $netAdapter.LinkSpeed -gt 0) { [Math]::Round($netAdapter.LinkSpeed / 1MB) } else { 0 }
+            }
+        }
+        Write-Response -Id $Id -Result @{
+            adapters  = $adapters
+            timestamp = [DateTime]::UtcNow.ToString('o')
+        }
+    } catch {
+        Write-ErrorResponse -Id $Id -Code -32000 -Message "$_"
+    }
+}
+
+function Invoke-GetGpuStats {
+    param($Id, $Params)
+    # Try nvidia-smi first
+    $nvidiaSmi = $null
+    try {
+        $nvidiaSmi = Get-Command 'nvidia-smi.exe' -ErrorAction SilentlyContinue
+        if ($null -eq $nvidiaSmi) {
+            $candidates = @(
+                'C:\Windows\System32\nvidia-smi.exe',
+                'C:\Program Files\NVIDIA Corporation\NVSMI\nvidia-smi.exe'
+            )
+            foreach ($c in $candidates) {
+                if (Test-Path $c) { $nvidiaSmi = $c; break }
+            }
+        } else {
+            $nvidiaSmi = $nvidiaSmi.Source
+        }
+    } catch {}
+
+    if ($null -ne $nvidiaSmi) {
+        try {
+            $raw = & $nvidiaSmi --query-gpu=utilization.gpu,utilization.memory,memory.used,memory.total,temperature.gpu,power.draw --format=csv,noheader,nounits 2>$null
+            if ($LASTEXITCODE -eq 0 -and $null -ne $raw) {
+                $gpus = @()
+                foreach ($line in @($raw)) {
+                    $parts = $line -split ','
+                    if ($parts.Count -ge 6) {
+                        $gpus += @{
+                            gpu_util_percent  = [float]($parts[0].Trim())
+                            mem_util_percent  = [float]($parts[1].Trim())
+                            vram_used_mb      = [float]($parts[2].Trim())
+                            vram_total_mb     = [float]($parts[3].Trim())
+                            temp_celsius      = [float]($parts[4].Trim())
+                            power_watts       = [float]($parts[5].Trim())
+                        }
+                    }
+                }
+                Write-Response -Id $Id -Result @{
+                    available = $true
+                    source    = 'nvidia-smi'
+                    gpus      = $gpus
+                    timestamp = [DateTime]::UtcNow.ToString('o')
+                }
+                return
+            }
+        } catch {}
+    }
+
+    # WMI fallback
+    try {
+        $wmiGpus = Get-CimInstance -ClassName Win32_VideoController -ErrorAction SilentlyContinue
+        if ($null -ne $wmiGpus -and @($wmiGpus).Count -gt 0) {
+            $gpus = @()
+            foreach ($g in @($wmiGpus)) {
+                $gpus += @{
+                    gpu_util_percent = 0
+                    mem_util_percent = 0
+                    vram_used_mb     = 0
+                    vram_total_mb    = if ($g.AdapterRAM -gt 0) { [Math]::Round($g.AdapterRAM / 1MB) } else { 0 }
+                    temp_celsius     = 0
+                    power_watts      = 0
+                    name             = $g.VideoProcessor
+                }
+            }
+            Write-Response -Id $Id -Result @{
+                available = $true
+                source    = 'wmi'
+                gpus      = $gpus
+                timestamp = [DateTime]::UtcNow.ToString('o')
+            }
+            return
+        }
+    } catch {}
+
+    Write-Response -Id $Id -Result @{
+        available = $false
+        source    = 'none'
+        gpus      = @()
+        timestamp = [DateTime]::UtcNow.ToString('o')
+    }
+}
+
+function Invoke-GetSystemExtended {
+    param($Id, $Params)
+    try {
+        $cpuPerf = Get-CimInstance -ClassName Win32_PerfFormattedData_PerfOS_Processor -Filter "Name='_Total'" -ErrorAction SilentlyContinue
+        $memPerf = Get-CimInstance -ClassName Win32_PerfFormattedData_PerfOS_Memory -ErrorAction SilentlyContinue
+        $os      = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction SilentlyContinue
+
+        $dpcRate    = if ($null -ne $cpuPerf) { [long]($cpuPerf.DPCsQueuedPersec) } else { 0 }
+        $intrRate   = if ($null -ne $cpuPerf) { [long]($cpuPerf.InterruptsPersec) } else { 0 }
+        $pageFaults = if ($null -ne $memPerf) { [long]($memPerf.PageFaultsPersec) } else { 0 }
+        $pageReads  = if ($null -ne $memPerf) { [long]($memPerf.PageReadsPersec) } else { 0 }
+        $uptimeSec  = if ($null -ne $os) { [long](([DateTime]::UtcNow - $os.LastBootUpTime.ToUniversalTime()).TotalSeconds) } else { 0 }
+
+        Write-Response -Id $Id -Result @{
+            dpc_rate       = $dpcRate
+            interrupt_rate = $intrRate
+            page_faults_sec = $pageFaults
+            page_reads_sec = $pageReads
+            uptime_sec     = $uptimeSec
+            timestamp      = [DateTime]::UtcNow.ToString('o')
+        }
+    } catch {
+        Write-ErrorResponse -Id $Id -Code -32000 -Message "$_"
+    }
+}
+
+function Invoke-GetProcessTree {
+    param($Id, $Params)
+    try {
+        $wmiProcs = Get-CimInstance -ClassName Win32_Process -ErrorAction SilentlyContinue |
+            Where-Object { $_.WorkingSetSize -gt 0 } |
+            Sort-Object WorkingSetSize -Descending |
+            Select-Object -First 300
+
+        $entries = @()
+        foreach ($p in $wmiProcs) {
+            $entries += @{
+                pid           = [int]($p.ProcessId)
+                parent_pid    = [int]($p.ParentProcessId)
+                name          = $p.Name
+                memory_mb     = [Math]::Round($p.WorkingSetSize / 1MB, 2)
+                cpu_user_ms   = [long]($p.UserModeTime / 10000)
+                cpu_kernel_ms = [long]($p.KernelModeTime / 10000)
+                handle_count  = [int]($p.HandleCount)
+                thread_count  = [int]($p.ThreadCount)
+                path          = if ($p.ExecutablePath) { $p.ExecutablePath } else { $null }
+            }
+        }
+
+        Write-Response -Id $Id -Result @{
+            processes = $entries
+            timestamp = [DateTime]::UtcNow.ToString('o')
+        }
+    } catch {
+        Write-ErrorResponse -Id $Id -Code -32000 -Message "$_"
+    }
+}
+
 function Invoke-Shutdown {
     param($Id, $Params)
     Write-Response -Id $Id -Result @{ success = $true }
@@ -750,6 +965,11 @@ while ($script:RUNNING) {
                     'purge_standby_memory' { Invoke-PurgeStandbyMemory -Id $id -Params $params }
                     'manage_service' { Invoke-ManageService -Id $id -Params $params }
                     'flush_temp_files' { Invoke-FlushTempFiles -Id $id -Params $params }
+                    'get_disk_stats' { Invoke-GetDiskStats -Id $id -Params $params }
+                    'get_network_stats' { Invoke-GetNetworkStats -Id $id -Params $params }
+                    'get_gpu_stats' { Invoke-GetGpuStats -Id $id -Params $params }
+                    'get_system_extended' { Invoke-GetSystemExtended -Id $id -Params $params }
+                    'get_process_tree' { Invoke-GetProcessTree -Id $id -Params $params }
                     'shutdown' { Invoke-Shutdown -Id $id -Params $params }
                     default {
                         Write-ErrorResponse -Id $id -Code -32601 -Message "Method not found: $method"

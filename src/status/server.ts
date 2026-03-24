@@ -329,6 +329,58 @@ function buildStatusHtml(): string {
     .proc-stat.hot { color: #f85149; }
     .empty { color: #6e7681; font-style: italic; padding: 14px 12px; background: #0d1117; border: 1px solid #21262d; border-radius: 6px; }
     #ts { color: #6e7681; font-size: 11px; }
+    .disk-list, .net-list, .sys-grid { background: #0d1117; border: 1px solid #21262d; border-radius: 6px; overflow: hidden; }
+    .disk-row, .net-row { padding: 8px 12px; border-bottom: 1px solid #21262d; }
+    .disk-row:last-child, .net-row:last-child { border-bottom: none; }
+    .disk-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .disk-letter { font-size: 13px; color: #c9d1d9; }
+    .disk-label  { color: #6e7681; font-size: 11px; margin-left: 6px; }
+    .disk-io     { font-size: 11px; color: #6e7681; }
+    .disk-io span { margin-left: 10px; }
+    .disk-io .hot { color: #f0883e; }
+    .disk-queue-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-left: 6px; vertical-align: middle; }
+    .health-badge { font-size: 10px; padding: 1px 7px; border-radius: 8px; }
+    .health-healthy   { background: #1a3a2a; color: #3fb950; border: 1px solid #3fb95040; }
+    .health-warning   { background: #272115; color: #f0883e; border: 1px solid #f0883e40; }
+    .health-unhealthy { background: #2a1a1a; color: #f85149; border: 1px solid #f8514940; }
+    .health-unknown   { background: #161b22; color: #6e7681; border: 1px solid #21262d; }
+    .pdisk-row { display: flex; align-items: center; gap: 8px; padding: 5px 12px; border-bottom: 1px solid #21262d; font-size: 11px; }
+    .pdisk-row:last-child { border-bottom: none; }
+    .pdisk-name { flex: 1; color: #c9d1d9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pdisk-type { color: #6e7681; width: 32px; }
+    .pdisk-size { color: #6e7681; width: 55px; text-align: right; }
+    .net-name   { font-size: 12px; color: #c9d1d9; margin-bottom: 3px; }
+    .net-stats  { display: flex; gap: 14px; font-size: 11px; color: #6e7681; }
+    .net-stats .val { color: #c9d1d9; }
+    .status-up   { color: #3fb950; }
+    .status-down { color: #f85149; }
+    .gpu-row { padding: 10px 12px; border-bottom: 1px solid #21262d; }
+    .gpu-row:last-child { border-bottom: none; }
+    .gpu-name { font-size: 12px; color: #c9d1d9; margin-bottom: 6px; }
+    .gpu-metrics { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: #6e7681; }
+    .gpu-metrics .val { color: #c9d1d9; }
+    .gpu-source { font-size: 10px; padding: 1px 7px; border-radius: 8px; margin-left: 8px; vertical-align: middle; }
+    .src-nvidia { background: #1a3a2a; color: #3fb950; border: 1px solid #3fb95040; }
+    .src-wmi    { background: #272115; color: #f0883e; border: 1px solid #f0883e40; }
+    .sys-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+    .sys-cell { padding: 8px 14px; border-bottom: 1px solid #21262d; border-right: 1px solid #21262d; }
+    .sys-cell:nth-child(even) { border-right: none; }
+    .sys-cell:nth-last-child(-n+2) { border-bottom: none; }
+    .sys-cell-label { color: #6e7681; font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; }
+    .sys-cell-val   { color: #c9d1d9; font-size: 15px; margin-top: 2px; }
+    .sys-cell-val.warn { color: #f0883e; }
+    .sys-cell-val.crit { color: #f85149; }
+    .tree-container { background: #0d1117; border: 1px solid #21262d; border-radius: 6px; overflow: hidden; }
+    .tree-toggle { background: none; border: none; cursor: pointer; color: #6e7681; font-family: inherit; font-size: 11px; padding: 6px 12px; width: 100%; text-align: left; border-bottom: 1px solid #21262d; }
+    .tree-toggle:hover { color: #c9d1d9; }
+    .tree-body { display: none; max-height: 320px; overflow-y: auto; }
+    .tree-body.open { display: block; }
+    .tree-node { display: flex; align-items: center; padding: 3px 12px; border-bottom: 1px solid #161b22; font-size: 11px; gap: 6px; }
+    .tree-node:last-child { border-bottom: none; }
+    .tree-indent { color: #484f58; flex-shrink: 0; }
+    .tree-name  { flex: 1; color: #c9d1d9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tree-mem   { width: 58px; text-align: right; color: #6e7681; flex-shrink: 0; }
+    .tree-pid   { width: 42px; text-align: right; color: #484f58; flex-shrink: 0; font-size: 10px; }
   </style>
 </head>
 <body>
@@ -380,6 +432,32 @@ function buildStatusHtml(): string {
     <div class="section-title">Process Catalog <span id="catalog-sub" class="section-sub"></span></div>
     <div id="catalog-suspicious"></div>
     <div id="catalog-unresolved"></div>
+  </div>
+
+  <div id="disk-section" class="section" style="display:none">
+    <div class="section-title">Disk I/O <span class="section-sub">per drive · 10s delta</span></div>
+    <div id="disk-list"></div>
+    <div id="pdisk-list" style="margin-top:8px"></div>
+  </div>
+
+  <div id="network-section" class="section" style="display:none">
+    <div class="section-title">Network <span class="section-sub">per adapter · 10s delta</span></div>
+    <div id="net-list"></div>
+  </div>
+
+  <div id="gpu-section" class="section" style="display:none">
+    <div class="section-title">GPU <span id="gpu-source-badge"></span><span class="section-sub" style="margin-left:8px" id="gpu-sub"></span></div>
+    <div id="gpu-list"></div>
+  </div>
+
+  <div id="sysext-section" class="section" style="display:none">
+    <div class="section-title">System <span class="section-sub">DPC · interrupts · faults · uptime</span></div>
+    <div id="sysext-grid"></div>
+  </div>
+
+  <div id="proctree-section" class="section" style="display:none">
+    <div class="section-title">Process Tree <span class="section-sub">read-only · 30s refresh</span></div>
+    <div id="proctree-container"></div>
   </div>
 
   <script>
@@ -505,12 +583,177 @@ function buildStatusHtml(): string {
         ).join('') + '</div>';
       }
       renderCatalog(d);
+      renderDisk(d);
+      renderNetwork(d);
+      renderGpu(d);
+      renderSysExt(d);
+      renderProcessTree(d);
     }
 
     function chip(label, value) {
       return '<div class="chip"><span class="chip-label">' + label + '</span><span class="chip-value">' + value + '</span></div>';
     }
     function escId(id) { return id.replace(/'/g, "\\'"); }
+
+    function fmtBytes(b) {
+      if (b >= 1048576) return (b / 1048576).toFixed(1) + ' MB/s';
+      if (b >= 1024)    return (b / 1024).toFixed(1) + ' KB/s';
+      return b + ' B/s';
+    }
+    function fmtUptime(sec) {
+      const d = Math.floor(sec / 86400);
+      const h = Math.floor((sec % 86400) / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      return (d > 0 ? d + 'd ' : '') + h + 'h ' + m + 'm';
+    }
+
+    function renderDisk(d) {
+      const ds = d.disk_stats;
+      const sec = document.getElementById('disk-section');
+      if (!ds || (!ds.drives.length && !ds.physical_disks.length)) { sec.style.display = 'none'; return; }
+      sec.style.display = '';
+      const driveEl = document.getElementById('disk-list');
+      if (ds.drives.length === 0) {
+        driveEl.innerHTML = '';
+      } else {
+        driveEl.innerHTML = '<div class="disk-list">' + ds.drives.map(dr => {
+          const pct = dr.size_gb > 0 ? Math.round((dr.free_gb / dr.size_gb) * 100) : 0;
+          const queueHot = dr.queue_depth > 1;
+          const qDot = '<span class="disk-queue-dot" style="background:' + (queueHot ? '#f85149' : '#3fb950') + '" title="Queue: ' + dr.queue_depth.toFixed(1) + '"></span>';
+          return '<div class="disk-row">' +
+            '<div class="disk-header">' +
+              '<span><span class="disk-letter">' + esc(dr.letter) + '</span>' +
+              (dr.label ? '<span class="disk-label">' + esc(dr.label) + '</span>' : '') + qDot + '</span>' +
+              '<span style="font-size:11px;color:#6e7681">' + dr.free_gb.toFixed(1) + ' / ' + dr.size_gb.toFixed(1) + ' GB free</span>' +
+            '</div>' +
+            '<div class="bar-bg" style="margin-bottom:4px"><div class="bar" style="width:' + pct + '%;background:#58a6ff"></div></div>' +
+            '<div class="disk-io">'+
+              '<span>↓ <span class="' + (dr.read_bytes_sec > 50*1024*1024 ? 'hot' : '') + '">' + fmtBytes(dr.read_bytes_sec) + '</span></span>' +
+              '<span>↑ <span class="' + (dr.write_bytes_sec > 50*1024*1024 ? 'hot' : '') + '">' + fmtBytes(dr.write_bytes_sec) + '</span></span>' +
+            '</div>' +
+          '</div>';
+        }).join('') + '</div>';
+      }
+      const pdiskEl = document.getElementById('pdisk-list');
+      if (!ds.physical_disks || ds.physical_disks.length === 0) { pdiskEl.innerHTML = ''; return; }
+      pdiskEl.innerHTML = '<div class="disk-list">' + ds.physical_disks.map(pd => {
+        const hc = pd.health_status === 'Healthy' ? 'health-healthy' : pd.health_status === 'Warning' ? 'health-warning' : pd.health_status === 'Unhealthy' ? 'health-unhealthy' : 'health-unknown';
+        return '<div class="pdisk-row">' +
+          '<span class="pdisk-name">' + esc(pd.friendly_name) + '</span>' +
+          '<span class="pdisk-type">' + esc(pd.media_type) + '</span>' +
+          '<span class="pdisk-size">' + pd.size_gb.toFixed(0) + ' GB</span>' +
+          '<span class="health-badge ' + hc + '">' + esc(pd.health_status) + '</span>' +
+        '</div>';
+      }).join('') + '</div>';
+    }
+
+    function renderNetwork(d) {
+      const ns = d.network_stats;
+      const sec = document.getElementById('network-section');
+      if (!ns || !ns.adapters.length) { sec.style.display = 'none'; return; }
+      const visible = ns.adapters.filter(a => a.bytes_sent_sec > 0 || a.bytes_recv_sec > 0 || a.status === 'Up');
+      if (!visible.length) { sec.style.display = 'none'; return; }
+      sec.style.display = '';
+      document.getElementById('net-list').innerHTML = '<div class="net-list">' + visible.map(a => {
+        const stCls = a.status === 'Up' ? 'status-up' : 'status-down';
+        return '<div class="net-row">' +
+          '<div class="net-name">' + esc(a.name) + ' <span class="' + stCls + '" style="font-size:10px">' + esc(a.status) + '</span>' +
+          (a.link_speed_mbps > 0 ? ' <span style="color:#6e7681;font-size:10px">' + a.link_speed_mbps + ' Mbps</span>' : '') + '</div>' +
+          '<div class="net-stats">' +
+            '<span>↓ <span class="val">' + fmtBytes(a.bytes_recv_sec) + '</span></span>' +
+            '<span>↑ <span class="val">' + fmtBytes(a.bytes_sent_sec) + '</span></span>' +
+            '<span>pkt ↓<span class="val">' + a.packets_recv_sec + '</span> ↑<span class="val">' + a.packets_sent_sec + '</span></span>' +
+          '</div>' +
+        '</div>';
+      }).join('') + '</div>';
+    }
+
+    function renderGpu(d) {
+      const gs = d.gpu_stats;
+      const sec = document.getElementById('gpu-section');
+      if (!gs || !gs.available) { sec.style.display = 'none'; return; }
+      sec.style.display = '';
+      const srcBadge = gs.source === 'nvidia-smi'
+        ? '<span class="gpu-source src-nvidia">nvidia-smi</span>'
+        : gs.source === 'wmi' ? '<span class="gpu-source src-wmi">WMI</span>' : '';
+      document.getElementById('gpu-source-badge').innerHTML = srcBadge;
+      document.getElementById('gpu-sub').textContent = gs.gpus.length + ' device' + (gs.gpus.length !== 1 ? 's' : '');
+      document.getElementById('gpu-list').innerHTML = '<div class="disk-list">' + gs.gpus.map((g, i) => {
+        const vramPct = g.vram_total_mb > 0 ? Math.round(g.vram_used_mb / g.vram_total_mb * 100) : 0;
+        return '<div class="gpu-row">' +
+          (g.name ? '<div class="gpu-name">' + esc(g.name) + '</div>' : '<div class="gpu-name">GPU ' + i + '</div>') +
+          '<div class="gpu-metrics">' +
+            '<span>GPU <span class="val">' + g.gpu_util_percent.toFixed(0) + '%</span></span>' +
+            '<span>VRAM <span class="val">' + g.vram_used_mb.toFixed(0) + ' / ' + g.vram_total_mb.toFixed(0) + ' MB (' + vramPct + '%)</span></span>' +
+            (g.temp_celsius > 0 ? '<span>Temp <span class="val ' + (g.temp_celsius > 85 ? 'crit' : g.temp_celsius > 70 ? 'warn' : '') + '">' + g.temp_celsius.toFixed(0) + '°C</span></span>' : '') +
+            (g.power_watts > 0 ? '<span>Power <span class="val">' + g.power_watts.toFixed(0) + 'W</span></span>' : '') +
+          '</div>' +
+        '</div>';
+      }).join('') + '</div>';
+    }
+
+    function renderSysExt(d) {
+      const se = d.system_extended;
+      const sec = document.getElementById('sysext-section');
+      if (!se) { sec.style.display = 'none'; return; }
+      sec.style.display = '';
+      const dpcCls   = se.dpc_rate > 5000 ? ' crit' : '';
+      const faultCls = se.page_faults_sec > 100 ? ' warn' : '';
+      document.getElementById('sysext-grid').innerHTML =
+        '<div class="sys-grid">' +
+          '<div class="sys-cell"><div class="sys-cell-label">DPC Rate</div><div class="sys-cell-val' + dpcCls + '">' + se.dpc_rate.toLocaleString() + '</div></div>' +
+          '<div class="sys-cell"><div class="sys-cell-label">Interrupts/s</div><div class="sys-cell-val' + dpcCls + '">' + se.interrupt_rate.toLocaleString() + '</div></div>' +
+          '<div class="sys-cell"><div class="sys-cell-label">Page Faults/s</div><div class="sys-cell-val' + faultCls + '">' + se.page_faults_sec.toLocaleString() + '</div></div>' +
+          '<div class="sys-cell"><div class="sys-cell-label">Uptime</div><div class="sys-cell-val">' + fmtUptime(se.uptime_sec) + '</div></div>' +
+        '</div>';
+    }
+
+    let treeOpen = false;
+    function renderProcessTree(d) {
+      const pt = d.process_tree;
+      const sec = document.getElementById('proctree-section');
+      if (!pt || !pt.length) { sec.style.display = 'none'; return; }
+      sec.style.display = '';
+      const pidMap = {};
+      pt.forEach(p => { pidMap[p.pid] = p; });
+      const childMap = {};
+      pt.forEach(p => {
+        if (!childMap[p.parent_pid]) childMap[p.parent_pid] = [];
+        childMap[p.parent_pid].push(p);
+      });
+      const roots = pt.filter(p => !pidMap[p.parent_pid] || p.parent_pid === p.pid);
+      const rows = [];
+      function walk(node, depth) {
+        rows.push({ node, depth });
+        (childMap[node.pid] || []).sort((a,b) => b.memory_mb - a.memory_mb).forEach(c => walk(c, depth + 1));
+      }
+      roots.sort((a,b) => b.memory_mb - a.memory_mb).forEach(r => walk(r, 0));
+      const bodyHtml = rows.map(({node, depth}) => {
+        const indent = depth > 0 ? '<span class="tree-indent">' + '  '.repeat(depth) + '└ </span>' : '';
+        return '<div class="tree-node">' + indent +
+          '<span class="tree-name">' + esc(node.name) + '</span>' +
+          '<span class="tree-mem">' + node.memory_mb.toFixed(0) + ' MB</span>' +
+          '<span class="tree-pid">' + node.pid + '</span>' +
+        '</div>';
+      }).join('');
+      document.getElementById('proctree-container').innerHTML =
+        '<div class="tree-container">' +
+          '<button class="tree-toggle" onclick="toggleTree()">' +
+            (treeOpen ? '▾' : '▸') + ' ' + pt.length + ' processes — click to ' + (treeOpen ? 'collapse' : 'expand') +
+          '</button>' +
+          '<div class="tree-body' + (treeOpen ? ' open' : '') + '" id="tree-body">' + bodyHtml + '</div>' +
+        '</div>';
+    }
+    function toggleTree() {
+      treeOpen = !treeOpen;
+      const body = document.getElementById('tree-body');
+      if (body) body.className = 'tree-body' + (treeOpen ? ' open' : '');
+      const btn = document.querySelector('.tree-toggle');
+      if (btn) {
+        const count = (btn.textContent.match(/\d+/) || ['?'])[0];
+        btn.textContent = (treeOpen ? '▾' : '▸') + ' ' + count + ' processes — click to ' + (treeOpen ? 'collapse' : 'expand');
+      }
+    }
 
     async function refresh() {
       try {

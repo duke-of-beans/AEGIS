@@ -1,5 +1,43 @@
 # AEGIS Changelog
 
+## [3.0.0-alpha.2] — 2026-03-24 (AEGIS-MONITOR-01)
+
+### Added
+- `scripts/aegis-worker.ps1` — 5 new IPC methods: `get_disk_stats` (per-drive I/O delta via
+  Win32_PerfFormattedData_PerfDisk_LogicalDisk + SMART health via Get-PhysicalDisk),
+  `get_network_stats` (per-adapter delta via Win32_PerfFormattedData_Tcpip_NetworkInterface +
+  Get-NetAdapter metadata), `get_gpu_stats` (nvidia-smi primary with CSV parse, WMI
+  Win32_VideoController fallback, silent on nvidia-smi absence), `get_system_extended`
+  (DPC rate + interrupt rate via Win32_PerfFormattedData_PerfOS_Processor, page faults +
+  reads via Win32_PerfFormattedData_PerfOS_Memory, uptime from Win32_OperatingSystem),
+  `get_process_tree` (Win32_Process with ParentProcessId, WorkingSetSize, UserModeTime,
+  KernelModeTime, HandleCount, ThreadCount — capped at 300 entries sorted by memory desc)
+- `src/config/types.ts` — 6 new interfaces: DriveStats, PhysicalDiskHealth,
+  NetworkAdapterStats, GpuStats, SystemExtended, ProcessTreeEntry. SystemSnapshot extended
+  with optional fields: disk_stats, network_stats, gpu_stats, system_extended, process_tree
+- `src/status/monitor-collector.ts` — MonitorCollector class. Polls extended metrics on
+  independent slower cadences (disk/network/gpu 10s, system_extended 5s, process_tree 30s).
+  Each metric wrapped in independent try/catch — one WMI failure never blocks others.
+  Exposes getLatestExtended(): Partial<SystemSnapshot> merged by StatsCollector each 2s poll.
+- `src/status/collector.ts` — setMonitorCollector() method, merge of getLatestExtended()
+  into latestStats on every poll cycle
+- `src/tray/lifecycle.ts` — MonitorCollector instantiated after worker start, wired to
+  StatsCollector, stopped before StatsCollector on shutdown
+- `src/status/server.ts` — 5 new HTML sections in status window: Disk (per-drive I/O bars,
+  read/write MB/s, queue depth indicator, SMART health badges), Network (per-adapter recv/sent
+  rates, status badge, link speed), GPU (hidden when unavailable, util%, VRAM bar, temp,
+  power, source badge), System (DPC rate, interrupt rate, page faults/s, uptime — colour
+  alerts on thresholds), Process Tree (collapsible, read-only, parent→child indented, 30s
+  refresh). CSS for all new sections added inline.
+
+### Architecture
+- MonitorCollector is independent of StatsCollector's 2s poll cycle. It runs its own slower
+  timers and caches the latest values. StatsCollector merges via Object.assign on every poll.
+  No cross-metric dependencies — each metric degrades independently.
+- nvidia-smi absence is silent by design. GPU section hidden when available=false. WMI fallback
+  provides adapter name and VRAM total; utilisation/temp/power require nvidia-smi.
+- Process tree is informational only this sprint. No actions wired to tree nodes (AEGIS-SNIPER-01).
+
 ## [3.0.0-alpha.1] — 2026-03-24 (AEGIS-CATALOG-01)
 
 ### Added

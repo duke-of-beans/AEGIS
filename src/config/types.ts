@@ -278,6 +278,73 @@ export interface BrowserTabsSnapshot {
   tabs: BrowserTabEntry[]
 }
 
+// ============================================================
+// Extended Monitor Types (AEGIS-MONITOR-01)
+// ============================================================
+
+export interface DriveStats {
+  letter: string
+  label: string
+  size_gb: number
+  free_gb: number
+  read_bytes_sec: number
+  write_bytes_sec: number
+  queue_depth: number
+}
+
+export interface PhysicalDiskHealth {
+  device_id: string
+  friendly_name: string
+  media_type: 'SSD' | 'HDD' | 'Unspecified'
+  operational_status: string
+  health_status: 'Healthy' | 'Warning' | 'Unhealthy' | 'Unknown'
+  size_gb: number
+}
+
+export interface NetworkAdapterStats {
+  name: string
+  bytes_sent_sec: number
+  bytes_recv_sec: number
+  packets_sent_sec: number
+  packets_recv_sec: number
+  status: string
+  link_speed_mbps: number
+}
+
+export interface GpuStats {
+  available: boolean
+  source: 'nvidia-smi' | 'wmi' | 'none'
+  gpus: Array<{
+    gpu_util_percent: number
+    mem_util_percent: number
+    vram_used_mb: number
+    vram_total_mb: number
+    temp_celsius: number
+    power_watts: number
+    name?: string
+  }>
+}
+
+export interface SystemExtended {
+  dpc_rate: number
+  interrupt_rate: number
+  page_faults_sec: number
+  page_reads_sec: number
+  uptime_sec: number
+}
+
+export interface ProcessTreeEntry {
+  pid: number
+  parent_pid: number
+  name: string
+  memory_mb: number
+  cpu_user_ms: number
+  cpu_kernel_ms: number
+  handle_count: number
+  thread_count: number
+  path: string | null
+}
+
 export interface SystemSnapshot {
   timestamp: string
   version: string
@@ -295,6 +362,11 @@ export interface SystemSnapshot {
   isElevated?: boolean
   unresolved_count?: number
   suspicious_count?: number
+  disk_stats?: { drives: DriveStats[]; physical_disks: PhysicalDiskHealth[] }
+  network_stats?: { adapters: NetworkAdapterStats[] }
+  gpu_stats?: GpuStats
+  system_extended?: SystemExtended
+  process_tree?: ProcessTreeEntry[]
 }
 
 // ============================================================
