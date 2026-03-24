@@ -145,6 +145,20 @@ export async function startup(configPath?: string): Promise<void> {
       }
     }
 
+    // Wire per-tab actions from status window to TabManager
+    if (globalStatusServer !== null) {
+      globalStatusServer.onTabSuspend(async (tabId: string): Promise<void> => {
+        if (globalTabManager !== null) {
+          await globalTabManager.suspendTab(tabId)
+        }
+      })
+      globalStatusServer.onTabRestore(async (tabId: string): Promise<void> => {
+        if (globalTabManager !== null) {
+          await globalTabManager.restoreTab(tabId)
+        }
+      })
+    }
+
     // Start StatsCollector — feeds the status server with live snapshots
     globalStatsCollector = new StatsCollector(ipc, state.active_profile || config.default_profile)
     globalStatsCollector.setTabManager(globalTabManager, config.browser_manager.enabled)
@@ -205,7 +219,9 @@ export async function startup(configPath?: string): Promise<void> {
           switchedProfile?.browser_suspension !== undefined &&
           globalTabManager !== null
         ) {
-          globalTabManager.updateSuspensionConfig(switchedProfile.browser_suspension)
+          globalTabManager.updateSuspensionConfig({
+            ...switchedProfile.browser_suspension,
+          })
         }
       },
       onTimerSet: (target: string, returnProf: string, durationMin: number): Promise<void> => {
@@ -218,13 +234,8 @@ export async function startup(configPath?: string): Promise<void> {
       },
       onStatusWindowOpen: (): Promise<void> => {
         const port = config.status_window.port
-        const url = `http://localhost:${port}/status`
-        if (config.status_window.auto_open_on_launch) {
-          spawn('cmd', [
-            '/c',
-            `start ${url}`,
-          ])
-        }
+        const url = `http://localhost:${port}/`
+        spawn('cmd', ['/c', `start ${url}`])
         return Promise.resolve()
       },
       onSettingsOpen: (): Promise<void> => {
@@ -297,13 +308,10 @@ export async function startup(configPath?: string): Promise<void> {
     })
 
     watchForSignal((): void => {
-      if (globalStatusServer !== null && config.status_window.auto_open_on_launch) {
+      if (globalStatusServer !== null) {
         const port = config.status_window.port
-        const url = `http://localhost:${port}`
-        spawn('cmd', [
-          '/c',
-          `start ${url}`,
-        ])
+        const url = `http://localhost:${port}/`
+        spawn('cmd', ['/c', `start ${url}`])
       }
     })
 

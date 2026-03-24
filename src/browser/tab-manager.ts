@@ -263,7 +263,7 @@ export class TabManager {
   }
 
   updateSuspensionConfig(
-    override: Partial<Pick<TabSuspensionConfig, 'enabled' | 'inactivity_threshold_min' | 'memory_pressure_threshold_mb'>>
+    override: Partial<Pick<TabSuspensionConfig, 'enabled' | 'inactivity_threshold_min' | 'memory_pressure_threshold_mb' | 'cdp_port'>>
   ): void {
     if (override.enabled !== undefined) {
       this.config.tab_suspension.enabled = override.enabled
@@ -274,10 +274,18 @@ export class TabManager {
     if (override.memory_pressure_threshold_mb !== undefined) {
       this.config.tab_suspension.memory_pressure_threshold_mb = override.memory_pressure_threshold_mb
     }
+    if (override.cdp_port !== undefined && override.cdp_port !== this.config.tab_suspension.cdp_port) {
+      this.config.tab_suspension.cdp_port = override.cdp_port
+      this.cdp.disconnect()
+      this.cdp = new CdpClient(override.cdp_port)
+      void this.cdp.connect()
+      this.logger.info('TabManager: CDP reconnected to new port', { cdp_port: override.cdp_port })
+    }
     this.logger.info('TabManager: suspension config updated from profile override', {
       enabled: this.config.tab_suspension.enabled,
       inactivity_threshold_min: this.config.tab_suspension.inactivity_threshold_min,
       memory_pressure_threshold_mb: this.config.tab_suspension.memory_pressure_threshold_mb,
+      cdp_port: this.config.tab_suspension.cdp_port,
     })
   }
 }

@@ -3,8 +3,18 @@
 **Status:** active
 **Phase:** v2.x feature development — browser integration
 **Last Sprint:** AEGIS-ELEV-01
-**Last Updated:** 2026-03-22
+**Last Updated:** 2026-03-23
 **Completion:** 72%
+
+## Architectural Direction — Independent Daemon (March 23, 2026)
+
+GregLite's browser-native pivot decouples AEGIS from the GregLite window lifecycle entirely.
+AEGIS becomes (and in practice already is) an independent daemon — it runs whether or not
+the GregLite UI is open. This is the correct architecture: AEGIS monitors the system, not a
+window. Under Tauri, AEGIS was coupled to window events. Under browser-native, AEGIS
+communicates with the GregLite sidecar via local HTTP/socket. The daemon pattern also means
+AEGIS can serve multiple consumers (GregLite, GREGORE, standalone CLI queries, dashboard).
+pm2 lifecycle management already in place validates this direction.
 
 ## Current State
 

@@ -79,6 +79,7 @@ export interface BrowserSuspensionOverride {
   enabled?: boolean
   inactivity_threshold_min?: number
   memory_pressure_threshold_mb?: number
+  cdp_port?: number
 }
 
 export interface LoadedProfile {
@@ -414,6 +415,7 @@ export const profileSchema = z.object({
       enabled: z.boolean().optional(),
       inactivity_threshold_min: z.number().optional(),
       memory_pressure_threshold_mb: z.number().optional(),
+      cdp_port: z.number().optional(),
     })
     .optional(),
 })
