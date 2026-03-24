@@ -68,7 +68,7 @@ Last Updated: 2026-03-24 (AEGIS-MONITOR-01 shipped)
       network per-adapter, GPU (nvidia-smi + WMI fallback), DPC/interrupt rate, hard page fault rate,
       process spawn tree (WMI ParentProcessId), handle/thread counts. MonitorCollector with independent
       per-metric try/catch, 5 new PowerShell IPC methods, 6 new TypeScript interfaces, 5 new HTML
-      sections (disk, network, GPU, system, process tree). (COMMIT_HASH_PLACEHOLDER, 2026-03-24)
+      sections (disk, network, GPU, system, process tree). (2227b10, 2026-03-24)
 - [x] AEGIS-CATALOG-01: Process knowledge base — SQLite catalog.db, 210-process seed,
       CatalogDb + CatalogManager, canActOn gate, suspicion heuristics, Claude ID bridge,
       /catalog/identify + /catalog/resolve endpoints, catalog HTML section in status window,

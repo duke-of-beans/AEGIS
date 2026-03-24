@@ -33,7 +33,7 @@ Tab suspension, CDP integration, per-profile config, elevation gate all live.
 ## Open Work — v3 Sprint Queue
 
 - [x] **[P0]** AEGIS-MONITOR-01: Extended monitoring — disk I/O delta, SMART health,
-      network per-adapter, GPU, DPC/interrupt, spawn tree, hard fault rate (COMMIT_HASH_PLACEHOLDER, 2026-03-24)
+      network per-adapter, GPU, DPC/interrupt, spawn tree, hard fault rate (2227b10, 2026-03-24)
 - [ ] **[P1]** AEGIS-UI-01: Command surface redesign — cockpit model, spawn tree default,
       action log centerpiece, all safety tiers, policy stack panel
 - [ ] **[P1]** AEGIS-CONTEXT-01: Context detection engine — WinEvent hooks, foreground
