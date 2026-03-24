@@ -8,6 +8,9 @@ import type { MonitorCollector } from './monitor-collector.js'
 import type { ContextEngine } from '../context/engine.js'
 import type { PolicyManager } from '../context/policies.js'
 import type { SniperEngine, SniperEvent } from '../sniper/engine.js'
+import type { LearningStore } from '../learning/store.js'
+import type { CognitiveLoadEngine } from '../learning/load.js'
+import { CognitiveLoadEngine as LoadEngineClass } from '../learning/load.js'
 
 export class StatsCollector {
   private ipc: WorkerIpc
@@ -25,6 +28,8 @@ export class StatsCollector {
   private policyManager: PolicyManager | null = null
   private sniperEngine: SniperEngine | null = null
   private recentSniperEvents: SniperEvent[] = []
+  private learningStore: LearningStore | null = null
+  private loadEngine: CognitiveLoadEngine | null = null
 
   constructor(ipc: WorkerIpc, _activeProfile: string) {
     this.ipc = ipc
@@ -56,6 +61,11 @@ export class StatsCollector {
         this.recentSniperEvents = this.recentSniperEvents.slice(0, 20)
       }
     })
+  }
+
+  setLearningEngine(store: LearningStore, loadEngine: CognitiveLoadEngine): void {
+    this.learningStore = store
+    this.loadEngine = loadEngine
   }
 
   start(): void {
@@ -274,6 +284,44 @@ export class StatsCollector {
         this.latestStats.sniper = {
           active_watches: watches.length,
           recent_actions: recentActions,
+        }
+      }
+
+      // Compute cognitive load score
+      if (this.loadEngine !== null && this.latestStats !== null) {
+        const activeWatches = this.sniperEngine?.getActiveWatches().length ?? 0
+        const breakdown = this.loadEngine.compute(this.latestStats, activeWatches)
+        this.latestStats.cognitive_load = {
+          score: breakdown.score,
+          tier: LoadEngineClass.getTier(breakdown.score),
+          cpu_pressure: breakdown.cpu_pressure,
+          memory_pressure: breakdown.memory_pressure,
+          disk_queue_pressure: breakdown.disk_queue_pressure,
+          dpc_pressure: breakdown.dpc_pressure,
+        }
+        // Record load sample for session history
+        if (this.learningStore !== null) {
+          this.learningStore.recordLoadSample({
+            load_score: breakdown.score,
+            cpu_pressure: breakdown.cpu_pressure,
+            memory_pressure: breakdown.memory_pressure,
+            disk_queue: breakdown.disk_queue_pressure,
+            dpc_rate: breakdown.dpc_pressure,
+            runaway_count: activeWatches,
+            tab_pressure: breakdown.tab_pressure,
+            sampled_at: new Date().toISOString(),
+          })
+        }
+      }
+
+      // Include confidence state
+      if (this.learningStore !== null) {
+        const conf = this.learningStore.getConfidenceState()
+        this.latestStats.confidence = {
+          score: conf.confidence_score,
+          total_decisions: conf.total_decisions,
+          auto_mode_unlocked: conf.auto_mode_unlocked,
+          decisions_until_auto: conf.decisions_until_auto,
         }
       }
 

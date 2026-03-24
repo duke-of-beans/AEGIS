@@ -27,14 +27,6 @@ Last Updated: 2026-03-24 (AEGIS-MONITOR-01 shipped)
 
 ## P2 — Learning + MCP
 
-- [ ] AEGIS-LEARN-01: Learning loop + cognitive load score
-      SQLite: sessions, process_snapshots, action_outcomes, context_transitions.
-      Weighted feedback: implicit (no undo 60s) + measurable (CPU wait delta) +
-      explicit (tray toast — thumbs up/sideways/down, weighted by intensity).
-      Confidence score — visible milestone toward Auto mode unlock.
-      Cognitive load composite: weighted sum, equal weights at start, learns over time.
-      Depends on: AEGIS-SNIPER-01, AEGIS-CONTEXT-01.
-
 - [ ] AEGIS-MCP-02: Rich MCP publisher
       Tools: get_cognitive_load, get_context, get_process_tree, get_system_snapshot,
       apply_policy_overlay, get_runaways, get_action_log, get_session_summary.
@@ -70,6 +62,11 @@ Last Updated: 2026-03-24 (AEGIS-MONITOR-01 shipped)
       (8 context types, rule evaluator, focus weight decay), PolicyManager (composable stack,
       overlay system, CONTEXT_OVERLAY_TEMPLATES), context field in SystemSnapshot,
       renderContext in status window, wired into collector + lifecycle (2026-03-24)
+- [x] AEGIS-LEARN-01: LearningStore (sessions.db, action outcomes, load samples, confidence
+      state with weighted feedback scoring), CognitiveLoadEngine (6-signal composite 0-100,
+      normalized pressures, equal weights learned over time), POST /feedback + onFeedback,
+      renderLoad badge, renderConfidence progress bar, session lifecycle wired to context
+      changes, wired into collector + lifecycle (2026-03-24)
 - [x] AEGIS-SNIPER-01: BaselineEngine (Welford variance, baselines.db, per-process/context
       fingerprints, getDeviation z-scores, MIN_SAMPLES=20), SniperEngine (3 built-in rules,
       blast radius multipliers, graduated throttle→suspend→kill, catalog gate, context

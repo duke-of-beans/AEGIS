@@ -19,6 +19,7 @@ export class StatusServer {
   private tabRestoreCallback: ((tabId: string) => Promise<void>) | null = null
   private identificationRequestCallback: ((req: { name: string; path?: string; publisher?: string; network?: string[] }) => Promise<void>) | null = null
   private catalogResolveCallback: ((req: { name: string; trust_tier: number; risk_label: string; action_permissions: string[]; notes?: string; source: string }) => Promise<void>) | null = null
+  private feedbackCallback: ((req: { action_id: string; signal: string; intensity: string }) => Promise<void>) | null = null
   private logger = getLogger()
 
   constructor(port: number) {
@@ -204,6 +205,28 @@ export class StatusServer {
         }
       })()
     })
+
+    this.app.post('/feedback', (req, res): void => {
+      void (async (): Promise<void> => {
+        const body = req.body as Record<string, unknown> | undefined
+        const actionId = body?.action_id
+        const signal = body?.signal
+        const intensity = body?.intensity
+        if (typeof actionId !== 'string' || typeof signal !== 'string' || typeof intensity !== 'string') {
+          res.status(400).json({ error: 'Missing action_id, signal, or intensity' })
+          return
+        }
+        try {
+          if (this.feedbackCallback !== null) {
+            await this.feedbackCallback({ action_id: actionId, signal, intensity })
+          }
+          res.json({ success: true })
+        } catch (error) {
+          this.logger.error('Feedback failed', { actionId, error })
+          res.status(500).json({ error: 'Feedback failed' })
+        }
+      })()
+    })
   }
 
   async start(): Promise<void> {
@@ -267,6 +290,10 @@ export class StatusServer {
 
   onCatalogResolve(callback: (req: { name: string; trust_tier: number; risk_label: string; action_permissions: string[]; notes?: string; source: string }) => Promise<void>): void {
     this.catalogResolveCallback = callback
+  }
+
+  onFeedback(callback: (req: { action_id: string; signal: string; intensity: string }) => Promise<void>): void {
+    this.feedbackCallback = callback
   }
 }
 
@@ -386,6 +413,7 @@ function buildStatusHtml(): string {
 <body>
   <div style="margin-bottom:6px">
     <h1>⚙ AEGIS</h1>
+    <span id="load-badge" class="badge" style="display:none"></span>
     <span id="cdp-badge" class="badge cdp-off">CDP ✕</span>
     <span id="elev-badge" class="badge elev-off" style="display:none">⚠ NOT ELEVATED</span>
   </div>
@@ -471,6 +499,11 @@ function buildStatusHtml(): string {
     <div id="sniper-log"></div>
   </div>
 
+  <div id="confidence-section" class="section" style="display:none">
+    <div class="section-title">Auto Mode <span id="conf-sub" class="section-sub"></span></div>
+    <div id="conf-body"></div>
+  </div>
+
   <script>
     let currentTabs = [];
 
@@ -500,6 +533,42 @@ function buildStatusHtml(): string {
       meeting: 'Meeting', media: 'Media', gaming: 'Gaming',
       idle: 'Idle', unknown: 'Unknown',
     };
+
+    function renderLoad(d) {
+      const cl = d.cognitive_load;
+      const badge = document.getElementById('load-badge');
+      if (!badge) return;
+      if (!cl) { badge.style.display = 'none'; return; }
+      badge.style.display = '';
+      const tierCls = cl.tier === 'green' ? 'cdp-ok' : cl.tier === 'amber' ? 'elev-off' : 'cdp-off';
+      badge.className = 'badge ' + tierCls;
+      badge.textContent = 'Load ' + cl.score;
+    }
+
+    function renderConfidence(d) {
+      const conf = d.confidence;
+      const sec = document.getElementById('confidence-section');
+      if (!sec) return;
+      if (!conf) { sec.style.display = 'none'; return; }
+      sec.style.display = '';
+      const pct = Math.round((conf.score || 0) * 100);
+      document.getElementById('conf-sub').textContent = pct + '% confident';
+      const el = document.getElementById('conf-body');
+      let html = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">';
+      html += chip('Confidence', pct + '%') + chip('Decisions', conf.total_decisions);
+      if (conf.auto_mode_unlocked) {
+        html += chip('Auto Mode', 'UNLOCKED');
+      } else if (conf.decisions_until_auto !== null) {
+        html += chip('Until Auto', conf.decisions_until_auto + ' more');
+      }
+      html += '</div>';
+      if (!conf.auto_mode_unlocked) {
+        const progress = Math.min(100, Math.round((conf.total_decisions / 30) * 100));
+        html += '<div style="margin-bottom:4px"><div class="bar-bg"><div class="bar bar-cpu" style="width:' + progress + '%"></div></div></div>';
+        html += '<div style="color:#6e7681;font-size:11px">Approve ' + (conf.decisions_until_auto || 0) + ' more actions to unlock Auto mode</div>';
+      }
+      el.innerHTML = html;
+    }
 
     function renderSniper(d) {
       const sn = d.sniper;
@@ -656,6 +725,8 @@ function buildStatusHtml(): string {
       }
       renderCatalog(d);
       renderContext(d);
+      renderLoad(d);
+      renderConfidence(d);
       renderSniper(d);
       renderDisk(d);
       renderNetwork(d);

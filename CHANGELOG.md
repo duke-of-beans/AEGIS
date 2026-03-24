@@ -1,5 +1,38 @@
 # AEGIS Changelog
 
+## [3.0.0-alpha.5] — 2026-03-24 (AEGIS-LEARN-01)
+
+### Added
+- `src/learning/store.ts` — LearningStore: SQLite sessions.db with work_sessions,
+  action_outcomes, cognitive_load_samples, confidence_state tables. startSession/endSession
+  lifecycle. recordAction() generates labeled outcome IDs. updateActionOutcome() marks
+  implicit approval 60s post-action. recordExplicitFeedback() with signal + intensity weighting
+  (strong signals = 5x). Confidence scoring: (approvals - rejections*2) / total, clamped 0-1.
+  Auto mode unlocks at >= 30 decisions AND score >= 0.75. getConfidenceState(), getRecentSessions(),
+  getBestSession(), getActionSuccessRate(). Singleton initLearningStore()/getLearningStore().
+- `src/learning/load.ts` — CognitiveLoadEngine: 6-signal weighted composite score 0-100.
+  Signals: CPU %, memory %, disk queue depth, DPC rate, active runaway count, tab count.
+  Normalized against reference values. Equal weights at launch, tuneWeights() stub for Phase 2.
+  getTier() → 'green' | 'amber' | 'red'. compute() returns full LoadBreakdown.
+- `src/config/types.ts` — cognitive_load and confidence fields added to SystemSnapshot
+- `src/status/server.ts` — POST /feedback route (action_id, signal, intensity), onFeedback()
+  callback registration, renderLoad() (badge in header with tier color), renderConfidence()
+  (chip row + progress bar + decisions until auto), both called from render(d)
+- `src/tray/lifecycle.ts` — initLearningStore() + CognitiveLoadEngine init, setLearningEngine()
+  on collector, session started at startup, context_changed ends/starts sessions,
+  onFeedback wired to learningStore.recordExplicitFeedback(), store stopped on shutdown
+- `src/status/collector.ts` — setLearningEngine() method, load computed each poll via
+  loadEngine.compute(), load sample recorded, confidence state included in snapshot
+
+### Architecture
+- Confidence score uses weighted Bayesian-style accumulation. Strong negative signals in sacred
+  contexts carry 5x weight. This asymmetry is intentional — false positives from Auto mode
+  are more damaging to trust than slow confidence accumulation.
+- Equal starting weights for cognitive load signals. Correlation analysis against negative
+  feedback will tune them after 30 days. The equation is a beta, not a hardcoded truth.
+- Session lifecycle is context-driven, not time-driven. Context changes = session boundary.
+  This makes session data segmentable by what the user was actually doing.
+
 ## [3.0.0-alpha.4] — 2026-03-24 (AEGIS-SNIPER-01)
 
 ### Added

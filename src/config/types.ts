@@ -385,6 +385,20 @@ export interface SystemSnapshot {
       timestamp: number
     }>
   }
+  cognitive_load?: {
+    score: number
+    tier: 'green' | 'amber' | 'red'
+    cpu_pressure: number
+    memory_pressure: number
+    disk_queue_pressure: number
+    dpc_pressure: number
+  }
+  confidence?: {
+    score: number
+    total_decisions: number
+    auto_mode_unlocked: boolean
+    decisions_until_auto: number | null
+  }
 }
 
 // ============================================================

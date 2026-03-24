@@ -37,6 +37,8 @@ import { ContextEngine } from '../context/engine.js'
 import { PolicyManager } from '../context/policies.js'
 import { initBaseline } from '../sniper/baseline.js'
 import { SniperEngine } from '../sniper/engine.js'
+import { initLearningStore } from '../learning/store.js'
+import { CognitiveLoadEngine } from '../learning/load.js'
 
 let globalWorkerManager: WorkerManager | null = null
 let globalProfileManager: ProfileManager | null = null
@@ -52,6 +54,8 @@ let globalMonitorCollector: MonitorCollector | null = null
 let globalContextEngine: ContextEngine | null = null
 let globalPolicyManager: PolicyManager | null = null
 let globalSniperEngine: SniperEngine | null = null
+let globalLearningStore: ReturnType<typeof initLearningStore> | null = null
+let globalLoadEngine: CognitiveLoadEngine | null = null
 
 export async function startup(configPath?: string): Promise<void> {
   if (!acquireSingleInstance()) {
@@ -132,6 +136,15 @@ export async function startup(configPath?: string): Promise<void> {
     // Wire catalog resolve → update catalog db
     globalStatusServer.onCatalogResolve(async (req): Promise<void> => {
       catalog.resolveProcess(req.name, req)
+    })
+
+    // Wire feedback → learning store
+    globalStatusServer.onFeedback(async (req): Promise<void> => {
+      if (globalLearningStore !== null) {
+        const signal = req.signal as import('../learning/store.js').FeedbackSignal
+        const intensity = req.intensity as import('../learning/store.js').FeedbackIntensity
+        globalLearningStore.recordExplicitFeedback(req.action_id, signal, intensity)
+      }
     })
 
     globalTimer = new ProfileTimer()
@@ -240,6 +253,22 @@ export async function startup(configPath?: string): Promise<void> {
 
     globalSniperEngine.start()
     globalStatsCollector.setSniperEngine(globalSniperEngine)
+
+    // Start learning store + cognitive load engine
+    globalLearningStore = initLearningStore(appDataPath)
+    globalLearningStore.start()
+    globalLoadEngine = new CognitiveLoadEngine(globalLearningStore)
+    globalStatsCollector.setLearningEngine(globalLearningStore, globalLoadEngine)
+
+    // Start a session for the current context
+    const initialContext = globalContextEngine.getState().current
+    globalLearningStore.startSession(initialContext)
+    globalContextEngine.on('context_changed', ({ to }: { to: import('../context/engine.js').ContextName }) => {
+      if (globalLearningStore !== null && globalLearningStore.getCurrentSessionId() !== null) {
+        globalLearningStore.endSession(globalLearningStore.getCurrentSessionId()!)
+      }
+      globalLearningStore?.startSession(to)
+    })
 
     globalProfileManager = new ProfileManager({
       registry,
@@ -421,6 +450,11 @@ export async function shutdown(): Promise<void> {
   if (globalSniperEngine !== null) {
     globalSniperEngine.stop()
     globalSniperEngine = null
+  }
+
+  if (globalLearningStore !== null) {
+    globalLearningStore.stop()
+    globalLearningStore = null
   }
 
   if (globalMonitorCollector !== null) {
