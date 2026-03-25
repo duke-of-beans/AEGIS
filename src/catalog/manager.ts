@@ -1,5 +1,5 @@
 import { join, dirname } from 'path'
-import { existsSync, mkdirSync, readFileSync, appendFileSync } from 'fs'
+import { readFileSync, appendFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { getLogger } from '../logger/index.js'
 import { CatalogDb } from './schema.js'

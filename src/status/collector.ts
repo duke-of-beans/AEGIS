@@ -240,7 +240,7 @@ export class StatsCollector {
           unresolved_count: this.catalog.getStats().unknown,
           suspicious_count: this.catalog.getStats().suspicious,
         } : {}),
-        ...(this.contextEngine !== null ? (() => {
+        ...(this.contextEngine !== null ? ((): Record<string, unknown> => {
           const cs = this.contextEngine.getState()
           const overlays = this.policyManager?.getStack().overlays.map((o) => o.name) ?? []
           return {

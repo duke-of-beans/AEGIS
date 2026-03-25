@@ -164,7 +164,7 @@ while($true) {
         [FgWin]::GetWindowText($hwnd, $title, 256) | Out-Null
         $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
         $name = if ($proc) { $proc.Name } else { '' }
-        Write-Output ("{""pid"":$pid,""name"":""$name"",""title"":""$($title.ToString().Replace('""','\"'))"",""ts"":" + [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() + "}")
+        Write-Output ("{""pid"":$pid,""name"":""$name"",""title"":""$($title.ToString().Replace('"','""'))"",""ts"":" + [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() + "}")
         [Console]::Out.Flush()
     } catch {
         Write-Output ('{"pid":0,"name":"","title":"","ts":' + [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() + '}')

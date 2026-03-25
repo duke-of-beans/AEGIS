@@ -8,7 +8,6 @@
 import Database from 'better-sqlite3'
 import { existsSync, mkdirSync } from 'fs'
 import { join, dirname } from 'path'
-import { fileURLToPath } from 'url'
 import { getLogger } from '../logger/index.js'
 import type { ContextName } from '../context/engine.js'
 

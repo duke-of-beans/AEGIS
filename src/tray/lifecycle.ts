@@ -136,22 +136,25 @@ export async function startup(configPath?: string): Promise<void> {
     catalog.seedIfEmpty()
 
     // Wire catalog identification request → persist to pending file
-    globalStatusServer.onIdentificationRequest(async (req): Promise<void> => {
+    globalStatusServer.onIdentificationRequest((req): Promise<void> => {
       catalog.requestIdentification(req.name)
+      return Promise.resolve()
     })
 
     // Wire catalog resolve → update catalog db
-    globalStatusServer.onCatalogResolve(async (req): Promise<void> => {
+    globalStatusServer.onCatalogResolve((req): Promise<void> => {
       catalog.resolveProcess(req.name, req)
+      return Promise.resolve()
     })
 
     // Wire feedback → learning store
-    globalStatusServer.onFeedback(async (req): Promise<void> => {
+    globalStatusServer.onFeedback((req): Promise<void> => {
       if (globalLearningStore !== null) {
         const signal = req.signal as import('../learning/store.js').FeedbackSignal
         const intensity = req.intensity as import('../learning/store.js').FeedbackIntensity
         globalLearningStore.recordExplicitFeedback(req.action_id, signal, intensity)
       }
+      return Promise.resolve()
     })
 
     globalTimer = new ProfileTimer()
@@ -234,7 +237,7 @@ export async function startup(configPath?: string): Promise<void> {
     globalContextEngine.start()
 
     // Wire context state into collector now that engine is live
-    globalStatsCollector.setContextEngine(globalContextEngine!, globalPolicyManager!)
+    globalStatsCollector.setContextEngine(globalContextEngine, globalPolicyManager)
 
     // Start SniperEngine — baseline + deviation detection + graduated actions
     const baseline = initBaseline(appDataPath)
@@ -397,11 +400,11 @@ export async function startup(configPath?: string): Promise<void> {
         globalTimer
       )
       mcpServer.setIntelligence({
-        contextEngine: globalContextEngine!,
-        policyManager: globalPolicyManager!,
-        sniperEngine: globalSniperEngine!,
-        learningStore: globalLearningStore!,
-        loadEngine: globalLoadEngine!,
+        contextEngine: globalContextEngine,
+        policyManager: globalPolicyManager,
+        sniperEngine: globalSniperEngine,
+        learningStore: globalLearningStore,
+        loadEngine: globalLoadEngine,
       })
       mcpServer.startStdio()
     }
