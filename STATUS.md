@@ -27,7 +27,7 @@ workaround is start_process + Get-Content (documented in BACKLOG).
 
 ## What's Complete
 
-- [x] AEGIS-INTEL-06: catalog wiring — constructor fix, seedIfEmpty, recordObservation, get_state stats, cockpit panel, 200-entry seed (8e25562) (2026-03-25)
+- [x] AEGIS-INTEL-06: catalog wiring — constructor fix, seedIfEmpty, recordObservation, get_state stats, cockpit panel, 200-entry seed (7dca86f) (2026-03-25)
 - [x] AEGIS-HELP-01: CSS-only tooltip system (assets/status.css data-tooltip), tooltips on
   all 20+ interactive elements across status.hta + settings.hta, setAttribute at render
   time for all dynamic elements in status.js (eed64b5)

@@ -28,7 +28,7 @@ Last Updated: 2026-03-25 (AEGIS-INTEL-06 closed)
   redirect to file and read back.
 
 ## Completed
-- [x] AEGIS-INTEL-06: catalog wiring — constructor fix, seedIfEmpty, recordObservation, get_state stats, cockpit panel, 200-entry seed. Lint gate fixed (8e25562) (2026-03-25)
+- [x] AEGIS-INTEL-06: catalog wiring — constructor fix, seedIfEmpty, recordObservation, get_state stats, cockpit panel, 200-entry seed. Lint gate fixed (7dca86f) (2026-03-25)
 - [x] AEGIS-HELP-01: CSS-only tooltip system — data-tooltip on all 20+ cockpit elements,
   settings window, dynamic elements via status.js (eed64b5) (2026-03-25)
 - [x] AEGIS-BRAVE-03: tab suspension UI — per-tab controls, bulk ops, collapsible panel,

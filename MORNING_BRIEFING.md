@@ -24,7 +24,7 @@
 - **npm run lint:** PASS — 0 errors (was 202 pre-existing before @types/better-sqlite3 installed)
 - **npx tsc --noEmit (sidecar):** PASS — 0 errors
 - **catalog.db seed verify:** PASS — 200 rows confirmed
-- **Git:** 8e25562
+- **Git:** 7dca86f
 
 ---
 
