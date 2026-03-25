@@ -37,6 +37,8 @@ async function initEngines(): Promise<void> {
         confidence: evt.confidence,
         timestamp: new Date().toISOString(),
       })
+      // Keep sniper context in sync
+      if (sniperEngine?.setContext) sniperEngine.setContext(evt.to)
     })
 
     contextEngine.start()
@@ -65,21 +67,29 @@ async function initEngines(): Promise<void> {
   try {
     const { SniperEngine } = require('./sniper/engine')
     const { BaselineEngine } = require('./sniper/baseline')
-    // SniperEngine may need a baseline — attempt construction
-    sniperEngine = new SniperEngine()
+    const dbPath = path.join(os.homedir(), 'AppData', 'Roaming', 'AEGIS', 'baseline.db')
+    const baseline = new BaselineEngine(dbPath)
+    baseline.start()
+    log('info', 'BaselineEngine started', { dbPath })
 
-    sniperEngine.on('action_requested', (action: any) => {
-      writeEvent({
-        type: 'sniper_action_requested',
-        pid: action.pid,
-        name: action.name,
-        action: action.action,
-        reason: action.reason,
-        timestamp: new Date().toISOString(),
-      })
+    // CatalogManager may not be available yet — pass null-safe proxy
+    sniperEngine = new SniperEngine(baseline, catalogManager ?? { lookup: () => null, canActOn: () => false })
+
+    sniperEngine.on('event', (evt: any) => {
+      if (evt.type === 'action_taken') {
+        writeEvent({
+          type: 'sniper_action_requested',
+          pid: evt.pid,
+          name: evt.name,
+          action: evt.action,
+          reason: evt.reason ?? '',
+          timestamp: new Date().toISOString(),
+        })
+      }
     })
 
-    log('info', 'SniperEngine started')
+    sniperEngine.start()
+    log('info', 'SniperEngine started', { rules: sniperEngine.getRules().length })
   } catch (e: any) {
     log('warn', 'SniperEngine unavailable', { err: e.message })
   }
@@ -151,6 +161,22 @@ function handleRequest(req: any): void {
       } else {
         writeResponse(id, { ok: true, score: 0 })
       }
+      break
+    }
+
+    case 'update_processes': {
+      const processes = params?.processes ?? []
+      const context = contextEngine?.getState()?.current ?? 'unknown'
+      if (sniperEngine?.ingest) {
+        sniperEngine.ingest(processes.map((p: any) => ({
+          name: p.name,
+          pid: p.pid,
+          cpu_percent: p.cpu_percent ?? 0,
+          memory_mb: p.memory_mb ?? 0,
+          handle_count: p.handle_count ?? 0,
+        })))
+      }
+      writeResponse(id, { ok: true })
       break
     }
 

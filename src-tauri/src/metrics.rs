@@ -84,6 +84,19 @@ pub async fn start_polling<R: Runtime>(app: AppHandle<R>) {
             "memory_percent": metrics.memory.percent
         }));
 
+        // Feed process snapshots to sidecar for baseline tracking + sniper evaluation.
+        // Best-effort — if sidecar is not running, send_to_sidecar is a no-op.
+        let proc_payload: Vec<serde_json::Value> = metrics.processes.iter().map(|p| serde_json::json!({
+            "pid": p.pid,
+            "name": p.name,
+            "cpu_percent": p.cpu_percent,
+            "memory_mb": p.memory_mb,
+            "handle_count": 0
+        })).collect();
+        crate::sidecar::send_to_sidecar(&app, "update_processes", serde_json::json!({
+            "processes": proc_payload
+        }));
+
         let _ = app.emit("metrics", &metrics);
     }
 }

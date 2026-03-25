@@ -107,7 +107,7 @@ Nothing in this list is optional. This IS the product.
 
 ### AEGIS-INTEL-03 — Sniper Engine: Wire Baseline
 
-- [ ] **AEGIS-INTEL-03** — Sniper engine with baseline — fully operational
+- [x] **AEGIS-INTEL-03** — Sniper engine with baseline — fully operational (CLOSED 2026-03-25)
   Currently SniperEngine fails silently because it receives no baseline parameter.
   This sprint:
   · Instantiates BaselineEngine in sidecar with correct db path

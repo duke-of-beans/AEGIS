@@ -944,6 +944,23 @@ waitForTauri(function(invoke,listen){
 
   // ── Sniper action event (spike animation) ──────────────────────────
   listen('sniper_action',function(event){
+    var d=event.payload||{};
+    // Add to SNAP for action log rendering
+    if(SNAP){
+      if(!SNAP.sniper)SNAP.sniper={recent_actions:[]};
+      var reason=d.reason||'';
+      // Map cryptic/empty reason to readable English
+      if(!reason||reason.length<5)reason='Behavioral deviation detected.';
+      SNAP.sniper.recent_actions.unshift({
+        name:d.name||'unknown',
+        pid:d.pid||0,
+        action:d.action||'throttle',
+        reason:reason,
+        timestamp:d.timestamp||new Date().toISOString()
+      });
+      if(SNAP.sniper.recent_actions.length>20)SNAP.sniper.recent_actions.length=20;
+      renderAlog(SNAP);
+    }
     // Spike the sniper canvas
     if(_sniperPts.length>0){
       var spike=_sniperPts[_sniperPts.length-1];
@@ -952,9 +969,6 @@ waitForTauri(function(invoke,listen){
         _sniperPts.push(spike+(i===0?-spike*0.6:(_sniperPts[_sniperPts.length-1]-spike)*0.7));
       }
     }
-    // Update sniper status count
-    var ss=document.getElementById('sniper-status');
-    if(ss){var cur=parseInt(ss.textContent)||0;ss.textContent=(cur+1)+' action'+((cur+1)!==1?'s':'');}
   });
 
   // ── Profile change event ───────────────────────────────────────────

@@ -1,5 +1,23 @@
 # AEGIS — CHANGELOG
 
+## [AEGIS-INTEL-03] — 2026-03-25
+
+### Sniper Engine with Baseline: Fully Operational
+
+- **BaselineEngine** instantiated in sidecar with db path `%APPDATA%/AEGIS/baseline.db` — Welford online variance, per-process per-context fingerprints
+- **SniperEngine** constructor fixed — now receives `BaselineEngine` + `CatalogManager` (null-safe proxy if catalog not ready)
+- **`update_processes` RPC** added to sidecar `handleRequest()` — feeds process snapshots to `sniperEngine.ingest()` on every metrics cycle
+- **Rust metrics loop** now sends `update_processes` to sidecar on every 2s poll (alongside existing `update_metrics`)
+- **`suspend` action** added to `handle_sniper_request` in `sidecar.rs` (throttle/suspend/kill all wired)
+- **Cockpit action log** — `sniper_action` Tauri event listener now pushes actions into `SNAP.sniper.recent_actions` and calls `renderAlog()`; plain-English reason displayed inline
+- **Sniper canvas** spike animation fires on `sniper_action` event (existing animation, now triggered by real events)
+- **Context sync** — `sniperEngine.setContext()` called on every `context_changed` event so sniper thresholds respect current context
+- **Sidecar binary** rebuilt via `@yao-pkg/pkg` node20-win-x64 (58.2 MB)
+- `npm run lint`: 0 errors · `cargo check`: 0 errors
+
+**Expected behavior:** Sniper will not fire immediately — requires MIN_SAMPLES (20) observations per process per context before baseline is reliable. `baseline.db` will appear at `%APPDATA%/AEGIS/` within minutes of first launch.
+
+
 All notable changes to AEGIS are documented here.
 Format: [Sprint] Date — Summary
 

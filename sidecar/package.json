@@ -5,8 +5,8 @@
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc",
-    "bundle": "pkg dist/main.js --target node20-win-x64 --output ../src-tauri/binaries/aegis-sidecar-x86_64-pc-windows-msvc.exe",
-    "build-and-bundle": "tsc && pkg dist/main.js --target node20-win-x64 --output ../src-tauri/binaries/aegis-sidecar-x86_64-pc-windows-msvc.exe",
+    "bundle": "npx @yao-pkg/pkg . --target node20-win-x64 --output ../src-tauri/binaries/aegis-sidecar-x86_64-pc-windows-msvc.exe",
+    "build-and-bundle": "tsc && npx @yao-pkg/pkg . --target node20-win-x64 --output ../src-tauri/binaries/aegis-sidecar-x86_64-pc-windows-msvc.exe",
     "dev": "node dist/main.js"
   },
   "dependencies": {
@@ -24,7 +24,12 @@
     "typescript": "^5.3.3"
   },
   "pkg": {
-    "assets": ["dist/**/*"],
-    "targets": ["node20-win-x64"]
-  }
+    "assets": [
+      "dist/**/*"
+    ],
+    "targets": [
+      "node20-win-x64"
+    ]
+  },
+  "bin": "dist/main.js"
 }

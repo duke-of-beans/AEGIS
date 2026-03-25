@@ -154,12 +154,15 @@ fn handle_sniper_request<R: Runtime>(app: &AppHandle<R>, json: &serde_json::Valu
         "throttle" => {
             let _ = crate::commands::set_process_priority(pid, "idle".to_string());
         }
+        "suspend" => {
+            let _ = crate::commands::suspend_process(pid);
+        }
         "kill" => {
             let _ = crate::commands::kill_process_cmd(pid);
         }
         _ => {}
     }
 
-    // Emit action to cockpit for display in action log
+    // Emit action to cockpit for display in action log (includes reason from sidecar)
     let _ = app.emit("sniper_action", json);
 }
