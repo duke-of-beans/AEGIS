@@ -80,7 +80,7 @@ AEGIS.exe (Tauri 2, ~52MB)
 
 | Sprint | Commit | Date | Summary |
 |--------|--------|------|---------|
-| AEGIS-TAURI-02-04 | pending | 2026-03-24 | Tray, metrics, sidecar, cockpit |
+| AEGIS-TAURI-02-04 | d7967f5 | 2026-03-24 | Tray, metrics, sidecar, cockpit |
 | AEGIS-TAURI-01 | 18f3812 | 2026-03-24 | Tauri 2 scaffold, first compile |
 | AEGIS-UI-01 | d7b8772 | 2026-03-24 | v3 cockpit (Node era, retired) |
 | AEGIS-MCP-02 | b0c416a | 2026-03-24 | 14-tool MCP publisher |
