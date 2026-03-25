@@ -1,7 +1,7 @@
 ﻿# AEGIS — STATUS
 Status: Active Development
 Phase: Intelligence Layer Build-Out
-Last Sprint: AEGIS-INTEL-05 — context engine full integration (CLOSED 2026-03-25)
+Last Sprint: AEGIS-INTEL-05 — context engine full integration (CLOSED 2026-03-25, bf59ef7)
 Last Updated: 2026-03-25
 
 ## Open Work
@@ -11,7 +11,7 @@ Last Updated: 2026-03-25
 - [x] AEGIS-INTEL-03 — sniper + baseline operational (CLOSED 2026-03-25)
 - [x] AEGIS-INTEL-04 — learning store feedback loop (CLOSED 2026-03-25)
 - [x] AEGIS-AMBIENT-01 — profiles demoted, ambient-first (CLOSED 2026-03-25)
-- [x] AEGIS-INTEL-05 — context engine full integration (CLOSED 2026-03-25)
+- [x] AEGIS-INTEL-05 — context engine full integration (CLOSED 2026-03-25, bf59ef7)
 - [ ] AEGIS-INTEL-06 — process catalog live queue
 - [ ] AEGIS-PROCS-01 — process management complete with feedback
 - [ ] AEGIS-HELP-01 — hover help system complete

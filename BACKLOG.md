@@ -140,7 +140,7 @@ Nothing in this list is optional. This IS the product.
 
 ### AEGIS-INTEL-05 — Context Engine: Full Integration
 
-- [x] **AEGIS-INTEL-05** — Context engine fully wired to all systems (CLOSED 2026-03-25)
+- [x] **AEGIS-INTEL-05** — Context engine fully wired to all systems (CLOSED 2026-03-25, bf59ef7)
   Context engine is running but context changes don't influence sniper thresholds
   or produce meaningful cockpit output.
   This sprint:

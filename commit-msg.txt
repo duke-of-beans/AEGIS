@@ -1,14 +1,1 @@
-﻿feat(intel-05): context engine full integration
-
-PolicyManager wired to context_changed - applyContextOverlays() called
-on every transition, policies_updated event emitted to cockpit.
-get_policies and lock_context RPC methods added. Sniper context
-multipliers: build=2.0x threshold, deep_work=1.5x, idle=0.5x.
-Build context process exemptions: node/cargo/rustc/tsc never actioned.
-Context history persisted to %APPDATA%/AEGIS/context_history.jsonl,
-survives restarts. Cockpit context panel fully live: confidence bar,
-time-in-context, focus drivers, last 5 transitions. Manual context
-lock modal with 30/60/120 min options. sidecar_lock_context Tauri
-command registered.
-
-Acceptance: lint 0 errors, cargo check 0 errors, binary rebuilt.
+﻿chore: backfill bf59ef7 hash into STATUS and BACKLOG for AEGIS-INTEL-05
