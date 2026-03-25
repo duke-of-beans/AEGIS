@@ -1,8 +1,13 @@
 import express from 'express'
+import { readFileSync, writeFileSync } from 'fs'
+import { join } from 'path'
+import * as yaml from 'js-yaml'
 import { getLogger } from '../logger/index.js'
-import type { SystemSnapshot } from '../config/types.js'
+import type { SystemSnapshot, HistoryPoint } from '../config/types.js'
+import type { LoadedProfile, AegisConfig } from '../config/types.js'
 import type { Server } from 'http'
 import { buildStatusHtml } from './html.js'
+import type { ProfileRegistry } from '../profiles/registry.js'
 
 export class StatusServer {
   private app = express()
@@ -17,6 +22,9 @@ export class StatusServer {
   private identificationRequestCallback: ((req: { name: string; path?: string; publisher?: string; network?: string[] }) => Promise<void>) | null = null
   private catalogResolveCallback: ((req: { name: string; trust_tier: number; risk_label: string; action_permissions: string[]; notes?: string; source: string }) => Promise<void>) | null = null
   private feedbackCallback: ((req: { action_id: string; signal: string; intensity: string }) => Promise<void>) | null = null
+  private registry: ProfileRegistry | null = null
+  private registryConfig: AegisConfig | null = null
+  private historyGetter: (() => HistoryPoint[]) | null = null
   private logger = getLogger()
 
   constructor(port: number) {
@@ -65,7 +73,7 @@ export class StatusServer {
       })()
     })
 
-    this.app.get('/health', (_req, res) => { res.json({ alive: true, version: '3.0.0' }) })
+    this.app.get('/health', (_req, res) => { res.json({ alive: true, version: '2.1.0' }) })
     this.app.get('/', (_req, res) => { res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.send(buildStatusHtml()) })
 
     this.app.post('/tabs/:id/suspend', (req, res): void => {
@@ -134,6 +142,75 @@ export class StatusServer {
         catch (error) { this.logger.error('Feedback failed', { error }); res.status(500).json({ error: 'Feedback failed' }) }
       })()
     })
+
+    // GET /profiles — return ordered list of loaded profiles
+    this.app.get('/profiles', (_req, res) => {
+      if (this.registry === null || this.registryConfig === null) {
+        res.status(503).json({ error: 'Profiles not loaded' })
+        return
+      }
+      try {
+        const all = this.registry.getAllProfiles()
+        const order = this.registryConfig.profile_order
+        const ordered: LoadedProfile[] = []
+        for (const name of order) {
+          const found = all.find((p: LoadedProfile) => p.name === name)
+          if (found !== undefined) ordered.push(found)
+        }
+        // Append any profiles not in profile_order
+        for (const p of all) {
+          if (!order.includes(p.name)) ordered.push(p)
+        }
+        res.json(ordered)
+      } catch (error) {
+        this.logger.error('GET /profiles failed', { error })
+        res.status(500).json({ error: 'Failed to load profiles' })
+      }
+    })
+
+    // POST /profiles/:name — partial update, merge into YAML file
+    this.app.post('/profiles/:name', (req, res): void => {
+      if (this.registryConfig === null) { res.status(503).json({ error: 'Config not loaded' }); return }
+      const { name } = req.params
+      const body = req.body as Record<string, unknown> | undefined
+      if (body === undefined || body === null) { res.status(400).json({ error: 'Missing body' }); return }
+      try {
+        const profilesDir = this.registryConfig.profiles_dir
+        const filePath = join(profilesDir, `${name}.yaml`)
+        const raw = readFileSync(filePath, 'utf-8')
+        const parsed = yaml.load(raw) as Record<string, unknown>
+        const profile = (parsed['profile'] ?? parsed) as Record<string, unknown>
+        // Deep-merge body into profile
+        for (const key of Object.keys(body)) {
+          const existing = profile[key]
+          const incoming = body[key]
+          if (typeof existing === 'object' && existing !== null && !Array.isArray(existing) &&
+              typeof incoming === 'object' && incoming !== null && !Array.isArray(incoming)) {
+            profile[key] = { ...(existing as Record<string, unknown>), ...(incoming as Record<string, unknown>) }
+          } else {
+            profile[key] = incoming
+          }
+        }
+        if (parsed['profile'] !== undefined) {
+          parsed['profile'] = profile
+        }
+        writeFileSync(filePath, yaml.dump(parsed['profile'] !== undefined ? parsed : profile, { lineWidth: -1 }), 'utf-8')
+        res.json({ success: true })
+      } catch (error) {
+        this.logger.error('POST /profiles/:name failed', { name, error })
+        res.status(500).json({ error: 'Failed to update profile' })
+      }
+    })
+
+    // GET /history — return CPU/RAM history ring buffer
+    this.app.get('/history', (req, res) => {
+      if (this.historyGetter === null) { res.json([]); return }
+      const buffer = this.historyGetter()
+      const minutes = Math.min(30, Math.max(1, parseInt(String(req.query['minutes'] ?? '30'), 10) || 30))
+      const maxPoints = Math.ceil((minutes * 60) / 2) // 2s intervals
+      const sliced = buffer.length > maxPoints ? buffer.slice(buffer.length - maxPoints) : buffer
+      res.json(sliced)
+    })
   }
 
   async start(): Promise<void> {
@@ -159,4 +236,6 @@ export class StatusServer {
   onIdentificationRequest(callback: (req: { name: string; path?: string; publisher?: string; network?: string[] }) => Promise<void>): void { this.identificationRequestCallback = callback }
   onCatalogResolve(callback: (req: { name: string; trust_tier: number; risk_label: string; action_permissions: string[]; notes?: string; source: string }) => Promise<void>): void { this.catalogResolveCallback = callback }
   onFeedback(callback: (req: { action_id: string; signal: string; intensity: string }) => Promise<void>): void { this.feedbackCallback = callback }
+  setRegistry(registry: ProfileRegistry, config: AegisConfig): void { this.registry = registry; this.registryConfig = config }
+  setHistoryGetter(getter: () => HistoryPoint[]): void { this.historyGetter = getter }
 }

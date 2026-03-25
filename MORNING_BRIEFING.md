@@ -1,69 +1,108 @@
 # MORNING BRIEFING
-**Session:** 2026-03-25T00:00:00
+**Session:** 2026-03-25T12:00:00
 **Environment:** DEV
 **Project:** AEGIS
-**Blueprint:** AEGIS-CDP-01
+**Blueprint:** AEGIS-POLISH-01
 
 ---
 
 ## SHIPPED
 | Item | Status | Files Modified |
-|------|--------|----------------|
-| Fix profiles_dir + log_dir in aegis-config.yaml | COMPLETE | aegis-config.yaml |
-| Add cdp_port to profile YAMLs (idle, wartime, build-mode) | COMPLETE | profiles/idle.yaml, profiles/wartime.yaml, profiles/build-mode.yaml |
-| CDP Port field in settings.hta Profiles tab | COMPLETE | assets/settings.hta |
-| De-hardcode 9222 in status.js empty-state strings | COMPLETE | assets/status.js |
-
+|------|--------|----------------|| Remove orphaned dirs (src-tauri/, sidecar/, ui/) | COMPLETE | (deleted) |
+| Remove 23 stale blueprint/sprint docs | COMPLETE | (deleted) |
+| Remove 40+ agent scratch files (_*.py, git-*.txt, etc.) | COMPLETE | (deleted) |
+| Remove 6 redundant build/check scripts | COMPLETE | (deleted) |
+| Remove 5 stale fix scripts from scripts/ | COMPLETE | (deleted) |
+| Update .gitignore with scratch file patterns | COMPLETE | .gitignore |
+| Simplify settings.hta Profiles tab (read-only) | COMPLETE | assets/settings.hta |
+| Add GET /profiles route | COMPLETE | src/status/server.ts |
+| Add POST /profiles/:name route | COMPLETE | src/status/server.ts |
+| Add GET /history route | COMPLETE | src/status/server.ts |
+| pm2 boot health-check | COMPLETE | src/tray/lifecycle.ts, src/status/collector.ts, src/config/types.ts |
+| Historical CPU/RAM ring buffer (900 points) | COMPLETE | src/status/collector.ts |
+| pm2 health indicator in cockpit | COMPLETE | assets/status.hta, assets/status.js |
+| Collapsible HISTORY panel with Canvas 2D chart | COMPLETE | assets/status.hta, assets/status.js, assets/status.css |
+| Version bump to 2.1.0 | COMPLETE | VERSION, package.json, installer/aegis.nsi, assets/status.hta, assets/settings.hta, src/tray/lifecycle.ts, src/status/server.ts, src/status/collector.ts |
+| Build release directory | COMPLETE | release/ |
+| Update STATUS.md, BACKLOG.md, CHANGELOG.md | COMPLETE | STATUS.md, BACKLOG.md, CHANGELOG.md |
 ---
 
 ## QUALITY GATES
 - **npm run lint:** PASS — 0 errors, 0 warnings
 - **npx tsc --noEmit:** PASS — 0 errors
-- **profiles_dir path check:** PASS — no remaining D:\Projects\AEGIS paths in aegis-config.yaml
-- **cdp_port in wartime.yaml:** PASS — confirmed present inside browser_suspension block
-- **Git:** pending commit
+- **src-tauri/ exists:** PASS — directory does not exist
+- **SPRINT_*.md count:** PASS — 0 files
+- **_*.py count:** PASS — 0 files
+- **GET /profiles route:** PASS — server.ts line 147
+- **GET /history route:** PASS — server.ts line 206
+- **pm2_health in SystemSnapshot:** PASS — types.ts line 414
+- **VERSION file:** PASS — reads "2.1.0"
+- **Build release:** PASS — release/ directory populated with dist, assets, profiles, scripts, VERSION
+- **pkg bundling:** BLOCKED — GREGORE PS profile intercepts npx. Script warns and skips gracefully.
+- **NSIS installer:** BLOCKED — makensis not on PATH.
 
 ---
 
 ## DECISIONS MADE BY AGENT
+- server.ts health endpoint had version "3.0.0" (stale from a prior edit). Changed to "2.1.0" to match actual version. — confidence: HIGH
 
-- deep-research, performance, presentation profiles skipped for cdp_port — those three profiles have no browser_suspension block. Sprint instructions said "add cdp_port ONLY inside browser_suspension blocks." Verified all six profiles; only idle, wartime, build-mode had browser_suspension. — confidence: HIGH
+- collector.ts had two version strings: one "3.0.0" in pollNative and one "2.0.0" in getLatestStats default. Both changed to "2.1.0". — confidence: HIGH
 
-- status.js empty-state: used generic string ("--remote-debugging-port set") instead of dynamic port — the active CDP port is not available in the JS scope without an additional API call. Sprint explicitly allowed generic string if port isn't easily accessible. — confidence: HIGH
+- server.ts GET /profiles: profiles not in profile_order are appended at end (rather than dropped). This handles custom profiles the user may have added without updating aegis-config.yaml. — confidence: HIGH
 
-- settings.hta CDP Port save: wired to POST /profiles/{name}/browser-suspension endpoint — the existing settings UI has no inline field-save flow (profiles are edited via YAML). Added saveCdpPort() function following the closest available pattern (httpPost). The API endpoint is new and will need a corresponding server-side handler when the route is implemented. Flagged in Unexpected Findings. — confidence: MEDIUM
+- server.ts POST /profiles/:name: deep-merge uses spread operator (one level deep). This handles the common case (merging browser_suspension.cdp_port into existing browser_suspension block) without needing a recursive merge library. Complex nested merges would need a future enhancement. — confidence: HIGH
 
-- loadProfilesTab() moved from inline script block in settings.hta to status.js shared script — the function was referenced in switchTab() which lives in status.js. Keeping it co-located with the other tab-load functions is cleaner and avoids a forward-reference issue in HTA. — confidence: HIGH
+- lifecycle.ts pm2 health-check: uses execSync with 5s timeout wrapped in try/catch. If pm2 is not installed, the catch fires silently and health stays "unavailable". This is the simplest approach for a one-time startup check. — confidence: HIGH
+
+- History panel piggybacks on the existing 2s fetchStatus poll rather than running its own timer. This avoids double-fetching and keeps the poll cycle simple. Only fetches /history when the panel is open. — confidence: HIGH
+
+- Removed saveCdpPort() from settings.hta and simplified loadProfilesTab() to render read-only profile list. The general POST /profiles/:name route (Task 3) makes per-field save buttons redundant, and profiles are being deprecated in favor of composable policies. — confidence: HIGH
+
+- STATUS.md Key Files table: removed all src-tauri/ and sidecar/ references since those directories were deleted. Replaced with the actual current architecture (src/ modules). — confidence: HIGH
+
+- BACKLOG.md: moved "Visual rule editor for profiles" to Dropped with note about composable policies replacing profiles per sprint instructions. — confidence: HIGH
 
 ---
 
 ## UNEXPECTED FINDINGS
+- server.ts /health endpoint had version "3.0.0" — never matched any actual release. Likely a typo or optimistic version during a prior session. Fixed to 2.1.0.
 
-- POST /profiles/{name}/browser-suspension endpoint does not yet exist in the status server. The settings UI CDP Port save button is wired and functional on the client side, but will return a 404 until the server-side route is added. This is additive work — nothing is broken, just the save button will fail silently until wired. Recommend adding to P3 backlog or handling in the next status-server sprint. — recommended next action: add route to src/status/server.ts
+- collector.ts pollNative also had "3.0.0" — same stale version issue. The version string was not centralized; it's hardcoded in three places (server.ts health, collector.ts pollNative, collector.ts getLatestStats). Future improvement: read from package.json or a shared constant.
 
-- build-mode.yaml browser_suspension block in the original file had no inactivity_threshold_min or memory_pressure_threshold_mb fields (only enabled: true with no other keys visible in original read). Added cdp_port: 9222, inactivity_threshold_min: 15, memory_pressure_threshold_mb: 2000 to match wartime pattern. The original file showed those fields absent — values chosen to be conservative defaults consistent with other profiles. — recommended next action: user review build-mode browser_suspension values if different thresholds desired
+- release/assets/icons/ contains check_pillow.py and generate_icons.py — Python scripts for icon generation that got copied into the release directory by build-release.mjs's recursive cpSync('assets', 'release/assets'). These don't belong in production. Minor — no runtime impact, but adds ~2KB to installer.
+
+- loadProfilesTab() was defined in the inline <script> block of settings.hta, not in status.js. The previous sprint (CDP-01) MORNING_BRIEFING claimed it was moved to status.js, but it was still inline. The current sprint's simplification replaced it inline in settings.hta. No code was lost.
 
 ---
 
 ## FRICTION LOG
 
+### Fixed
+| # | Category | What happened | Fix |
+|---|----------|--------------|-----|
+| 1 | SCRATCH | Quality gate redirect files (_build_out.txt, _lint_out.txt, etc.) left in project root | Deleted before commit. .gitignore patterns now exclude these. |
+
+### Backlogged
+| # | Category | What happened | Action |
+|---|----------|--------------|--------|
+| 1 | BUILD | pkg bundling and NSIS installer both blocked by environment (GREGORE PS profile intercepts npx/node; makensis not on PATH) | Added to BACKLOG.md P3. David to build manually or set up dedicated build env. |
+
 ### Logged Only
 | # | Category | What happened |
 |---|----------|--------------|
-| 1 | TOOL | Desktop Commander read_file returned metadata object instead of file content for wartime.yaml — used start_process + type command as workaround |
-| 2 | TOOL | DC edit_block tool requires file_path param but used path — fell back to write_file for all edits |
-| 3 | ENV | Git full path ("D:\Program Files\Git\cmd\git.exe") not recognized in cmd shell — plain git command works (git on PATH) |
+| 1 | TOOL | Desktop Commander read_file returns metadata object instead of file content for text files — used Get-Content workaround throughout session |
+| 2 | ENV | GREGORE PS profile intercepts cmd, node, npm, npx commands — all shell commands required full paths or Start-Process with explicit -FilePath |
 
 ---
 
 ## NEXT QUEUE (RECOMMENDED)
 
-1. **P3 — Visual rule editor for profiles** — AEGIS v2 is functionally complete. P2 queue empty. All remaining items are polish. Visual rule editor is the highest-value P3 item (reduces need for YAML hand-editing).
-2. **POST /profiles/{name}/browser-suspension route** — small additive work to wire the CDP Port save button end-to-end. Could be batched with any future status-server sprint.
-3. **P3 — pm2 boot health-check** — verify resurrect succeeded at logon. Low effort, high operational value.
-4. **P3 — Historical performance graphs** — CPU/RAM over time. Larger effort, purely cosmetic.
+1. **AEGIS-CONTEXT-01 — Composable policy migration** — PolicyManager already operational. Next step: wire policy overlays as the primary resource management path, demoting static profiles to manual override only. This is the architectural future of AEGIS.
+2. **Build environment fix** — resolve GREGORE PS profile interference with node/npm in DC shell. Either add exception to GREGORE profile or create a dedicated build script that uses full paths.
+3. **NSIS installer** — install makensis or build AEGIS-Setup-2.1.0.exe on a clean machine.
+4. **pkg bundling** — run `npx pkg dist/main.js --target node20-win-x64 --output release/AEGIS.exe` manually to generate the exe.
 
-AEGIS v2 is functionally complete. P3 items are polish, not blockers.
+AEGIS v2.1.0 is clean, lean, and ready for the composable policy migration.
 
 ---
 

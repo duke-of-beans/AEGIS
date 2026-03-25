@@ -1,5 +1,63 @@
 # AEGIS — CHANGELOG
 
+## [2.1.0] AEGIS-POLISH-01 — 2026-03-25
+### Shipped — P3 Polish, Cleanup, and Release Build
+
+**Removed**
+- `src-tauri/`, `sidecar/`, `ui/` directories — orphaned v4 Tauri architecture, never shipped.
+- 23 stale blueprint/sprint docs (SPRINT_*.md, BLUEPRINT_*.md, etc.)
+- 40+ agent scratch files (_*.py, git-*.txt, lint-*.txt, tsc-*.txt, etc.)
+- 6 redundant build/check scripts (check.mjs, check-html.js, BUILD.bat, etc.)
+- 5 stale fix scripts from scripts/ directory
+- Settings Profiles tab: CDP port inline editor, Edit button, Reset button removed.
+  Profiles are now read-only in the UI — power users use Open Profiles Folder.
+
+**Added**
+- `GET /profiles` route in `src/status/server.ts` — returns ordered array of LoadedProfile
+  objects. Used by settings.hta General tab dropdown and Profiles tab read-only list.
+- `POST /profiles/:name` route — accepts partial profile fields, deep-merges into YAML file.
+  ProfileRegistry file watcher detects changes and reloads automatically.
+- `GET /history` route — returns ring buffer of CPU/RAM history points (max 30 minutes).
+  Optional `?minutes=N` query param for slicing.
+- pm2 boot health-check in `src/tray/lifecycle.ts` — runs `pm2 jlist` at startup, stores
+  result as `Pm2Health` in SystemSnapshot. Static, not polled.
+- `Pm2Health` and `HistoryPoint` interfaces in `src/config/types.ts`.
+- `pm2_health` field on `SystemSnapshot` type.
+- History ring buffer in `StatsCollector` — 900-point buffer (30 min at 2s intervals).
+  `setPm2Health()` and `getHistory()` methods added.
+- pm2 health indicator in cockpit (status.hta) — green dot when available + online, gray
+  when unavailable. Same pattern as Worker and KERNL indicators.
+- Collapsible HISTORY panel in cockpit — CPU line (green) and RAM line (amber) on raw
+  Canvas 2D. 296×80px, grid lines at 25/50/75%, time labels at 5-minute intervals.
+  Default collapsed. Fetches from GET /history on each 2s poll when open.
+- `.gitignore` patterns for agent scratch files: _*.py, _*.txt, git-*.txt, lint-*.txt,
+  tsc-*.txt, commit-msg.txt, conflicts.txt, conflicts-err.txt.
+- Note in Profiles tab: "Profiles are manual overrides. AEGIS manages resources
+  automatically via the intelligence stack."
+
+**Changed**
+- Version bumped to 2.1.0 across: VERSION, package.json, installer/aegis.nsi, status.hta
+  header + About section, settings.hta About section, lifecycle.ts --version + log strings,
+  server.ts /health endpoint, collector.ts default/native versions.
+
+**Quality Gates**
+- `npm run lint` — 0 errors, 0 warnings ✅
+- `npx tsc --noEmit` — 0 errors ✅
+- `src-tauri/` does not exist ✅
+- No `SPRINT_*.md` files in project root ✅
+- No `_*.py` files in project root ✅
+- GET /profiles route exists (server.ts line 147) ✅
+- GET /history route exists (server.ts line 206) ✅
+- `pm2_health` field exists in SystemSnapshot (types.ts line 414) ✅
+- VERSION reads "2.1.0" ✅
+
+**Blocked**
+- `pkg` bundling (AEGIS.exe) — GREGORE PS profile intercepts npx/node. Build script
+  handles gracefully (warns and skips). David to run manually.
+- NSIS installer — `makensis` not on PATH. David to build manually.
+
+---
+
 ## [AEGIS-CDP-01] — 2026-03-25
 ### Shipped — Per-Profile CDP Port Config
 

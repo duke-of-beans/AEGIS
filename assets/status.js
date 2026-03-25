@@ -60,6 +60,8 @@ function fetchStatus() {
   httpGet(BASE_URL + '/profiles', function(err, data) {
     if (!err && data) { allProfiles = data; renderQuickSwitch(data) }
   })
+  // Piggyback history fetch on poll if panel is open
+  if (historyPanelOpen) fetchAndRenderHistory()
 }
 function renderStatus(s) {
   // Update accent color CSS variable
@@ -328,6 +330,13 @@ function renderHealth(health) {
   }
   setDot('worker-dot', health.worker); setText('worker-text', health.worker)
   setDot('kernl-dot', health.kernl); setText('kernl-text', health.kernl)
+  // pm2 health — comes from snapshot.pm2_health, not health object
+  if (currentSnapshot && currentSnapshot.pm2_health) {
+    var ph = currentSnapshot.pm2_health
+    var pm2State = (ph.available && ph.status === 'online') ? 'online' : 'offline'
+    setDot('pm2-dot', pm2State)
+    setText('pm2-text', ph.available ? ph.status : 'unavailable')
+  }
 }
 
 function renderTimer(timer) {
@@ -585,4 +594,91 @@ function openProfilesFolder() {
     var shell = new ActiveXObject('WScript.Shell')
     shell.Run('explorer "%APPDATA%\\AEGIS\\profiles"')
   } catch(e) {}
+}
+
+// ── HISTORY PANEL ────────────────────────────────────────────────────────────
+var historyPanelOpen = false
+
+function toggleHistoryPanel() {
+  historyPanelOpen = !historyPanelOpen
+  var body = document.getElementById('history-panel-body')
+  var toggle = document.getElementById('history-panel-toggle')
+  if (body) body.style.display = historyPanelOpen ? '' : 'none'
+  if (toggle) toggle.innerHTML = historyPanelOpen ? '&#9660;' : '&#9658;'
+  if (historyPanelOpen) fetchAndRenderHistory()
+}
+
+function fetchAndRenderHistory() {
+  httpGet(BASE_URL + '/history', function(err, data) {
+    if (err || !data || !data.length) return
+    renderHistoryChart(data)
+  })
+}
+
+function renderHistoryChart(points) {
+  var canvas = document.getElementById('history-canvas')
+  if (!canvas) return
+  var ctx = canvas.getContext('2d')
+  if (!ctx) return
+  var W = canvas.width
+  var H = canvas.height
+
+  // Clear
+  ctx.clearRect(0, 0, W, H)
+
+  // Subtle grid lines at 25/50/75%
+  ctx.strokeStyle = '#30363d'
+  ctx.lineWidth = 0.5
+  for (var g = 1; g <= 3; g++) {
+    var gy = H - (H * (g * 25) / 100)
+    ctx.beginPath()
+    ctx.moveTo(0, gy)
+    ctx.lineTo(W, gy)
+    ctx.stroke()
+  }
+
+  if (points.length < 2) return
+
+  var tMin = points[0].t
+  var tMax = points[points.length - 1].t
+  var tRange = tMax - tMin
+  if (tRange <= 0) return
+
+  // Draw line helper
+  function drawLine(color, field) {
+    ctx.strokeStyle = color
+    ctx.lineWidth = 1.5
+    ctx.beginPath()
+    for (var i = 0; i < points.length; i++) {
+      var x = ((points[i].t - tMin) / tRange) * W
+      var y = H - (H * Math.min(100, points[i][field]) / 100)
+      if (i === 0) ctx.moveTo(x, y)
+      else ctx.lineTo(x, y)
+    }
+    ctx.stroke()
+  }
+
+  // CPU line in green, RAM in amber
+  drawLine('#22c55e', 'cpu')
+  drawLine('#f59e0b', 'ram')
+
+  // Time labels at 5-minute intervals
+  ctx.fillStyle = '#7d8590'
+  ctx.font = '9px Segoe UI'
+  ctx.textAlign = 'center'
+  var intervalMs = 5 * 60 * 1000
+  var firstTick = Math.ceil(tMin / intervalMs) * intervalMs
+  for (var t = firstTick; t <= tMax; t += intervalMs) {
+    var tx = ((t - tMin) / tRange) * W
+    var d = new Date(t)
+    var label = (d.getHours() < 10 ? '0' : '') + d.getHours() + ':' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes()
+    ctx.fillText(label, tx, H - 2)
+  }
+
+  // Update time range label
+  var labelEl = document.getElementById('history-time-label')
+  if (labelEl) {
+    var mins = Math.round(tRange / 60000)
+    labelEl.textContent = mins + 'm'
+  }
 }

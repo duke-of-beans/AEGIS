@@ -345,6 +345,18 @@ export interface ProcessTreeEntry {
   path: string | null
 }
 
+export interface Pm2Health {
+  available: boolean
+  status: string
+  pid: number | null
+}
+
+export interface HistoryPoint {
+  t: number
+  cpu: number
+  ram: number
+}
+
 export interface SystemSnapshot {
   timestamp: string
   version: string
@@ -399,6 +411,7 @@ export interface SystemSnapshot {
     auto_mode_unlocked: boolean
     decisions_until_auto: number | null
   }
+  pm2_health?: Pm2Health
 }
 
 // ============================================================

@@ -1,16 +1,22 @@
 # AEGIS — BACKLOG
-Last Updated: 2026-03-25 (AEGIS-CDP-01 closed — P2 queue empty)
+Last Updated: 2026-03-25 (AEGIS-POLISH-01 shipped — v2.1.0)
 
 ## P1 — High Priority
 (none)
 
 ## P2 — Normal Queue
-(empty — AEGIS v2 functionally complete)
+(empty — AEGIS v2.1 functionally complete)
 
 ## P3 — Eventually
-- [ ] Visual rule editor for profiles
-- [ ] Historical performance graphs (CPU/RAM over time)
-- [ ] pm2 boot health-check — verify resurrect succeeded at logon
+- [ ] Composable policy migration — PolicyManager fully replaces static profile switching.
+  Profiles remain as manual override fallback until migration complete.
+- [ ] pkg bundling fix — GREGORE PS profile intercepts npx/node in build scripts.
+  Need PATH workaround or dedicated build environment.
+- [ ] NSIS installer rebuild — makensis not on PATH. Install NSIS or build on clean machine.
+
+## Dropped
+- ~~Visual rule editor for profiles~~ — Profiles replaced by composable policies
+  (AEGIS-CONTEXT-01 / PolicyManager). No new profile UI investment.
 
 ## Friction / Dev Environment
 - [ ] Desktop Commander read_file returns empty for text files in Cowork. Workaround:
@@ -23,6 +29,9 @@ Last Updated: 2026-03-25 (AEGIS-CDP-01 closed — P2 queue empty)
   there). Note this in any future sprint that touches catalog or sqlite.
 
 ## Completed
+- [x] AEGIS-POLISH-01: v2.1.0 — codebase cleanup, read-only profiles tab, GET/POST profiles
+  routes, pm2 boot health-check, historical CPU/RAM graphs, version bump, orphan removal
+  (src-tauri/, sidecar/, ui/, 23 sprint docs, 40+ scratch files). (2026-03-25)
 - [x] AEGIS-CDP-01: per-profile CDP port config — profiles_dir bug fixed, log_dir fixed,
   cdp_port added to browser_suspension in idle/wartime/build-mode profiles, Settings UI
   CDP Port field added to Profiles tab, status.js empty-state de-hardcoded. lint: 0 errors,

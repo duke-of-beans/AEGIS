@@ -28,7 +28,7 @@ html, body { width: 320px; height: auto; min-height: 380px; }
     <span class="header-title">AEGIS</span>
   </div>
   <div style="display:flex;align-items:center;gap:8px">
-    <span class="header-version" id="header-version">2.0</span>
+    <span class="header-version" id="header-version">2.1</span>
     <button class="header-close" onclick="window.close()"
       data-tooltip="Close the status window. AEGIS continues running in the tray."
       data-tooltip-pos="left">✕</button>
@@ -75,6 +75,23 @@ html, body { width: 320px; height: auto; min-height: 380px; }
   </div>
 </div>
 
+<!-- [C2] History panel (collapsible, default collapsed) -->
+<div class="process-section" id="history-section">
+  <div class="section-header" onclick="toggleHistoryPanel()" style="cursor:pointer">
+    <span class="section-label"
+      data-tooltip="CPU and RAM usage over the last 30 minutes. Updated every 2 seconds.">HISTORY</span>
+    <span id="history-time-label" style="color:var(--text-muted);font-size:11px"></span>
+    <span id="history-panel-toggle" style="color:var(--text-muted);font-size:11px;margin-left:auto">&#9658;</span>
+  </div>
+  <div id="history-panel-body" style="display:none">
+    <canvas id="history-canvas" width="296" height="80" style="display:block;margin-top:4px"></canvas>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-top:2px">
+      <span style="color:var(--bar-green)">● CPU</span>
+      <span style="color:var(--bar-amber)">● RAM</span>
+    </div>
+  </div>
+</div>
+
 <!-- [D] Elevated processes -->
 <div class="process-section" id="elevated-section" style="display:none">
   <div class="section-header">
@@ -110,6 +127,12 @@ html, body { width: 320px; height: auto; min-height: 380px; }
       data-tooltip="KERNL integration status. Gray = not connected (this is normal — KERNL is optional). Green = connected and sharing session context with AEGIS."></span>
     <span data-tooltip="KERNL — optional session management integration. When connected, AEGIS can receive context hints from KERNL to improve profile suggestions. Not connected = harmless.">KERNL</span>
     <span id="kernl-text" style="color:var(--text-muted);margin-left:4px">—</span>
+  </div>
+  <div class="health-item">
+    <span class="health-dot health-offline" id="pm2-dot"
+      data-tooltip="pm2 process manager status. Green = AEGIS registered and online in pm2. Gray = pm2 not available or AEGIS not registered."></span>
+    <span data-tooltip="pm2 — process manager for boot persistence. When available, AEGIS auto-restarts on crash and survives reboots via pm2 startup.">pm2</span>
+    <span id="pm2-text" style="color:var(--text-muted);margin-left:4px">—</span>
   </div>
 </div>
 

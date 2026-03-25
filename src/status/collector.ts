@@ -1,5 +1,6 @@
+import { execSync } from 'child_process'
 import { getLogger } from '../logger/index.js'
-import { SystemSnapshot, ProcessStats, BrowserTabsSnapshot } from '../config/types.js'
+import { SystemSnapshot, ProcessStats, BrowserTabsSnapshot, Pm2Health, HistoryPoint } from '../config/types.js'
 import { WorkerIpc } from '../worker/ipc.js'
 import { TabManager } from '../browser/tab-manager.js'
 import { checkIsElevated } from '../system/elevation.js'
@@ -32,6 +33,9 @@ export class StatsCollector {
   private recentSniperEvents: SniperEvent[] = []
   private learningStore: LearningStore | null = null
   private loadEngine: CognitiveLoadEngine | null = null
+  private pm2Health: Pm2Health = { available: false, status: 'unavailable', pid: null }
+  private historyBuffer: HistoryPoint[] = []
+  private static readonly HISTORY_MAX = 900
 
   constructor(ipc: WorkerIpc | null, _activeProfile: string) {
     this.ipc = ipc
@@ -70,6 +74,14 @@ export class StatsCollector {
     this.loadEngine = loadEngine
   }
 
+  setPm2Health(health: Pm2Health): void {
+    this.pm2Health = health
+  }
+
+  getHistory(): HistoryPoint[] {
+    return this.historyBuffer
+  }
+
   start(): void {
     if (this.isRunning) {
       return
@@ -99,7 +111,7 @@ export class StatsCollector {
     return (
       this.latestStats ?? {
         timestamp: new Date().toISOString(),
-        version: '2.0.0',
+        version: '2.1.0',
         active_profile: '',
         active_profile_color: '',
         cpu_percent: 0,
@@ -323,6 +335,19 @@ export class StatsCollector {
         }
       }
 
+      // Include pm2 health (static, set once at startup)
+      this.latestStats.pm2_health = this.pm2Health
+
+      // Push to history ring buffer
+      this.historyBuffer.push({
+        t: Date.now(),
+        cpu: this.latestStats.cpu_percent,
+        ram: this.latestStats.memory_percent,
+      })
+      if (this.historyBuffer.length > StatsCollector.HISTORY_MAX) {
+        this.historyBuffer.shift()
+      }
+
       // Include confidence state
       if (this.learningStore !== null) {
         const conf = this.learningStore.getConfidenceState()
@@ -374,7 +399,7 @@ export class StatsCollector {
       const snapshot: SystemSnapshot = {
         ...base,
         timestamp: new Date().toISOString(),
-        version: '3.0.0',
+        version: '2.1.0',
         cpu_percent: cpuPercent,
         memory_percent: memPercent,
         memory_mb_used: Math.round(usedMem / 1024 / 1024),
@@ -403,6 +428,19 @@ export class StatsCollector {
 
   private enrichSnapshot(): void {
     if (this.latestStats === null) return
+
+    // Include pm2 health
+    this.latestStats.pm2_health = this.pm2Health
+
+    // Push to history ring buffer
+    this.historyBuffer.push({
+      t: Date.now(),
+      cpu: this.latestStats.cpu_percent,
+      ram: this.latestStats.memory_percent,
+    })
+    if (this.historyBuffer.length > StatsCollector.HISTORY_MAX) {
+      this.historyBuffer.shift()
+    }
 
     if (this.contextEngine !== null) {
       const cs = this.contextEngine.getState()

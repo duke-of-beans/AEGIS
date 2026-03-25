@@ -9,3 +9,13 @@ state.json
 .DS_Store
 Thumbs.db
 *.js.map
+
+# Agent scratch files — never commit
+_*.py
+_*.txt
+git-*.txt
+lint-*.txt
+tsc-*.txt
+commit-msg.txt
+conflicts.txt
+conflicts-err.txt

@@ -198,3 +198,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', syste
 .tab-badge-suspended { display:inline-block; font-size:10px; padding:1px 5px; border-radius:3px; background:#27200a; color:#f59e0b; border:1px solid #f59e0b40; font-weight:600; letter-spacing:.3px; flex-shrink:0; }
 .tab-badge-active    { display:inline-block; font-size:10px; padding:1px 5px; border-radius:3px; background:var(--bg-header); color:var(--text-muted); border:1px solid var(--border); font-weight:600; letter-spacing:.3px; flex-shrink:0; }
 .tab-domain { color: var(--text-muted); font-size:11px; flex-shrink:0; max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* History panel */
+#history-section { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+#history-canvas { background: var(--bg-header); border-radius: var(--radius); }

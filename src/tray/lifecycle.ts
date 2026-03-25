@@ -1,4 +1,5 @@
 import { existsSync } from 'fs'
+import { execSync } from 'child_process'
 import { spawn } from 'child_process'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
@@ -33,6 +34,7 @@ import { notify } from './notifications.js'
 import { MemoryManager } from '../memory/manager.js'
 import { TabManager, launchBrave } from '../browser/tab-manager.js'
 import { checkIsElevated } from '../system/elevation.js'
+import type { Pm2Health } from '../config/types.js'
 import { initCatalog } from '../catalog/manager.js'
 import { ContextEngine } from '../context/engine.js'
 import { PolicyManager } from '../context/policies.js'
@@ -74,7 +76,7 @@ export async function startup(configPath?: string): Promise<void> {
     const cliArgs = process.argv.slice(2)
 
     if (cliArgs.includes('--version')) {
-      console.log('AEGIS 2.0.0')
+      console.log('AEGIS 2.1.0')
       process.exit(0)
     }
 
@@ -111,7 +113,7 @@ export async function startup(configPath?: string): Promise<void> {
     initLogger(config.logging.level, config.logging.log_dir)
     logger = getLogger()
 
-    logger.info('AEGIS starting', { version: '2.0.0' })
+    logger.info('AEGIS starting', { version: '2.1.0' })
 
     const profilesDir = config.profiles_dir
     if (!existsSync(profilesDir)) {
@@ -130,6 +132,27 @@ export async function startup(configPath?: string): Promise<void> {
 
     globalStatusServer = new StatusServer(config.status_window.port)
     await globalStatusServer.start()
+
+    // Wire profile registry into status server for GET/POST /profiles routes
+    globalStatusServer.setRegistry(registry, config)
+
+    // pm2 boot health-check — run once at startup, store result
+    let pm2Health: Pm2Health = { available: false, status: 'unavailable', pid: null }
+    try {
+      const pm2Raw = execSync('pm2 jlist', { encoding: 'utf-8', timeout: 5000 })
+      const pm2List = JSON.parse(pm2Raw) as Array<{ name?: string; pm_id?: number; pm2_env?: { status?: string } }>
+      const aegisProc = pm2List.find((p) => {
+        const n = (p.name ?? '').toLowerCase()
+        return n === 'aegis'
+      })
+      if (aegisProc !== undefined) {
+        const status = aegisProc.pm2_env?.status ?? 'unknown'
+        pm2Health = { available: true, status, pid: aegisProc.pm_id ?? null }
+      }
+    } catch {
+      // pm2 not installed or not running — leave as unavailable
+    }
+    logger.info('pm2 health check', pm2Health)
 
     // Initialize process catalog — prerequisite for all v3 intelligence
     const catalog = initCatalog(appDataPath)
@@ -212,6 +235,11 @@ export async function startup(configPath?: string): Promise<void> {
     globalStatsCollector = new StatsCollector(ipc, state.active_profile || config.default_profile)
     globalStatsCollector.setTabManager(globalTabManager, config.browser_manager.enabled)
     globalStatsCollector.setCatalog(catalog)
+    globalStatsCollector.setPm2Health(pm2Health)
+
+    // Wire history getter so GET /history can read the ring buffer
+    globalStatusServer.setHistoryGetter(() => globalStatsCollector!.getHistory())
+
     globalStatsCollector.onStatsUpdated((snapshot) => {
       if (globalStatusServer !== null) {
         globalStatusServer.updateSnapshot(snapshot)

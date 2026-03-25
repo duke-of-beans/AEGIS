@@ -1,8 +1,8 @@
 # AEGIS — STATUS
 
 **Status:** active
-**Phase:** v2.x — complete (P2 queue empty)
-**Last Sprint:** AEGIS-CDP-01
+**Phase:** v2.1.0 — AEGIS-POLISH-01 shipped
+**Last Sprint:** AEGIS-POLISH-01
 **Last Updated:** 2026-03-25
 **Completion:** 100%
 
@@ -59,9 +59,12 @@ workaround is start_process + Get-Content (documented in BACKLOG).
 
 ## Open Work
 
-- [ ] **[P3]** Visual rule editor for profiles
-- [ ] **[P3]** Historical performance graphs (CPU/RAM over time)
-- [ ] **[P3]** pm2 boot health-check — verify resurrect succeeded at logon
+- [ ] **[P3]** Composable policy migration — replace static profile switching with
+  PolicyManager-driven resource allocation. Profiles remain as manual override fallback.
+- [ ] **[P3]** pkg bundling fix — GREGORE PS profile intercepts npx/node; need PATH
+  workaround or dedicated build script for AEGIS.exe generation.
+- [ ] **[P3]** NSIS installer rebuild — makensis not on PATH. Install NSIS or build
+  installer on a clean machine.
 
 ## Blockers
 
@@ -71,19 +74,20 @@ None.
 
 | File | Purpose |
 |------|---------|
-| `sidecar/src/catalog/manager.ts` | CatalogManager — lookup, canActOn, recordObservation |
-| `sidecar/src/catalog/schema.ts` | CatalogDb — better-sqlite3 schema, seed |
-| `sidecar/src/catalog/seed.json` | 200 seeded Windows processes |
-| `sidecar/src/main.ts` | Engine init, RPC dispatch, catalog wiring |
-| `assets/status.css` | CSS-only tooltip system (data-tooltip) |
-| `assets/status.hta` | Main cockpit |
-| `assets/settings.hta` | Settings window |
-| `assets/status.js` | Dynamic tooltip assignment |
+| `src/tray/lifecycle.ts` | Main process orchestration, pm2 health check |
+| `src/status/server.ts` | Status HTTP server, GET /profiles, POST /profiles/:name, GET /history |
+| `src/status/collector.ts` | 2s poll loop, history ring buffer, pm2 health |
+| `src/config/types.ts` | All TypeScript types (SystemSnapshot, Pm2Health, HistoryPoint) |
+| `src/catalog/manager.ts` | CatalogManager — lookup, canActOn, recordObservation |
+| `src/context/engine.ts` | ContextEngine — foreground window tracking |
+| `src/context/policies.ts` | PolicyManager — composable overlays |
+| `src/sniper/engine.ts` | SniperEngine — baseline + deviation detection |
+| `src/learning/store.ts` | LearningStore — feedback loop, confidence scoring |
+| `assets/status.hta` | Main cockpit (history panel, pm2 indicator) |
+| `assets/settings.hta` | Settings window (read-only profiles tab) |
+| `assets/status.js` | Shared JS — polling, rendering, history chart |
+| `assets/status.css` | CSS-only tooltip system, history panel styles |
 | `src/browser/tab-manager.ts` | Brave tab tracking, suspension engine |
 | `src/browser/cdp-client.ts` | WebSocket CDP client |
-| `src/tray/lifecycle.ts` | Main process orchestration |
-| `src-tauri/src/metrics.rs` | 2s poll loop, update_processes feed |
-| `src-tauri/src/sidecar.rs` | handle_sniper_request, events |
-| `src-tauri/src/commands.rs` | All Tauri commands |
 | `D:\Meta\ecosystem.config.cjs` | pm2 process config |
 | `D:\Meta\bounce.bat` | pm2 restart dashboard |
