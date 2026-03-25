@@ -1,5 +1,23 @@
 ﻿# AEGIS — CHANGELOG
 
+## [AEGIS-INTEL-06] — 2026-03-25
+### Shipped — Catalog Wiring (Four Gaps Closed)
+
+**Fixed**
+- `sidecar/src/main.ts` — CatalogManager constructor now receives `appDataPath` (Roaming folder) instead of full db path. Manager appends `AEGIS/catalog.db` internally. Root cause of silent catalog failure.
+- `sidecar/src/main.ts` — `seedIfEmpty()` called immediately after CatalogManager init. 200-entry seed now loads on first startup.
+- `sidecar/src/main.ts` — `recordObservation()` called for every process on each `update_processes` RPC cycle. Unknown processes now accumulate observation counts.
+- `sidecar/src/main.ts` — `get_state` RPC response now includes `catalog` stats object (`total`, `unknown`, `suspicious`, `seeded`) and `unresolved_processes` / `suspicious_processes` arrays.
+- `ui/index.html` — Catalog panel added to right column after context panel. Shows live `total / unresolved / suspicious` counts. Unknown count turns amber when > 0; suspicious turns red. Collapsible unresolved list (top 10 with observation counts). Suspicious banner renders only when count > 0. Tooltips wired via existing `TIP_CONTENT` system.
+- `sidecar/src/catalog/seed.json` — Deduped and extended to 200 entries (`snippingtool`, `magnify` added). `winlogon`/`lsass` duplicate entries removed.
+- `sidecar/src/better-sqlite3.d.ts` — Type shim added for `better-sqlite3` module (missing `@types` install in sidecar). Resolves sidecar `tsc --noEmit` errors.
+- Root `package.json` — `@types/better-sqlite3` installed to devDependencies. Resolves 202 pre-existing ESLint unsafe-any errors in `src/catalog/schema.ts`, `src/learning/store.ts`, `src/sniper/baseline.ts`.
+
+**Quality Gates**
+- `npm run lint` — 0 errors (was 202 pre-existing)
+- `npx tsc --noEmit` (sidecar) — 0 errors
+- `catalog.db` seeds to 200 rows on first startup — verified
+
 ## [AEGIS-INTEL-05] — 2026-03-25
 
 ## [AEGIS-BRAVE-03] — 2026-03-25

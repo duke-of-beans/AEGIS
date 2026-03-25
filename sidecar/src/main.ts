@@ -88,8 +88,9 @@ async function initEngines(): Promise<void> {
 
   try {
     const { CatalogManager } = require('./catalog/manager')
-    const dbPath = path.join(os.homedir(), 'AppData', 'Roaming', 'AEGIS', 'catalog.db')
-    catalogManager = new CatalogManager(dbPath)
+    const appDataPath = path.join(os.homedir(), 'AppData', 'Roaming')
+    catalogManager = new CatalogManager(appDataPath)
+    catalogManager.seedIfEmpty()
     log('info', 'CatalogManager ready')
   } catch (e: any) {
     log('warn', 'CatalogManager unavailable', { err: e.message })
@@ -221,6 +222,23 @@ function handleRequest(req: any): void {
         active_watches: sniperEngine ? (sniperEngine.getActiveWatchCount?.() ?? 0) : 0,
         focus_weights: ctx?.focus_weights ?? {},
         context_history: contextEngine?.getHistory?.() ?? [],
+        catalog: catalogManager ? {
+          total: catalogManager.getStats().total,
+          unknown: catalogManager.getStats().unknown,
+          suspicious: catalogManager.getStats().suspicious,
+          seeded: catalogManager.getStats().total > 0,
+        } : null,
+        unresolved_processes: catalogManager?.getUnresolved().slice(0, 10).map((u: any) => ({
+          name: u.name,
+          observation_count: u.observation_count,
+          status: u.status,
+          first_seen_at: u.first_seen_at,
+        })) ?? [],
+        suspicious_processes: catalogManager?.getSuspicious().map((u: any) => ({
+          name: u.name,
+          path: u.path,
+          network_connections: u.network_connections,
+        })) ?? [],
       })
       break
     }
@@ -269,6 +287,11 @@ function handleRequest(req: any): void {
           memory_mb: p.memory_mb ?? 0,
           handle_count: p.handle_count ?? 0,
         })))
+      }
+      if (catalogManager) {
+        for (const proc of processes) {
+          catalogManager.recordObservation({ name: proc.name })
+        }
       }
       writeResponse(id, { ok: true })
       break
