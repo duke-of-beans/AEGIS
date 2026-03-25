@@ -128,7 +128,7 @@ Format: [Sprint] Date — Summary
 
 ---
 
-## [AEGIS-DEVOPS-01] 2026-03-25 — Pre-Push Lint Gate (commit: TBD-post-push)
+## [AEGIS-DEVOPS-01] 2026-03-25 — Pre-Push Lint Gate (commit: 9428d99)
 
 ### Added
 - `.git/hooks/pre-push` — POSIX shell script that runs `npm run lint` before every push

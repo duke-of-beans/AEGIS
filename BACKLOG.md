@@ -68,7 +68,7 @@ This sprint completes it completely and correctly.
 
 ## P0 — DEVOPS: LINT GATE (AEGIS-DEVOPS-01) ✓ DONE 2026-03-25
 
-- [x] **AEGIS-DEVOPS-01** — Pre-push lint gate (commit: TBD-post-push)
+- [x] **AEGIS-DEVOPS-01** — Pre-push lint gate (commit: 9428d99)
   `.git/hooks/pre-push` written and marked executable. Runs `npm run lint` on every
   push. Blocks with clear error output if lint fails. Emergency bypass documented.
   `CONTRIBUTING.md` created with Development section covering lint, typecheck, commit
