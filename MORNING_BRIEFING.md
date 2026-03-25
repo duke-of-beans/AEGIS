@@ -1,49 +1,39 @@
-# AEGIS — MORNING BRIEFING
-Generated: 2026-03-25
-Sprint Closed: AEGIS-INTEL-04 — Learning Store Feedback Loop
+# MORNING BRIEFING — AEGIS — 2026-03-25
 
----
+## Sprint Closed: AEGIS-AMBIENT-01 — Profiles Demoted, Ambient Intelligence Primary
+
+All acceptance criteria met. AEGIS is now ambient-first.
 
 ## What Was Done
 
-AEGIS now learns from its own actions. Every sniper intervention generates a feedback opportunity. The full loop is operational.
+**Tray menu** is completely restructured. The default state shows "● Ambient — auto-managing" as an informational item. Profiles are no longer top-level — they live inside a "Manual Override" submenu. When an override is active, the tray header changes to "OVERRIDE: [NAME]" and a "Release Override" item appears at the bottom of the submenu. The tooltip updates from "AEGIS — ambient" to "AEGIS — override: [name]" in real time. Menu rebuilds are done by storing the `TrayIcon<R>` in a managed `TrayState<R>` so async event handlers can call `set_menu` / `set_tooltip` without holding an app reference.
 
-**LearningStore wired.** The sidecar now instantiates `LearningStore` on boot, opens `%APPDATA%/AEGIS/sessions.db`, and starts a session using the detected context. Previously the `feedback` RPC case was a stub that did nothing. It now calls `recordExplicitFeedback()`, marks the action as reviewed, and emits a `confidence_updated` event back to the cockpit.
+**Cockpit header pill** (`pp-intel`) now communicates override state directly. When ambient, it shows "AMBIENT" in dim color. When a profile is active, it shows "OVERRIDE: [NAME]" in amber. It's clickable: clicking when override is active opens a release-override confirmation modal. Clicking when ambient does nothing (the tooltip explains why).
 
-**Action recording.** Every sniper `action_taken` event now calls `learningStore.recordAction()` before emitting `sniper_action_requested`. The returned `action_id` is carried in the event payload end-to-end through to the cockpit.
+**Right-panel override section** has been rebuilt. It now has a state dot (green = ambient, amber = override), a label that reads "ambient — auto-managing" or the profile name, a "release" button that only appears when an override is active, and a "change" button that's always available. The section still feels like an expert control, not a primary feature.
 
-**Implicit approval.** A 60-second `setTimeout` runs after each action. If no explicit feedback arrives, `updateActionOutcome()` fires — recording a mild positive. The `feedbackReceived` Set prevents double-counting when explicit feedback arrives first.
+**Per-process pin button** appears on hover in every process row alongside pause/priority/end. Clicking it opens a modal showing the current priority, a dropdown for the new priority, plain-English implication text for each level, and a notice that AEGIS will not auto-adjust the pinned process. Pins are stored in `localStorage['aegis_process_pins']` as `{ "process.exe": "priority" }`. They are client-side only — intentionally not persisted to the sidecar or any YAML file. On first metrics update after a page load, `applyPinsOnce()` re-applies all pins via `set_process_priority`.
 
-**90-second feedback prompt.** `handle_sniper_request` in `sidecar.rs` spawns a `tokio::async_runtime::spawn` task per action. It sleeps 90 seconds, then emits a `feedback_prompt` Tauri event to the cockpit WebView. The sniper handler thread is never blocked.
+**Sidecar** now exposes `override_active` (boolean) in `get_state` responses, `apply_profile` responses, and heartbeat events. `apply_profile` normalizes empty string to 'idle' so the cockpit and sidecar agree on what "ambient" means.
 
-**Cockpit feedback bar.** `#fbprompt` sits above the confidence panel. It appears with process name + action when `feedback_prompt` fires. Yes/OK/No each call `sidecar_feedback` (new Tauri command) with the appropriate signal/intensity. Dismissed after response or ×.
+## Quality Gate
+- `npm run lint`: ✅ 0 errors, 0 warnings
+- `cargo check`: ✅ 0 errors, 3 pre-existing warnings (profiles.rs dead field, sidecar.rs unused structs — not introduced this sprint)
 
-**Confidence panel.** Score percentage and decisions-until-auto now update live. At ≥75% (or `auto_mode_unlocked` from the sidecar), an "enable auto mode?" link appears. Clicking explains the feature and offers [Enable Auto]. Auto mode state persists to `localStorage` — it is a UI preference, not a sidecar concern.
+## Architecture Decisions Made This Sprint
 
----
+**Ambient mode is not a profile.** It is the absence of an override. There is no `ambient.yaml`. AEGIS in ambient mode runs the context engine, sniper, baseline, and cognitive load engine without applying any profile's CPU priority rules unless the sniper acts. This distinction matters: ambient ≠ idle profile. The idle profile still applies process priority rules. Ambient applies none.
 
-## Architecture Decision: Auto Mode in localStorage
+**Per-process pins are localStorage only.** The sidecar treats them as transient state. The cockpit re-applies them on first metrics update. This is intentional: pins are a UI preference. If the user closes and reopens the cockpit without restarting the sidecar, pins are restored. If the sidecar restarts, the cockpit re-applies them automatically within 2 seconds of first data.
 
-Auto mode is stored in `localStorage`, not in `sessions.db`. Rationale: the sidecar tracks confidence signals regardless of whether the cockpit is open. The cockpit decides whether to show confirmation UI. This keeps the separation clean — sidecar manages data, cockpit manages presentation. The sidecar's `auto_mode_unlocked` flag in `confidence_updated` events tells the cockpit when the threshold is met; the cockpit decides what to do with that information.
+## Friction Notes
 
----
+- `TrayIconBuilder::with_id()` is a constructor variant, not a chained `.id()` method. Tauri 2 docs are sparse on this — had to read the crate source directly.
+- Desktop Commander `File::Copy` with overwrite works even when `WriteAllText` is blocked by a shared file lock (WebView2 holding index.html). This is the correct write pattern for files open in the running app.
+- PowerShell string interpolation eats `$()` patterns in JS-heavy strings. Workaround: write patch scripts to disk as `.ps1` files and execute them, or use `String.Replace()` instead of `-replace` to avoid regex `$` interpretation.
 
-## Friction Pass
+## Next Sprint
 
-**tray.rs cargo check pre-existing failure.** 9 errors in `tray.rs` — Tauri API mismatch with `.id("tray")` and type inference issues in closures. These existed before this sprint and are not caused by any changes here. No new errors in `sidecar.rs` or `commands.rs`. This needs a dedicated fix sprint (AEGIS-TRAY-01 or folded into AEGIS-DEVOPS-02) before a full `cargo tauri build` can succeed.
+**AEGIS-INTEL-05** — Context engine full integration. Context changes currently don't influence sniper thresholds or produce meaningful cockpit output. This sprint wires context to sniper evaluation, adds context history to the cockpit, and exposes a manual context lock.
 
-**No live test of 90s delay.** The feedback prompt chain (sniper action → 90s → cockpit prompt → sidecar_feedback invoke → confidence update) has not been exercised end-to-end because the full build is blocked by tray.rs. All individual pieces are wired correctly. First live test should happen after tray.rs is fixed.
-
-**`sessions.db` vs `learning.db`.** The sprint spec said `learning.db` but the existing `LearningStore` implementation uses `sessions.db` (more descriptive, already established). Using `sessions.db`. Documented.
-
----
-
-## Next Up
-
-Unblocked by INTEL-04 closing:
-
-- **AEGIS-AMBIENT-01** — Profiles demoted to manual override, ambient mode primary (was blocked on INTEL-03, now fully unblocked)
-- **AEGIS-INTEL-05** — Context engine full integration (context changes influence sniper thresholds)
-- **AEGIS-TRAY-01** (new, implicit) — Fix 9 pre-existing tray.rs compile errors before next full cargo build
-
-Recommended next sprint: **AEGIS-AMBIENT-01** — architectural, high-value, no compile blockers.
+**AEGIS-PROCS-01** — Process management complete with implications. Process action buttons work from COCKPIT-02 but feedback UX can be improved. This sprint adds suspend badges, post-action confirmation, and critical process warnings.

@@ -1,5 +1,27 @@
 ﻿# AEGIS — CHANGELOG
 
+## [AEGIS-AMBIENT-01] — 2026-03-25
+
+### Ambient-First UI: Profiles Demoted to Manual Override
+
+- **Tray menu restructured** (`src-tauri/src/tray.rs`) — `TrayIconBuilder::with_id("tray")` used for stable ID; default header "AEGIS — Cognitive Resource OS"; ambient status item "● Ambient — auto-managing" shown as informational (disabled); profiles moved to "Manual Override" submenu; "Release Override" item appears in submenu only when override is active
+- **Override state in tray** — `OverrideState = Arc<Mutex<String>>` tracks active profile name; empty = ambient; `TrayState<R>` managed in `AppState` so event handlers can call `set_menu` / `set_tooltip` on the live tray without re-building from scratch
+- **Tray tooltip** — "AEGIS — ambient" at rest; "AEGIS — override: [name]" when override active; rebuilt on every profile switch or release
+- **Cockpit header pill** (`pp-intel`) — "AMBIENT" in dim color when no override; "OVERRIDE: [NAME]" in amber when active; clickable: opens release-override confirmation modal if override active, no-op if ambient; `pillIntelClick()` global function
+- **Right-panel override section** — state dot (green = ambient, amber = override); `fw2` label shows "ambient — auto-managing" or profile name in amber; "release" button appears only when override is active; "change" button always present; `updOverridePanel()` called from `renderHdr()` on every render cycle
+- **Per-process pin button** — "⊕ pin" (or "📌 pinned") appears on process row hover alongside pause/priority/end; opens `openPinModal()` with current priority, dropdown (high/above_normal/normal/below_normal/idle), plain-English implication text per level, and "AEGIS will not auto-adjust [process] while this pin is active" notice
+- **Pin storage** — `localStorage['aegis_process_pins']` JSON object `{ "process.exe": "priority" }`; client-side only, not persisted to sidecar or YAML (intentional — UI preference); `applyPinsOnce()` re-applies all pins via `set_process_priority` on first metrics update after load
+- **Release-override modal** — separate confirmation dialog: "Release [profile] override and return to ambient mode?" with [YES — RETURN TO AMBIENT] / [CANCEL]; triggered from pill click or right-panel release button; calls `switch_profile({name:'idle'})` on confirm
+- **Sidecar `get_state`** (`sidecar/src/main.ts`) — `override_active: activeProfile !== 'idle' && activeProfile !== ''` added to response; `apply_profile` normalizes empty string to 'idle'; `override_active: isOverride` included in `apply_profile` response; heartbeat includes `override_active` field
+
+### Architecture Decisions
+- Ambient mode is NOT a new profile. It is the absence of an override. No `ambient.yaml` created.
+- Per-process pins are localStorage only. The sidecar treats them as transient. Documented intentionally — they are UI preferences that survive browser reloads but not sidecar restarts without cockpit re-applying them.
+- `TrayState<R>` uses `Arc<Mutex<Option<TrayIcon<R>>>>` managed via `app.manage()` so async event handlers can borrow the tray for menu rebuild without holding the app reference.
+
+### Quality Gate
+- `npm run lint`: ✅ 0 errors, 0 warnings
+- `cargo check`: ✅ 0 errors, 3 pre-existing warnings (profiles.rs dead field, sidecar.rs unused structs — not introduced this sprint)
 ## [AEGIS-INTEL-04] — 2026-03-25
 
 ### Learning Store: Feedback Loop Operational
