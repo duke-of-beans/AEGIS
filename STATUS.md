@@ -36,7 +36,7 @@ environment — workaround is start_process + Get-Content. Logged to backlog.
 ## What's Complete
 
 - [x] AEGIS-HELP-01: CSS-only tooltip system (data-tooltip + ::after) across all interactive
-  elements in status.hta, settings.hta, and dynamically-rendered elements in status.js (ecfd292)
+  elements in status.hta, settings.hta, and dynamically-rendered elements in status.js (ca58b04)
 - [x] AEGIS-BRAVE-03: tab suspension UI — per-tab SUSPENDED/ACTIVE badges, per-tab
   Suspend/Restore buttons, bulk Suspend All / Restore All, collapsible panel,
   localStorage state persistence, browser toast notifications (2026-03-25)
