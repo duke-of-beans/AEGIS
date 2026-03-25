@@ -1,4 +1,4 @@
-# AEGIS — MASTER BACKLOG
+﻿# AEGIS — MASTER BACKLOG
 # Updated: 2026-03-25
 # Philosophy: Foundation-out. No MVPs. Nothing ships half-built.
 # Every sprint: acceptance criteria define DONE. No partial closes.
@@ -20,7 +20,7 @@
 ### NOT Working / Never Built
 - Sniper engine: wired in sidecar but SniperEngine constructor fails silently (missing baseline param)
 - Cognitive load score: always 0, nothing updates it
-- Learning store: feedback handler imported but never called
+- Learning store: fully operational — sessions.db, explicit + implicit feedback, confidence score, auto mode ✓
 - Disk I/O per drive: hardcoded 0 in Rust — sysinfo doesn't expose it without WMI
 - Tab navigation in cockpit: broken (scoping issue with sel())
 - Light mode toggle: broken
@@ -124,7 +124,7 @@ Nothing in this list is optional. This IS the product.
 
 ### AEGIS-INTEL-04 — Learning Store: Wire Feedback
 
-- [ ] **AEGIS-INTEL-04** — Learning store feedback loop operational
+- [x] **AEGIS-INTEL-04** — Learning store feedback loop operational (CLOSED 2026-03-25)
   LearningStore exists and starts but feedback is never recorded.
   This sprint:
   · Tray notification appears ~90 seconds after each sniper action:
@@ -173,7 +173,7 @@ Nothing in this list is optional. This IS the product.
 
 ## P1 — AMBIENT INTELLIGENCE: PROFILES → OVERRIDE (AEGIS-AMBIENT-01)
 
-- [ ] **AEGIS-AMBIENT-01** — Profiles demoted to manual override, ambient mode primary
+- [x] **AEGIS-AMBIENT-01** — Profiles demoted to manual override, ambient mode primary (CLOSED 2026-03-25)
   Profiles are currently the primary feature. They should be the escape hatch.
   This sprint:
   · Tray menu restructured: profiles moved to "Manual Override" submenu

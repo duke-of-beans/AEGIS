@@ -1,4 +1,4 @@
-// commands.rs — Tauri IPC commands exposed to the WebView cockpit
+﻿// commands.rs — Tauri IPC commands exposed to the WebView cockpit
 // Called from JS via: invoke('command_name', { args })
 
 use serde::{Serialize};
@@ -131,4 +131,20 @@ pub fn kill_process_cmd(pid: u32) -> Result<String, String> {
         }
     }
     Ok(format!("PID {} terminated", pid))
+}
+
+#[tauri::command]
+pub async fn sidecar_feedback(
+    action_id: String,
+    signal: String,
+    intensity: String,
+    app: tauri::AppHandle,
+) -> Result<String, String> {
+    use crate::sidecar::send_to_sidecar;
+    send_to_sidecar(&app, "feedback", serde_json::json!({
+        "action_id": action_id,
+        "signal": signal,
+        "intensity": intensity,
+    }));
+    Ok("feedback recorded".to_string())
 }

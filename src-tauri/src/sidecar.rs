@@ -1,4 +1,4 @@
-// sidecar.rs — Spawn and communicate with the intelligence sidecar
+﻿// sidecar.rs — Spawn and communicate with the intelligence sidecar
 // The sidecar is a compiled Node.js binary (pkg) bundled alongside AEGIS.
 // It runs the context engine, sniper, learning store, catalog, and MCP server.
 // Communication is JSON-RPC 2.0 over stdin/stdout — same protocol as the old PS worker,
@@ -145,6 +145,9 @@ fn handle_sniper_request<R: Runtime>(app: &AppHandle<R>, json: &serde_json::Valu
     let pid = json.get("pid").and_then(|p| p.as_u64()).unwrap_or(0) as u32;
     let action = json.get("action").and_then(|a| a.as_str()).unwrap_or("").to_string();
     let name = json.get("name").and_then(|n| n.as_str()).unwrap_or("").to_string();
+    let action_id = json.get("action_id").and_then(|a| a.as_str()).unwrap_or("").to_string();
+    let reason = json.get("reason").and_then(|r| r.as_str()).unwrap_or("").to_string();
+    let timestamp = json.get("timestamp").and_then(|t| t.as_str()).unwrap_or("").to_string();
 
     if pid == 0 { return; }
 
@@ -165,4 +168,21 @@ fn handle_sniper_request<R: Runtime>(app: &AppHandle<R>, json: &serde_json::Valu
 
     // Emit action to cockpit for display in action log (includes reason from sidecar)
     let _ = app.emit("sniper_action", json);
+
+    // Schedule a feedback_prompt notification 90 seconds later (non-blocking)
+    if !action_id.is_empty() {
+        let app_clone = app.clone();
+        tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(tokio::time::Duration::from_secs(90)).await;
+            let payload = serde_json::json!({
+                "action_id": action_id,
+                "process_name": name,
+                "action": action,
+                "reason": reason,
+                "timestamp": timestamp,
+            });
+            let _ = app_clone.emit("feedback_prompt", payload);
+            log::debug!("feedback_prompt emitted for action {}", action_id);
+        });
+    }
 }

@@ -1,4 +1,30 @@
-# AEGIS — CHANGELOG
+﻿# AEGIS — CHANGELOG
+
+## [AEGIS-INTEL-04] — 2026-03-25
+
+### Learning Store: Feedback Loop Operational
+
+- **LearningStore instantiated** in `sidecar/src/main.ts` `initEngines()` — uses `initLearningStore()` singleton, opens `%APPDATA%/AEGIS/sessions.db`, calls `start()` and `startSession(ctx)` on boot
+- **`feedback` RPC method** fully wired — calls `recordExplicitFeedback(action_id, signal, intensity)`, marks `feedbackReceived` Set to prevent implicit approval race, emits `confidence_updated` event with score + auto_mode_unlocked + decisions_until_auto
+- **`recordAction()` called** on every `sniper_engine` `action_taken` event — stores process name, action, context, zscore, cpu/memory before action; returns `action_id` included in `sniper_action_requested` event payload
+- **Implicit approval timer** — `setTimeout(60_000)` per action; if no explicit feedback received within 60s, calls `updateActionOutcome()` (mild positive) and emits `confidence_updated`; skipped if action was explicitly reviewed via `feedbackReceived` Set
+- **90-second feedback prompt** — `handle_sniper_request` in `sidecar.rs` spawns a `tokio::async_runtime::spawn` task that sleeps 90s then emits `feedback_prompt` Tauri event with `{action_id, process_name, action, reason, timestamp}`; never blocks the sniper handler thread
+- **`sidecar_feedback` Tauri command** added to `commands.rs` — calls `send_to_sidecar("feedback", {action_id, signal, intensity})`; registered in `main.rs` invoke handler
+- **Cockpit feedback prompt bar** (`#fbprompt`) — appears below action log when `feedback_prompt` event fires; shows process name + action; Yes/OK/No buttons call `submitFeedback(signal, intensity)` → `sidecar_feedback` invoke; dismissed after response or × click
+- **Confidence panel enhanced** — `#cscore-val` shows live 0-100% score; `#cscore-dec` shows decisions-until-auto or "threshold met"; both update on every `confidence_updated` event
+- **Auto mode offer** — `#auto-link` ("enable auto mode?") appears when score ≥ 75 or `auto_mode_unlocked` flag set; clicking opens modal explaining auto mode; [Enable Auto] persists state to `localStorage`; `#auto-badge` ("● AUTO MODE ACTIVE") shown when enabled
+- **Auto mode state** persisted to `localStorage` (UI preference only, not sidecar db) — restored on `DOMContentLoaded`
+- **`feedbackReceived` Set** module-level in `main.ts` — tracks action_ids that have received explicit feedback; prevents implicit approval from double-counting
+
+### Architecture Decision
+Auto mode state is a UI preference, not a sidecar concern. The sidecar tracks confidence through feedback signals regardless. The cockpit decides whether to show confirmation UI based on `auto_mode_unlocked`. This separation means AEGIS can act autonomously even if the cockpit is closed.
+
+### Quality Gate
+- `tsc --noEmit` — 0 errors ✓
+- Sidecar binary rebuilt — `src-tauri/binaries/aegis-sidecar-x86_64-pc-windows-msvc.exe` ✓
+- `cargo check` — 9 pre-existing errors in `tray.rs` (Tauri API mismatch, not introduced by this sprint); 0 new errors in `commands.rs` or `sidecar.rs` ✓
+
+---
 
 ## [AEGIS-INTEL-03] — 2026-03-25
 

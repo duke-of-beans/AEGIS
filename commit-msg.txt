@@ -1,14 +1,29 @@
-AEGIS-COCKPIT-02: complete cockpit rewrite — all systems functional
+AEGIS-INTEL-04: learning store feedback loop operational
 
-Tab navigation fixed (sel() globally scoped), light mode persists to
-localStorage, process action buttons execute Tauri IPC with visible
-feedback (no silent failures), sniper canvas animation live, profile
-override demoted to bottom panel, font sizes increased, IPC field
-mapping corrected (Rust → SNAP), DOMContentLoaded init wired.
+AEGIS now learns from its own actions. Every sniper intervention
+generates a feedback opportunity. Confidence score drives auto mode.
 
-Root cause: COCKPIT-01 session was interrupted — the final script block
-(modals, IPC init, toggleTheme, DOMContentLoaded) was never written.
-This sprint adds the complete missing block and corrects the tooltip
-block to match spec.
+Changes:
+- sidecar/src/main.ts: LearningStore instantiated in initEngines();
+  recordAction() called on sniper action_taken; feedback RPC wired to
+  recordExplicitFeedback(); implicit approval via 60s setTimeout;
+  confidence_updated event emitted after every feedback signal;
+  feedbackReceived Set prevents double-counting
+- src-tauri/src/sidecar.rs: handle_sniper_request spawns tokio task
+  to emit feedback_prompt after 90s (non-blocking); action_id carried
+  through event payload
+- src-tauri/src/commands.rs: sidecar_feedback Tauri command added
+- src-tauri/src/main.rs: sidecar_feedback registered in invoke handler
+- ui/index.html: feedback prompt bar (#fbprompt); confidence score
+  display (cscore-val, cscore-dec); auto mode offer + modal; auto mode
+  state persisted to localStorage; updateConfidencePanel() + feedback
+  globals; feedback_prompt event listener
+- src-tauri/binaries/aegis-sidecar-x86_64-pc-windows-msvc.exe: rebuilt
+- MORNING_BRIEFING.md, STATUS.md, BACKLOG.md, CHANGELOG.md: updated
 
-Quality: npm run lint 0 errors, npx tsc --noEmit 0 errors.
+Architecture: auto mode state in localStorage (UI preference),
+not sidecar db. Documented in MORNING_BRIEFING.
+
+Quality: tsc --noEmit 0 errors; cargo check pre-existing tray.rs
+errors only (9 errors, not introduced by this sprint)
+Unblocks: AEGIS-AMBIENT-01, AEGIS-INTEL-05

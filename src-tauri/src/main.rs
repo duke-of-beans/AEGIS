@@ -1,4 +1,4 @@
-// AEGIS v4 — Cognitive Resource OS
+﻿// AEGIS v4 — Cognitive Resource OS
 // Tauri 2 native Windows application
 // Rust core: system metrics, process control, tray, sidecar orchestration
 
@@ -65,6 +65,7 @@ fn main() {
             commands::suspend_process,
             commands::kill_process_cmd,
             commands::get_active_profile,
+            commands::sidecar_feedback,
         ])
         .on_window_event(|window, event| {
             // Only intercept close on the cockpit — hide to tray instead of quit

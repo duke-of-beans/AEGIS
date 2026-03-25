@@ -1,4 +1,4 @@
-// AEGIS Intelligence Sidecar — entry point v4
+﻿// AEGIS Intelligence Sidecar — entry point v4
 // JSON-RPC 2.0 over stdin/stdout. No HTTP server.
 // Engines: context detection, sniper, learning store, catalog, cognitive load
 
@@ -23,6 +23,10 @@ let contextEngine: any = null
 let sniperEngine: any = null
 let catalogManager: any = null
 let loadEngine: any = null
+let learningStore: any = null
+
+// Track which action_ids have received explicit feedback (to skip implicit approval)
+const feedbackReceived = new Set<string>()
 
 async function initEngines(): Promise<void> {
   try {
@@ -65,6 +69,19 @@ async function initEngines(): Promise<void> {
   }
 
   try {
+    const { initLearningStore } = require('./learning/store')
+    const lsPath = path.join(os.homedir(), 'AppData', 'Roaming', 'AEGIS')
+    learningStore = initLearningStore(lsPath)
+    learningStore.start()
+    // Start a session using current context (or default)
+    const ctx = contextEngine?.getState()?.current ?? 'unknown'
+    learningStore.startSession(ctx)
+    log('info', 'LearningStore started')
+  } catch (e: any) {
+    log('warn', 'LearningStore unavailable', { err: e.message })
+  }
+
+  try {
     const { SniperEngine } = require('./sniper/engine')
     const { BaselineEngine } = require('./sniper/baseline')
     const dbPath = path.join(os.homedir(), 'AppData', 'Roaming', 'AEGIS', 'baseline.db')
@@ -77,14 +94,59 @@ async function initEngines(): Promise<void> {
 
     sniperEngine.on('event', (evt: any) => {
       if (evt.type === 'action_taken') {
-        writeEvent({
+        const actionTimestamp = new Date().toISOString()
+        // Record the action in LearningStore if available
+        let actionId: string | null = null
+        if (learningStore) {
+          try {
+            const ctx = contextEngine?.getState()?.current ?? 'unknown'
+            actionId = learningStore.recordAction({
+              processName: evt.name,
+              action: evt.action,
+              context: ctx,
+              zscoreAtAction: evt.zscore ?? 0,
+              cpuBefore: evt.cpu_before ?? 0,
+              memoryBefore: evt.memory_before ?? 0,
+            })
+          } catch (e: any) {
+            log('warn', 'recordAction failed', { err: e.message })
+          }
+        }
+
+        const eventPayload = {
           type: 'sniper_action_requested',
           pid: evt.pid,
           name: evt.name,
           action: evt.action,
           reason: evt.reason ?? '',
-          timestamp: new Date().toISOString(),
-        })
+          action_id: actionId ?? '',
+          timestamp: actionTimestamp,
+        }
+        writeEvent(eventPayload)
+
+        // Implicit approval: if no explicit feedback within 60s, record mild positive
+        if (actionId && learningStore) {
+          const capturedActionId = actionId
+          setTimeout(() => {
+            if (!feedbackReceived.has(capturedActionId)) {
+              try {
+                learningStore.updateActionOutcome(capturedActionId, 0, 0, null)
+                log('info', 'Implicit approval recorded', { action_id: capturedActionId })
+                const score = Math.round(learningStore.getConfidenceState().confidence_score * 100)
+                const state = learningStore.getConfidenceState()
+                writeEvent({
+                  type: 'confidence_updated',
+                  score,
+                  auto_mode_unlocked: state.auto_mode_unlocked,
+                  decisions_until_auto: state.decisions_until_auto,
+                  timestamp: new Date().toISOString(),
+                })
+              } catch (e: any) {
+                log('warn', 'implicit approval failed', { err: e.message })
+              }
+            }
+          }, 60_000)
+        }
       }
     })
 
@@ -128,6 +190,7 @@ function handleRequest(req: any): void {
         confidence: ctx?.confidence ?? 0,
         cognitive_load: cognitiveLoad,
         active_profile: activeProfile,
+        override_active: activeProfile !== 'idle' && activeProfile !== '',
         active_watches: sniperEngine ? (sniperEngine.getActiveWatchCount?.() ?? 0) : 0,
         focus_weights: ctx?.focus_weights ?? {},
       })
@@ -135,9 +198,12 @@ function handleRequest(req: any): void {
     }
 
     case 'apply_profile': {
-      activeProfile = params?.name ?? 'idle'
+      const reqProfile = params?.name ?? 'idle'
+      // Normalize: empty string treated as idle (ambient mode)
+      activeProfile = reqProfile === '' ? 'idle' : reqProfile
       if (sniperEngine?.setProfile) sniperEngine.setProfile(activeProfile)
-      writeResponse(id, { ok: true, profile: activeProfile })
+      const isOverride = activeProfile !== 'idle'
+      writeResponse(id, { ok: true, profile: activeProfile, override_active: isOverride })
       break
     }
 
@@ -181,11 +247,24 @@ function handleRequest(req: any): void {
     }
 
     case 'feedback': {
-      // Route learning feedback — best-effort
-      try {
-        const { LearningStore } = require('./learning/store')
-        // LearningStore.recordFeedback is async fire-and-forget
-      } catch (_) {}
+      const { action_id, signal, intensity } = params ?? {}
+      if (learningStore && action_id && signal) {
+        try {
+          learningStore.recordExplicitFeedback(action_id, signal as any, (intensity ?? 'mild') as any)
+          feedbackReceived.add(action_id)
+        } catch (e: any) {
+          log('warn', 'recordExplicitFeedback failed', { err: e.message })
+        }
+      }
+      const score = learningStore ? Math.round(learningStore.getConfidenceState().confidence_score * 100) : 0
+      const state = learningStore ? learningStore.getConfidenceState() : null
+      writeEvent({
+        type: 'confidence_updated',
+        score,
+        auto_mode_unlocked: state?.auto_mode_unlocked ?? false,
+        decisions_until_auto: state?.decisions_until_auto ?? null,
+        timestamp: new Date().toISOString(),
+      })
       writeResponse(id, { ok: true })
       break
     }
@@ -251,6 +330,7 @@ setInterval(() => {
     context: ctx?.current ?? 'unknown',
     cognitive_load: cognitiveLoad,
     active_profile: activeProfile,
+    override_active: activeProfile !== 'idle' && activeProfile !== '',
   })
 }, 30_000)
 
