@@ -8,7 +8,7 @@ profile_order:
   - wartime
   - presentation
 
-profiles_dir: "D:\\Projects\\AEGIS\\profiles"
+profiles_dir: "D:\\Dev\\aegis\\profiles"
 
 status_window:
   enabled: true
@@ -45,7 +45,7 @@ worker:
 
 logging:
   level: info
-  log_dir: "D:\\Projects\\AEGIS\\logs"
+  log_dir: "D:\\Dev\\aegis\\logs"
   rotate: daily
   max_files: 30
 

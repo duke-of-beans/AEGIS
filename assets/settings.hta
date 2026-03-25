@@ -247,6 +247,75 @@ window.onload = function() {
     }
   })
 }
+
+function loadProfilesTab() {
+  httpGet(BASE_URL + '/profiles', function(err, data) {
+    if (err || !data) return
+    var list = document.getElementById('profile-list')
+    if (!list) return
+    list.innerHTML = ''
+    data.forEach(function(p) {
+      var item = document.createElement('div')
+      item.className = 'profile-list-item'
+
+      // Build browser suspension CDP port row if profile has browser_suspension
+      var cdpRow = ''
+      if (p.browser_suspension) {
+        var cdpVal = (p.browser_suspension.cdp_port !== undefined && p.browser_suspension.cdp_port !== null)
+          ? p.browser_suspension.cdp_port : 9222
+        cdpRow =
+          '<div class="settings-row" style="margin-top:6px;font-size:12px">' +
+            '<label style="font-size:12px;color:var(--text-muted)">CDP Port</label>' +
+            '<input type="number" min="1024" max="65535" step="1"' +
+              ' id="cdp-port-' + p.name + '"' +
+              ' value="' + cdpVal + '"' +
+              ' style="width:70px;font-size:12px"' +
+              ' data-tooltip="Remote debugging port Brave was launched with.' +
+                ' Run multiple Brave instances on different ports to isolate profiles."/>' +
+            '<button class="settings-btn" style="font-size:11px;padding:2px 8px"' +
+              ' onclick="saveCdpPort(\'' + p.name + '\')"' +
+              ' data-tooltip="Save CDP port for this profile. Takes effect on next profile activation.">' +
+              'Save' +
+            '</button>' +
+          '</div>'
+      }
+
+      item.innerHTML =
+        '<span class="profile-list-dot" style="background:' + p.color + '"></span>' +
+        '<div style="flex:1">' +
+          '<div class="profile-list-name">' + p.display_name + '</div>' +
+          '<div class="profile-list-desc">' + (p.description || '') + '</div>' +
+          cdpRow +
+        '</div>' +
+        '<div class="profile-list-actions">' +
+          '<button class="settings-btn" onclick="editProfile(\'' + p.name + '\')" data-tooltip="Open ' + p.display_name + '.yaml in your default editor. AEGIS reloads the profile automatically on save — no restart needed.">Edit</button>' +
+          '<button class="settings-btn" onclick="resetProfile(\'' + p.name + '\')" data-tooltip="Reset ' + p.display_name + ' to its factory defaults. Your customizations will be permanently lost. A confirmation prompt will appear first.">Reset</button>' +
+        '</div>'
+      list.appendChild(item)
+    })
+  })
+}
+
+function saveCdpPort(profileName) {
+  var input = document.getElementById('cdp-port-' + profileName)
+  if (!input) return
+  var port = parseInt(input.value, 10)
+  if (isNaN(port) || port < 1024 || port > 65535) {
+    alert('CDP port must be between 1024 and 65535.')
+    return
+  }
+  httpPost(BASE_URL + '/profiles/' + encodeURIComponent(profileName) + '/browser-suspension',
+    { cdp_port: port },
+    function(err) {
+      if (err) {
+        alert('Could not save CDP port. Check AEGIS is running.')
+      } else {
+        var btn = input.nextSibling
+        if (btn) { btn.textContent = 'Saved!'; setTimeout(function() { btn.textContent = 'Save' }, 2000) }
+      }
+    }
+  )
+}
 </script>
 </body>
 </html>

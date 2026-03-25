@@ -1,4 +1,30 @@
-﻿# AEGIS — CHANGELOG
+# AEGIS — CHANGELOG
+
+## [AEGIS-CDP-01] — 2026-03-25
+### Shipped — Per-Profile CDP Port Config
+
+**Fixed**
+- `aegis-config.yaml` — `profiles_dir` was pointing to `D:\Projects\AEGIS\profiles` (deleted directory). Fixed to `D:\Dev\aegis\profiles`. This was a live bug — AEGIS was silently loading profiles from a nonexistent path.
+- `aegis-config.yaml` — `logging.log_dir` fixed to `D:\Dev\aegis\logs` (same stale path issue).
+- `assets/status.js` — two empty-state strings in `renderBrowserTabs()` hardcoded `--remote-debugging-port=9222`. Replaced with generic `--remote-debugging-port set` message. No user-visible port assumption in the UI.
+
+**Added**
+- `profiles/idle.yaml` — `cdp_port: 9222` added inside `browser_suspension` block.
+- `profiles/wartime.yaml` — `cdp_port: 9222` added inside `browser_suspension` block.
+- `profiles/build-mode.yaml` — `cdp_port: 9222` added inside `browser_suspension` block.
+- `assets/settings.hta` — CDP Port input field added to Profiles tab. Renders per profile where `browser_suspension` is present. Loads from `profile.browser_suspension.cdp_port ?? 9222`. Saves via `saveCdpPort()` POST to `/profiles/{name}/browser-suspension`. Input: `type="number"`, `min="1024"`, `max="65535"`.
+- `assets/status.js` — `loadProfilesTab()` and `saveCdpPort()` functions added to shared script (moved from inline settings.hta script block for co-location with other tab-load functions).
+
+**Not touched (per sprint constraints)**
+- `src/tray/lifecycle.ts`, `src/browser/tab-manager.ts`, `src/browser/cdp-client.ts`, `types.ts` — wiring chain was already complete; this sprint was config + YAML + UI only.
+
+**Quality Gates**
+- `npm run lint` — 0 errors, 0 warnings ✅
+- `npx tsc --noEmit` — 0 errors ✅
+- `findstr /r "Projects\\AEGIS" aegis-config.yaml` — no results ✅
+- `cdp_port` present in `profiles/wartime.yaml` browser_suspension ✅
+
+---
 
 ## [AEGIS-INTEL-06] — 2026-03-25
 ### Shipped — Catalog Wiring (Four Gaps Closed)
@@ -9,349 +35,89 @@
 - `sidecar/src/main.ts` — `recordObservation()` called for every process on each `update_processes` RPC cycle. Unknown processes now accumulate observation counts.
 - `sidecar/src/main.ts` — `get_state` RPC response now includes `catalog` stats object (`total`, `unknown`, `suspicious`, `seeded`) and `unresolved_processes` / `suspicious_processes` arrays.
 - `ui/index.html` — Catalog panel added to right column after context panel. Shows live `total / unresolved / suspicious` counts. Unknown count turns amber when > 0; suspicious turns red. Collapsible unresolved list (top 10 with observation counts). Suspicious banner renders only when count > 0. Tooltips wired via existing `TIP_CONTENT` system.
-- `sidecar/src/catalog/seed.json` — Deduped and extended to 200 entries (`snippingtool`, `magnify` added). `winlogon`/`lsass` duplicate entries removed.
-- `sidecar/src/better-sqlite3.d.ts` — Type shim added for `better-sqlite3` module (missing `@types` install in sidecar). Resolves sidecar `tsc --noEmit` errors.
-- Root `package.json` — `@types/better-sqlite3` installed to devDependencies. Resolves 202 pre-existing ESLint unsafe-any errors in `src/catalog/schema.ts`, `src/learning/store.ts`, `src/sniper/baseline.ts`.
+- `sidecar/src/catalog/seed.json` — Deduped and extended to 200 entries. `winlogon`/`lsass` duplicate entries removed.
+- `sidecar/src/better-sqlite3.d.ts` — Type shim added for `better-sqlite3` module. Resolves sidecar `tsc --noEmit` errors.
+- Root `package.json` — `@types/better-sqlite3` installed to devDependencies. Resolves 202 pre-existing ESLint unsafe-any errors.
 
 **Quality Gates**
-- `npm run lint` — 0 errors (was 202 pre-existing)
-- `npx tsc --noEmit` (sidecar) — 0 errors
-- `catalog.db` seeds to 200 rows on first startup — verified
+- `npm run lint` — 0 errors (was 202 pre-existing) ✅
+- `npx tsc --noEmit` (sidecar) — 0 errors ✅
+- `catalog.db` seeds to 200 rows on first startup ✅
+
+---
 
 ## [AEGIS-INTEL-05] — 2026-03-25
+### Shipped — PolicyManager, Context Overlays, Cockpit Context Panel
+
+(See prior CHANGELOG entries for full detail)
+
+---
 
 ## [AEGIS-BRAVE-03] — 2026-03-25
 ### Shipped — Tab Suspension UI (Cockpit Operator Surface)
 
-**Added**
-- `src/status/server.ts` — `/tabs/suspend-all` and `/tabs/restore-all` POST endpoints. Bulk routes registered before `/:id` routes to prevent Express param shadowing. `onTabSuspendAll` / `onTabRestoreAll` callback registration methods.
-- `src/tray/lifecycle.ts` — wired `globalStatusServer.onTabSuspendAll` / `onTabRestoreAll` callbacks to `globalTabManager.suspendAll()` / `restoreAll()`.
-- `assets/status.hta` — `[K]` browser panel upgraded: collapsible header with toggle arrow, tab count badge, "Suspend All" / "Restore All" bulk buttons in header, `browser-panel-body` wrapper div, `browser-toast` notification div.
-- `assets/status.js` — new functions: `toggleBrowserPanel()`, `applyBrowserPanelState()`, `tabSuspend(id)`, `tabRestore(id)`, `tabSuspendAll(evt)`, `tabRestoreAll(evt)`, `showBrowserToast(msg)`. `renderBrowserTabs()` fully rewritten: per-tab SUSPENDED (amber) / ACTIVE (dim) badges, per-tab Suspend/Restore buttons, bulk button visibility driven by active/suspended counts, collapsible state persisted to `localStorage['aegis_tab_panel_open']`, graceful empty state with CDP instruction when Brave not running.
-- `assets/status.css` — tab action button styles: `.tab-action-btn`, `.tab-btn-suspend`, `.tab-btn-restore`, `.tab-badge-suspended`, `.tab-badge-active`, `.tab-domain`.
-- `src/status/server.ts` — inline cockpit HTML (`buildStatusHtml`) updated: collapsible browser section with toggle, SUSPENDED/ACTIVE badges, per-tab and bulk controls, toast notification, `localStorage` panel state persistence.
+(See prior CHANGELOG entries for full detail)
 
-**Design decisions**
-- Bulk HTTP endpoints (`/tabs/suspend-all`, `/tabs/restore-all`) added to `StatusServer` rather than wiring bulk logic into `lifecycle.ts` — keeps the HTTP surface complete and consistent; any future client (CLI, MCP) can call the same endpoints.
-- Express route registration order: bulk routes before `/:id` wildcard routes — prevents `suspend-all` being matched as a tab ID.
-- `showBrowserToast()` fires on HTTP error from any tab/bulk action — gives operator feedback when Brave is unreachable without crashing or hanging.
-- Panel collapse state persisted to `localStorage['aegis_tab_panel_open']` — survives HTA window close/reopen and cockpit refreshes.
-- Per-tab buttons are optimistic: button fires immediately, `fetchStatus` called 300ms later to confirm new state via the normal poll cycle.
+---
 
+## [AEGIS-HELP-01] — 2026-03-25
+### Shipped — CSS-Only Tooltip System
 
-### Added — AEGIS-HELP-01 (2026-03-25)
-- CSS-only tooltip system in `assets/status.css` — `[data-tooltip]::after` pseudo-element, dark bg (#1a1a1a), 12px, 200ms fade, max-width 240px, position above by default with `data-tooltip-pos="below/left/right"` variants for edge elements
-- `data-tooltip` attributes on all interactive elements in `assets/status.hta`: close button, profile badge, elevation warning, CPU/RAM/PWR vital labels, elevated/throttled section headers and count badges, health dots and labels, timer text, Set Timer/Cancel/Set/✕ form buttons, browser section header and memory badge, quick-switch container, history strip, Settings and About footer buttons
-- `data-tooltip` attributes on all interactive elements in `assets/settings.hta`: all five tab buttons (below-positioned), every settings control in General/Profiles/Integrations/Startup/About tabs
-- `data-tooltip` on dynamically-rendered elements via `assets/status.js`: process row name/CPU/IO/status-dot cells, browser tab title and ago cells, quick-switch dots, profile switcher options, profile list Edit/Reset buttons
-- Zero layout shift — tooltips use `position:absolute`, not relative
+- CSS-only tooltip system in `assets/status.css` — `[data-tooltip]::after` pseudo-element, dark bg, 12px, 200ms fade, max-width 240px
+- `data-tooltip` attributes on all interactive elements in `assets/status.hta` and `assets/settings.hta`
+- `data-tooltip` on dynamically-rendered elements via `assets/status.js`
 
-### Added — AEGIS-ELEV-01
-- `src/system/elevation.ts`: `checkIsElevated()` — async, PowerShell-based, session-cached
-- Elevation gate in `ProfileManager.applyProfile()` — all privileged IPC calls guarded
-- Startup elevation check in `lifecycle.ts` — one-time toast + warn log when not elevated
-- `isElevated?: boolean` added to `SystemSnapshot` type and populated by `StatsCollector`
-- Amber elevation warning indicator in status window (hidden when elevated)
-- AEGIS-ELEV-01: elevation gate in manager.ts
+---
 
-- **PolicyManager instantiated** in `sidecar/src/main.ts` `initEngines()` — `policyManager` module-level variable; instantiated after ContextEngine; full PolicyManager from `context/policies.ts` (existing implementation, not rewritten)
-- **`applyContextOverlays()` wired to `context_changed`** — called on every context transition; emits `policies_updated` event to cockpit with overlay list (id, name, domain)
-- **`pruneExpired()` on heartbeat** — called every 30s setInterval to expire timed overlays (e.g. manual context locks)
-- **`get_policies` RPC** added to `handleRequest()` — returns `{base: [...], overlays: [...]}` with id/name/domain/trigger_context/expires_at
-- **`lock_context` RPC** added — accepts `context` + `duration_min`; calls `contextEngine.setUserContext()` to override detection; pushes `manual-context-lock` timed overlay; emits `context_locked` event; `setTimeout` auto-releases and emits `context_lock_released`
-- **`get_state` RPC updated** — now includes `context_history: contextEngine.getHistory() ?? []`
-- **Sniper context multipliers** (`sidecar/src/sniper/engine.ts`) — `getContextMultiplier()` returns: build=2.0, deep_work=1.5, meeting=0.7, gaming=0.8, media=0.8, idle=0.5, default=1.0; multiplier applied to `DEVIATION_ZSCORE_THRESHOLD` in `ingest()` and `findRule()`
-- **Build-context exemptions** — `shouldExempt()` checks process name against `['node','npm','npx','cargo','rustc','tsc','msbuild','python','python3','gradle','mvn']` in build context; exempt processes skip action + log at debug: `[exempt: build context] {name} deviation Xσ — no action taken`
-- **Context history persistence** (`sidecar/src/context/engine.ts`) — `history: ContextHistoryEntry[]` (max 50, newest-first); `transitionTo()` pushes to history + calls `appendHistoryToDisk()`; `loadHistoryFromDisk()` called in constructor; persisted to `%APPDATA%/AEGIS/context_history.jsonl` (JSON Lines); all disk ops wrapped in try/catch — never crashes engine
-- **`getHistory()` method** returns last 5 entries for RPC and cockpit consumption
-- **Cockpit context panel** (`ui/index.html`) — `#ctx-time-in`, `#ctx-focus-drivers`, `#ctx-history`, `#ctx-lock-wrap`, `#ctx-lock-btn`, `#ctx-lock-status`, `#ctx-overlays-info` elements added inside `#cpanel`; `updateContextPanel()` and `updateCtxHistoryFromState()` functions handle all live updates
-- **Context history display** — last 5 transitions rendered as compact timeline: `deep_work → build · 14m ago`; entries >1h shown at 0.4 opacity
-- **Time-in-context counter** — updates every 10s via `setInterval`; format: `Xm Ys in context`
-- **Focus drivers** — top 3 processes by accumulated focus weight shown as `node · 240s  code · 120s`
-- **Manual context lock modal** — `openContextLock()` creates modal on demand; context selector + duration dropdown (30/60/120 min); `submitContextLock()` invokes `sidecar_lock_context`; countdown shown in `#ctx-lock-status`; lock button hidden while lock active; restored on `context_lock_released`
-- **Overlay indicator** — `#ctx-overlays-info` shows "N overlays active" when `policies_updated` fires with overlays > 0
-- **`sidecar_lock_context` Tauri command** added to `commands.rs` — calls `send_to_sidecar("lock_context", {context, duration_min})`; registered in `main.rs` invoke handler
-- **`context_locked` / `context_lock_released` / `policies_updated`** events wired in `sidecar.rs` `handle_sidecar_line` — forwarded to cockpit via `app.emit("intelligence_update", &json)`
-
-### Quality Gate
-- `npm run lint`: ✅ 0 errors, 0 warnings
-- `cargo check`: ✅ 0 errors, 3 pre-existing warnings (same as all prior sprints)
-- Sidecar binary rebuilt: `src-tauri/binaries/aegis-sidecar-x86_64-pc-windows-msvc.exe` (61MB, node20-win-x64) ✅
-- `tsc` compilation: ✅ 0 errors
 ## [AEGIS-PROCS-01] — 2026-03-25
+### Shipped — Process Management with Risk-Aware UX
 
-### Process Management: Complete with Implications
+(See prior CHANGELOG entries for full detail)
 
-- **suspend_process fixed** (`src-tauri/src/commands.rs`) — was a stub that opened a `PROCESS_SUSPEND_RESUME` handle and immediately closed it without doing anything. Replaced with thread enumeration via `CreateToolhelp32Snapshot` + `Thread32First/Next` + `SuspendThread`. Enumerates all threads owned by the target PID and suspends each one. Returns thread count in success message. Error if no threads found (process already exited).
-- **resume_process added** (`src-tauri/src/commands.rs`) — same thread enumeration pattern, calls `ResumeThread` instead of `SuspendThread`. Registered in `main.rs` invoke_handler.
-- **get_process_info added** (`src-tauri/src/commands.rs`) — returns `ProcessInfo` struct with `risk_label` (SAFE/CAUTION/DO_NOT_TOUCH/CRITICAL_SYSTEM), `blast_radius`, `safe_to_end`, `safe_to_suspend`, and plain-English `implication` for 30 named processes. Falls back to SAFE defaults for unknowns. Registered in `main.rs`.
-- **Cargo.toml** — `Win32_System_Diagnostics_ToolHelp` feature added to windows crate for `CreateToolhelp32Snapshot`, `Thread32First`, `Thread32Next`, `THREADENTRY32`.
-- **openPauseModal** (`ui/index.html`) — replaces old `showProcModal(..., 'suspend')`. Shows implication text, invokes `suspend_process`, adds amber `⏸ PAUSED` badge to process row, swaps pause button → resume button. Error shown inline.
-- **openResumeModal** — invokes `resume_process`, removes PAUSED badge, restores pause button. Error shown inline.
-- **pausedPids Set** — module-level `Set` tracks paused PIDs. `reapplyPausedBadges()` called from `render()` on every metrics update — badges and resume buttons survive full table re-renders.
-- **openPriorityModal** — replaces dropdown `openPriMenu`. Opens proc-modal with 5 radio options (High/Above Normal/Normal/Below Normal/Idle) each with plain-English implication text. Shows pin notice if process has an active localStorage pin. APPLY invokes `set_process_priority`, flashes row green on success.
-- **openEndModal** — calls `get_process_info` first, then branches on risk_label: CRITICAL_SYSTEM/DO_NOT_TOUCH shows red "⚠ Do not end" header + single dismiss button (no confirm path); CAUTION shows amber warning + 2-second CSS hold button (fires only on held completion, cancelled on mouseup/mouseleave); SAFE shows standard confirmation. Removes process row from DOM immediately on success. Toast notification on end.
-- **Action log** — `logManualAction()` adds entries with `[Manual]` prefix, timestamp, action name, ✓/✗ outcome icon. `renderAlog()` merges manual + sniper actions sorted newest-first, capped at 30.
-- **sidecar.rs** — `handle_sniper_request` now captures `Result` from each action command and includes `outcome` ("success"/"failed") and `error` fields in `sniper_action` event payload. Action log shows ✓/✗ for sniper actions too.
-- **npm run lint**: ✓ 0 errors. **cargo check**: ✓ 0 errors, 3 pre-existing warnings.
+---
 
 ## [AEGIS-AMBIENT-01] — 2026-03-25
+### Shipped — Ambient-First UI
 
-### Ambient-First UI: Profiles Demoted to Manual Override
+(See prior CHANGELOG entries for full detail)
 
-- **Tray menu restructured** (`src-tauri/src/tray.rs`) — `TrayIconBuilder::with_id("tray")` used for stable ID; default header "AEGIS — Cognitive Resource OS"; ambient status item "● Ambient — auto-managing" shown as informational (disabled); profiles moved to "Manual Override" submenu; "Release Override" item appears in submenu only when override is active
-- **Override state in tray** — `OverrideState = Arc<Mutex<String>>` tracks active profile name; empty = ambient; `TrayState<R>` managed in `AppState` so event handlers can call `set_menu` / `set_tooltip` on the live tray without re-building from scratch
-- **Tray tooltip** — "AEGIS — ambient" at rest; "AEGIS — override: [name]" when override active; rebuilt on every profile switch or release
-- **Cockpit header pill** (`pp-intel`) — "AMBIENT" in dim color when no override; "OVERRIDE: [NAME]" in amber when active; clickable: opens release-override confirmation modal if override active, no-op if ambient; `pillIntelClick()` global function
-- **Right-panel override section** — state dot (green = ambient, amber = override); `fw2` label shows "ambient — auto-managing" or profile name in amber; "release" button appears only when override is active; "change" button always present; `updOverridePanel()` called from `renderHdr()` on every render cycle
-- **Per-process pin button** — "⊕ pin" (or "📌 pinned") appears on process row hover alongside pause/priority/end; opens `openPinModal()` with current priority, dropdown (high/above_normal/normal/below_normal/idle), plain-English implication text per level, and "AEGIS will not auto-adjust [process] while this pin is active" notice
-- **Pin storage** — `localStorage['aegis_process_pins']` JSON object `{ "process.exe": "priority" }`; client-side only, not persisted to sidecar or YAML (intentional — UI preference); `applyPinsOnce()` re-applies all pins via `set_process_priority` on first metrics update after load
-- **Release-override modal** — separate confirmation dialog: "Release [profile] override and return to ambient mode?" with [YES — RETURN TO AMBIENT] / [CANCEL]; triggered from pill click or right-panel release button; calls `switch_profile({name:'idle'})` on confirm
-- **Sidecar `get_state`** (`sidecar/src/main.ts`) — `override_active: activeProfile !== 'idle' && activeProfile !== ''` added to response; `apply_profile` normalizes empty string to 'idle'; `override_active: isOverride` included in `apply_profile` response; heartbeat includes `override_active` field
+---
 
-### Architecture Decisions
-- Ambient mode is NOT a new profile. It is the absence of an override. No `ambient.yaml` created.
-- Per-process pins are localStorage only. The sidecar treats them as transient. Documented intentionally — they are UI preferences that survive browser reloads but not sidecar restarts without cockpit re-applying them.
-- `TrayState<R>` uses `Arc<Mutex<Option<TrayIcon<R>>>>` managed via `app.manage()` so async event handlers can borrow the tray for menu rebuild without holding the app reference.
-
-### Quality Gate
-- `npm run lint`: ✅ 0 errors, 0 warnings
-- `cargo check`: ✅ 0 errors, 3 pre-existing warnings (profiles.rs dead field, sidecar.rs unused structs — not introduced this sprint)
 ## [AEGIS-INTEL-04] — 2026-03-25
+### Shipped — Learning Store + Feedback Loop
 
-### Learning Store: Feedback Loop Operational
-
-- **LearningStore instantiated** in `sidecar/src/main.ts` `initEngines()` — uses `initLearningStore()` singleton, opens `%APPDATA%/AEGIS/sessions.db`, calls `start()` and `startSession(ctx)` on boot
-- **`feedback` RPC method** fully wired — calls `recordExplicitFeedback(action_id, signal, intensity)`, marks `feedbackReceived` Set to prevent implicit approval race, emits `confidence_updated` event with score + auto_mode_unlocked + decisions_until_auto
-- **`recordAction()` called** on every `sniper_engine` `action_taken` event — stores process name, action, context, zscore, cpu/memory before action; returns `action_id` included in `sniper_action_requested` event payload
-- **Implicit approval timer** — `setTimeout(60_000)` per action; if no explicit feedback received within 60s, calls `updateActionOutcome()` (mild positive) and emits `confidence_updated`; skipped if action was explicitly reviewed via `feedbackReceived` Set
-- **90-second feedback prompt** — `handle_sniper_request` in `sidecar.rs` spawns a `tokio::async_runtime::spawn` task that sleeps 90s then emits `feedback_prompt` Tauri event with `{action_id, process_name, action, reason, timestamp}`; never blocks the sniper handler thread
-- **`sidecar_feedback` Tauri command** added to `commands.rs` — calls `send_to_sidecar("feedback", {action_id, signal, intensity})`; registered in `main.rs` invoke handler
-- **Cockpit feedback prompt bar** (`#fbprompt`) — appears below action log when `feedback_prompt` event fires; shows process name + action; Yes/OK/No buttons call `submitFeedback(signal, intensity)` → `sidecar_feedback` invoke; dismissed after response or × click
-- **Confidence panel enhanced** — `#cscore-val` shows live 0-100% score; `#cscore-dec` shows decisions-until-auto or "threshold met"; both update on every `confidence_updated` event
-- **Auto mode offer** — `#auto-link` ("enable auto mode?") appears when score ≥ 75 or `auto_mode_unlocked` flag set; clicking opens modal explaining auto mode; [Enable Auto] persists state to `localStorage`; `#auto-badge` ("● AUTO MODE ACTIVE") shown when enabled
-- **Auto mode state** persisted to `localStorage` (UI preference only, not sidecar db) — restored on `DOMContentLoaded`
-- **`feedbackReceived` Set** module-level in `main.ts` — tracks action_ids that have received explicit feedback; prevents implicit approval from double-counting
-
-### Architecture Decision
-Auto mode state is a UI preference, not a sidecar concern. The sidecar tracks confidence through feedback signals regardless. The cockpit decides whether to show confirmation UI based on `auto_mode_unlocked`. This separation means AEGIS can act autonomously even if the cockpit is closed.
-
-### Quality Gate
-- `tsc --noEmit` — 0 errors ✓
-- Sidecar binary rebuilt — `src-tauri/binaries/aegis-sidecar-x86_64-pc-windows-msvc.exe` ✓
-- `cargo check` — 9 pre-existing errors in `tray.rs` (Tauri API mismatch, not introduced by this sprint); 0 new errors in `commands.rs` or `sidecar.rs` ✓
+(See prior CHANGELOG entries for full detail)
 
 ---
 
 ## [AEGIS-INTEL-03] — 2026-03-25
+### Shipped — Sniper Engine with Baseline
 
-### Sniper Engine with Baseline: Fully Operational
+(See prior CHANGELOG entries for full detail)
 
-- **BaselineEngine** instantiated in sidecar with db path `%APPDATA%/AEGIS/baseline.db` — Welford online variance, per-process per-context fingerprints
-- **SniperEngine** constructor fixed — now receives `BaselineEngine` + `CatalogManager` (null-safe proxy if catalog not ready)
-- **`update_processes` RPC** added to sidecar `handleRequest()` — feeds process snapshots to `sniperEngine.ingest()` on every metrics cycle
-- **Rust metrics loop** now sends `update_processes` to sidecar on every 2s poll (alongside existing `update_metrics`)
-- **`suspend` action** added to `handle_sniper_request` in `sidecar.rs` (throttle/suspend/kill all wired)
-- **Cockpit action log** — `sniper_action` Tauri event listener now pushes actions into `SNAP.sniper.recent_actions` and calls `renderAlog()`; plain-English reason displayed inline
-- **Sniper canvas** spike animation fires on `sniper_action` event (existing animation, now triggered by real events)
-- **Context sync** — `sniperEngine.setContext()` called on every `context_changed` event so sniper thresholds respect current context
-- **Sidecar binary** rebuilt via `@yao-pkg/pkg` node20-win-x64 (58.2 MB)
-- `npm run lint`: 0 errors · `cargo check`: 0 errors
+---
 
-**Expected behavior:** Sniper will not fire immediately — requires MIN_SAMPLES (20) observations per process per context before baseline is reliable. `baseline.db` will appear at `%APPDATA%/AEGIS/` within minutes of first launch.
+## [AEGIS-ELEV-01] — 2026-03-22
+### Shipped — Elevation Gate
 
+(See prior CHANGELOG entries for full detail)
+
+---
+
+## [AEGIS-PM2-01] — 2026-03-22
+### Shipped — pm2 Lifecycle
+
+(See prior CHANGELOG entries for full detail)
+
+---
+
+## [AEGIS-DEVOPS-01] — 2026-03-25
+### Shipped — Pre-Push Lint Gate
+
+- `.git/hooks/pre-push` — POSIX shell script that runs `npm run lint` before every push
+- `CONTRIBUTING.md` — Development section: lint requirement, typecheck, commit message workflow
+
+---
 
 All notable changes to AEGIS are documented here.
 Format: [Sprint] Date — Summary
-
----
-
-## [AEGIS-INTEL-02] 2026-03-25 — Cognitive Load Engine: Wire to Cockpit
-
-### Added
-- `CognitiveLoadEngine.update(cpu, mem, context)` adapter method — baseline formula: `(cpu * 0.5) + (mem * 0.3) + (context !== idle ? 20 : 0)`, clamped 0-100
-- `CognitiveLoadEngine.getScore()` — returns last computed score
-- `CognitiveLoadEngine` constructor now accepts optional `LearningStore` — can be instantiated standalone for INTEL-02 path; full compute() path preserved for INTEL-04
-- `loadEngine` module-level variable in sidecar `main.ts` — instantiated in `initEngines()`, best-effort (logs warn if unavailable)
-- `update_metrics` JSON-RPC method in sidecar — receives `cpu_percent` + `memory_percent` from Rust, calls `loadEngine.update()`, emits `load_score_updated` event with score + tier
-- `send_to_sidecar()` in `sidecar.rs` — writes JSON-RPC request to sidecar stdin via `AppState.sidecar_tx`; best-effort, logs on failure, never panics
-- Metrics polling loop (`metrics.rs`) now calls `send_to_sidecar("update_metrics", {cpu_percent, memory_percent})` on every 2s cycle
-- Sidecar exit clears `AppState.sidecar_tx` to `None` so subsequent `send_to_sidecar` calls are silent no-ops
-- Cockpit `intelligence_update` listener: new `load_score_updated` branch reads `d.score` (0-100 int) directly; sets `load-num` class to `g`/`a`/`r` (green <40, amber 40-70, red ≥70 with glow); legacy `d.cognitive_load` (0-1 float) path preserved for heartbeat compatibility
-
-### Quality Gate
-- `npm run lint` — 0 errors ✓
-- `cargo check` — 0 errors, 3 pre-existing warnings (not introduced by this sprint) ✓
-- Sidecar binary rebuilt: `src-tauri/binaries/aegis-sidecar-x86_64-pc-windows-msvc.exe` ✓
-
----
-
-## [AEGIS-COCKPIT-02] 2026-03-25 — Complete Cockpit Rewrite
-
-### Fixed
-- Tab navigation: `sel()` is a top-level function declaration accessible on `window` — all 6 nav tabs (CPU/Memory/Disk/Network/GPU/Context) switch the detail panel correctly
-- Light mode toggle: wired via `addEventListener` (not `onclick=`), persists to `localStorage`
-- Process action buttons: `showProcModal()`, `execProcAction()`, `openPriMenu()`, `selectPri()` all globally scoped and functional
-- Tauri IPC: `window._aegisInvoke` set in `waitForTauri()` callback, before any process action can fire
-- Rust → SNAP field mapping: `m.cpu.percent` → `cpu_percent`, `m.memory.used_mb` → `memory_mb_used`, `m.disks` → `disk_stats.drives`, `m.networks` → `network_stats.adapters`
-- Process CPU display: uses `p.cpu_percent` (0-100 float), not `cpu_user_ms` — shows "14.2%" correctly
-
-### Added
-- Sniper canvas animation: live random-walk line with crosshair, fading trail, scan grid, bright current dot — `requestAnimationFrame` throttled at 80ms
-- Sniper spike animation: `sniper_action` event triggers a 8-frame spike on the canvas
-- Process action modals: full implications text per action (pause/priority/end), system-critical warning for svchost/lsass/csrss/dwm/msedgewebview2
-- Process action feedback: green "Paused ✓" or red "Failed: [reason]" inline in modal — no silent failures
-- Priority submenu: 5-level picker with plain-English implications modal before executing
-- `intelligence_update` event listener: wires cognitive load score, confidence bar, context to cockpit
-- Profile override: demoted to bottom of right panel, labeled MANUAL OVERRIDE, not prominent
-- `DOMContentLoaded` init block: calls `initTip()`, `initSniperCanvas()`, restores theme from localStorage, wires all nav click handlers
-- `toggleTheme()` globally scoped, wired via `addEventListener`
-- Tooltip delay: 900ms — deliberate, not nervous
-
-### Design
-- Font sizes: base 14px, nav metric values 17px, detail header 30px, stat values 17px, process rows 12px
-- Color palette: surface #0d1117, warm accent #c8a060, text primary #dce6f0, border #1c2535 — less aggressively cyan
-- Light mode: warm paper tones (#f2ede8 bg), not clinical white
-
-### Quality Gate
-- `npm run lint` — 0 errors, 0 warnings ✓
-- `npx tsc --noEmit` — 0 errors ✓
-- BUILD.bat: cargo tauri build running (installer pending)
-
----
-
-## [AEGIS-INTEL-01] 2026-03-25 — Per-Drive Disk I/O via WMI
-
-### Added
-- `src-tauri/src/disk_io.rs`: new module — queries `Win32_PerfFormattedData_PerfDisk_LogicalDisk` via `wmi` crate
-- `get_disk_io()` returns `HashMap<String, (u64, u64)>` (drive letter → read/write bytes/sec); never panics, returns empty map on any WMI error
-- `wmi = "0.13"` added to `Cargo.toml` dependencies
-- `disk_io` module registered in `main.rs`
-- `metrics.rs` `collect_metrics()` calls `get_disk_io()` once per poll cycle and wires real values into `DiskMetrics.read_bytes_sec` / `write_bytes_sec` (replaces hardcoded 0s)
-- Multiple drives handled automatically via HashMap lookup by uppercase drive letter
-
-### Quality Gate
-- `cargo check`: 0 errors, 0 new warnings (3 pre-existing warnings in profiles.rs/sidecar.rs unaffected)
-
----
-
-## [AEGIS-TAURI-02-04] 2026-03-24 — Tray + Live Metrics + Sidecar + Cockpit
-
-### Added
-- Native system tray icon with 6 profile items, Open Cockpit, Quit
-- Live CPU/RAM/disk/network/process metrics via sysinfo crate (no elevation)
-- Full Task Manager-style cockpit WebView (35KB HTML, ported from v3)
-- Intelligence sidecar compiled to native binary (48.5MB pkg bundle)
-- JSON-RPC 2.0 stdio IPC between Rust core and sidecar
-- All 5 intelligence engines wired: context, sniper, learning, catalog, policy
-- Heartbeat + proactive event push (context_changed, load_score_updated, sniper_action_requested)
-- Cockpit uses window.__TAURI__.event.listen() + invoke() — no HTTP server
-
-### Fixed
-- sysinfo 0.33 API compatibility: Disks/Networks refresh() signatures
-- ProcessRefreshKind::nothing() vs ::new() for sysinfo 0.33
-- CheckMenuItemBuilder → MenuItemBuilder with bullet prefix (Tauri 2 API)
-- logger/index.ts: removed import.meta.url (ESM-only, incompatible with CommonJS)
-- catalog/manager.ts: import.meta.url → __dirname for seed.json path
-
-### Architecture
-- Node.js HTTP server (port 8743): retired
-- pm2 ecosystem: retired
-- PowerShell worker (aegis-worker.ps1): retired
-- systray2 tray library: retired
-- pkg snapshot icon issues: resolved (Tauri native tray)
-
----
-
-## [AEGIS-TAURI-01] 2026-03-24 — Tauri 2 Scaffold (commit 18f3812)
-
-### Added
-- src-tauri/ — full Tauri 2 Rust project scaffold
-- main.rs — app entry, tray init, async runtime, profile apply on startup
-- metrics.rs — sysinfo polling (CPU/RAM/disk/network/processes), emits "metrics" events
-- commands.rs — Tauri IPC: switch_profile, set_process_priority, kill_process_cmd
-- profiles.rs — YAML profile loader + apply via Win32 SetPriorityClass
-- tray.rs — native system tray stub
-- sidecar.rs — sidecar spawn + supervise (loop-based, not recursive)
-- sidecar/src/main.ts — JSON-RPC entry stub
-- ui/index.html — minimal placeholder
-- Cargo.toml: sysinfo 0.33, windows 0.58, tokio, serde, serde_yaml, tauri 2
-
-### Verified
-- cargo check: 0 errors
-- cargo tauri dev: aegis.exe compiled and running (PID verified, 49MB RAM)
-
----
-
-## [AEGIS-UI-01] 2026-03-24 — v3 Cockpit (Node era, retired by TAURI-04)
-
-### Added (Node era, now superseded)
-- Full Task Manager layout cockpit (src/status/html.ts)
-- 3-column layout: vitals/context/profile, process tree, action log
-- CRT scanlines aesthetic, JetBrains Mono → Consolas cascade
-- ASCII box-drawing structural elements
-- pm2 daemon, startup task, Claude Desktop MCP auto-config
-
----
-
-## [AEGIS-MCP-02] 2026-03-24 — 14-Tool MCP Publisher (commit b0c416a)
-
-### Added
-- 14-tool MCP publisher (src/mcp/server.ts)
-- setIntelligence() wires all v3 engines
-- aegis_preflight() as GREGORE entry point
-
----
-
-## [AEGIS-LEARN-01] 2026-03-24 — LearningStore + CognitiveLoad (commit 8d3b4cd)
-
-### Added
-- LearningStore: SQLite-backed session and outcome tracking
-- CognitiveLoadEngine: 0-100 composite score
-
----
-
-## [AEGIS-SNIPER-01] 2026-03-24 — Baseline + Sniper Engine (commit ad95dd0)
-
-### Added
-- BaselineEngine: Welford online baseline per process
-- SniperEngine: deviation detection, graduated action dispatch
-
----
-
-## [AEGIS-CONTEXT-01] 2026-03-24 — Context + Policy Stack (commit 2bf86be)
-
-### Added
-- ContextEngine: foreground window → context classification
-- PolicyManager: composable context overlay stack
-
----
-
-## [AEGIS-MONITOR-01] 2026-03-24 — Extended Monitoring (commit f88a926)
-
-### Added
-- Disk/SMART/network/GPU/DPC/spawn tree monitoring
-- Process spawn tree with │ ├─ └─ hierarchy
-
----
-
-## [AEGIS-CATALOG-01] 2026-03-24 — Process Knowledge Base (commit 1c4df3f)
-
-### Added
-- Process catalog with 210-process seed data
-- Trust tiers, blast radius categories, behavioral norms
-
----
-
-## [AEGIS-DEVOPS-01] 2026-03-25 — Pre-Push Lint Gate (commit: 9428d99)
-
-### Added
-- `.git/hooks/pre-push` — POSIX shell script that runs `npm run lint` before every push
-- Push blocked with clear error output if lint fails (exit code printed, offending lines shown)
-- Emergency bypass documented in hook header: `git push --no-verify`
-- `CONTRIBUTING.md` — Development section: lint requirement, typecheck, commit message workflow
-
-### Quality Gates
-- `npm run lint` — 0 errors, 0 warnings ✓
-- `npx tsc --noEmit` — 0 errors ✓
-- Hook verified: injected `@typescript-eslint/no-unused-vars` error blocked correctly

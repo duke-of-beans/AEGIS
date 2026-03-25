@@ -233,7 +233,7 @@ function renderBrowserTabs(bt) {
     if (restAllBtn) restAllBtn.style.display = 'none'
     if (tabList) {
       tabList.innerHTML = '<div style="font-size:11px;color:var(--text-muted);padding:4px 0">' +
-        'No tabs detected — is Brave running with --remote-debugging-port=9222?' +
+        'No tabs detected — is Brave running with --remote-debugging-port set?' +
         '</div>'
     }
     return
@@ -252,7 +252,7 @@ function renderBrowserTabs(bt) {
 
   if (tabs.length === 0) {
     tabList.innerHTML = '<div style="font-size:11px;color:var(--text-muted);padding:4px 0">' +
-      'No tabs detected — is Brave running with --remote-debugging-port=9222?' +
+      'No tabs detected — is Brave running with --remote-debugging-port set?' +
       '</div>'
     return
   }
@@ -509,30 +509,6 @@ function switchTab(tabName) {
   if (tabName === 'profiles') loadProfilesTab()
   if (tabName === 'integrations') loadIntegrationsTab()
   if (tabName === 'startup') loadStartupTab()
-}
-
-function loadProfilesTab() {
-  httpGet(BASE_URL + '/profiles', function(err, data) {
-    if (err || !data) return
-    var list = document.getElementById('profile-list')
-    if (!list) return
-    list.innerHTML = ''
-    data.forEach(function(p) {
-      var item = document.createElement('div')
-      item.className = 'profile-list-item'
-      item.innerHTML =
-        '<span class="profile-list-dot" style="background:' + p.color + '"></span>' +
-        '<div style="flex:1">' +
-          '<div class="profile-list-name">' + p.display_name + '</div>' +
-          '<div class="profile-list-desc">' + (p.description || '') + '</div>' +
-        '</div>' +
-        '<div class="profile-list-actions">' +
-          '<button class="settings-btn" onclick="editProfile(\'' + p.name + '\')" data-tooltip="Open ' + p.display_name + '.yaml in your default editor. AEGIS reloads the profile automatically on save — no restart needed.">Edit</button>' +
-          '<button class="settings-btn" onclick="resetProfile(\'' + p.name + '\')" data-tooltip="Reset ' + p.display_name + ' to its factory defaults. Your customizations will be permanently lost. A confirmation prompt will appear first.">Reset</button>' +
-        '</div>'
-      list.appendChild(item)
-    })
-  })
 }
 
 function loadIntegrationsTab() {

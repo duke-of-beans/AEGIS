@@ -42,3 +42,4 @@ profile:
 
   browser_suspension:
     enabled: false
+    cdp_port: 9222
