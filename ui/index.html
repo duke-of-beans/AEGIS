@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AEGIS</title>
+<style>
+  body { background: #06080f; color: #00e5ff; font-family: 'Courier New', monospace;
+    display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+  .loading { text-align: center; }
+  .logo { font-size: 24px; font-weight: 700; letter-spacing: .12em; margin-bottom: 12px; }
+  .sub { font-size: 11px; letter-spacing: .18em; color: #5570a0; text-transform: uppercase; }
+</style>
+</head>
+<body>
+<div class="loading">
+  <div class="logo">&#x258c;AEGIS&#x2590;</div>
+  <div class="sub">cognitive resource os — initializing</div>
+</div>
+<script type="module">
+// Placeholder — full cockpit loaded in Sprint 04
+// Tauri IPC bridge
+const { invoke, listen } = window.__TAURI__?.core ?? {};
+
+if (listen) {
+  listen('metrics', (event) => {
+    console.log('metrics', event.payload);
+  });
+  listen('profile_changed', (event) => {
+    console.log('profile_changed', event.payload);
+  });
+}
+
+console.log('AEGIS WebView initialized');
+</script>
+</body>
+</html>
