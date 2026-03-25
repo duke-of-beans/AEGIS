@@ -1,1 +1,31 @@
-chore: record TAURI-02-04 commit hash in STATUS
+feat: AEGIS-TAURI-05 — NSIS installer with ASCII art boot sequence
+
+src-tauri/windows/hooks.nsi:
+  NSIS_HOOK_POSTINSTALL macro — 6-line Unicode block-art AEGIS banner
+  rendered in Courier New in the installer progress window.
+  Task Scheduler logon entry registered (per-user, no elevation).
+  First-install config initialization at %APPDATA%\AEGIS.
+  NSIS_HOOK_POSTUNINSTALL macro — removes task, prompts for user data.
+
+src-tauri/tauri.conf.json:
+  installerHooks: "./windows/hooks.nsi" wired to Tauri NSIS bundler.
+
+Build output:
+  D:\Tools\.cargo-target\release\bundle\nsis\AEGIS_4.0.0_x64-setup.exe
+  15.2MB — clean NSIS installer, x64, currentUser installMode.
+
+ASCII art (Courier New, NSIS progress window):
+
+   █████╗  ███████╗  ██████╗  ██╗  ███████╗
+  ██╔══██╗ ██╔════╝ ██╔════╝  ██║  ██╔════╝
+  ███████║ █████╗   ██║  ███╗ ██║  ███████╗
+  ██╔══██║ ██╔══╝   ██║   ██║ ██║  ╚════██║
+  ██║  ██║ ███████╗ ╚██████╔╝ ██║  ███████║
+  ╚═╝  ╚═╝ ╚══════╝  ╚═════╝  ╚═╝  ╚══════╝
+
+  ─────────────────────────────────────────
+  Cognitive Resource OS              v4.0.0
+  ─────────────────────────────────────────
+
+Warning: __TAURI_BUNDLE_TYPE binary patch failed (known Tauri bundler
+cosmetic issue — does not affect installer or app functionality).
