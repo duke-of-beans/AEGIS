@@ -1,8 +1,13 @@
-; AEGIS v2.0 Installer
-; NSIS Unicode installer with smart profile upgrade strategy
+; AEGIS v2.1.0 Installer
+; NSIS Unicode installer — Node.js runtime mode (no pkg bundling)
+; Requires Node.js on PATH
 
 Unicode True
 SetCompressor /SOLID lzma
+
+!include "MUI2.nsh"
+!include "LogicLib.nsh"
+!include "WordFunc.nsh"
 
 !define APP_NAME        "AEGIS"
 !define APP_VERSION     "2.1.0"
@@ -15,7 +20,7 @@ SetCompressor /SOLID lzma
 ; Output
 OutFile "..\${INSTALLER_NAME}"
 
-; 64-BIT PROGRAM FILES — never the (x86) directory
+; 64-BIT PROGRAM FILES
 InstallDir "$PROGRAMFILES64\${APP_NAME}"
 InstallDirRegKey HKLM "${REG_KEY}" "InstallPath"
 
@@ -30,21 +35,18 @@ UninstPage uninstConfirm
 UninstPage instfiles
 
 ; ── DEV GUARD ──────────────────────────────────────────────────────────────────
-; Refuse install to source/dev directories
 Function .onVerifyInstDir
-  StrStr $0 $INSTDIR "\Dev\"
-  StrCmp $0 "" check2 devError
-  check2:
-  StrStr $0 $INSTDIR "\dev\"
-  StrCmp $0 "" check3 devError
-  check3:
-  StrStr $0 $INSTDIR "\source\"
-  StrCmp $0 "" check4 devError
-  check4:
-  StrStr $0 $INSTDIR "\Source\"
-  StrCmp $0 "" done devError
+  ${WordFind} $INSTDIR "\Dev\" "E+1{" $0
+  IfErrors 0 devError
+  ${WordFind} $INSTDIR "\dev\" "E+1{" $0
+  IfErrors 0 devError
+  ${WordFind} $INSTDIR "\source\" "E+1{" $0
+  IfErrors 0 devError
+  ${WordFind} $INSTDIR "\Source\" "E+1{" $0
+  IfErrors 0 devError
+  Goto done
   devError:
-    MessageBox MB_ICONSTOP "Cannot install AEGIS to a development directory.$\r$\nThis would overwrite your source code.$\r$\n$\r$\nPlease choose a different install location (e.g. C:\Program Files\AEGIS)."
+    MessageBox MB_ICONSTOP "Cannot install AEGIS to a development directory.$\r$\nThis would overwrite your source code.$\r$\n$\r$\nPlease choose a different install location (e.g. D:\Program Files\AEGIS)."
     Abort
   done:
 FunctionEnd
@@ -54,14 +56,23 @@ Section "Main Application" SecMain
   SetOutPath "$INSTDIR"
   
   ; Kill any running AEGIS first
-  ExecWait 'taskkill /f /im AEGIS.exe' $0
+  ExecWait 'taskkill /f /im node.exe' $0
   
-  ; Core executable
-  File "${RELEASE_DIR}\AEGIS.exe"
+  ; Launchers
+  File "${RELEASE_DIR}\AEGIS.cmd"
   File "${RELEASE_DIR}\AEGIS-silent.vbs"
   File "${RELEASE_DIR}\VERSION"
+  File "${RELEASE_DIR}\package.json"
   
-  ; PowerShell worker
+  ; Compiled JavaScript
+  SetOutPath "$INSTDIR\dist"
+  File /r "${RELEASE_DIR}\dist\*.*"
+  
+  ; Node modules (native deps: better-sqlite3, winston-daily-rotate-file, etc.)
+  SetOutPath "$INSTDIR\node_modules"
+  File /r "${RELEASE_DIR}\node_modules\*.*"
+  
+  ; PowerShell scripts
   CreateDirectory "$INSTDIR\scripts"
   SetOutPath "$INSTDIR\scripts"
   File "${RELEASE_DIR}\scripts\aegis-worker.ps1"
@@ -80,7 +91,7 @@ Section "Main Application" SecMain
   SetOutPath "$INSTDIR\assets\icons"
   File "${RELEASE_DIR}\assets\icons\*.ico"
   
-  ; Default profiles (installed to Program Files — read-only reference copies)
+  ; Default profiles (read-only reference copies)
   CreateDirectory "$INSTDIR\profiles"
   SetOutPath "$INSTDIR\profiles"
   File "${RELEASE_DIR}\profiles\*.yaml"
@@ -88,10 +99,8 @@ Section "Main Application" SecMain
 SectionEnd
 
 ; ── USER DATA ──────────────────────────────────────────────────────────────────
-; Smart upgrade strategy: copy missing profiles only, never overwrite user config
 Section "User Data" SecData
   ${IfNot} ${FileExists} "$APPDATA\${APP_NAME}\aegis-config.yaml"
-    ; Fresh install — copy everything
     CreateDirectory "$APPDATA\${APP_NAME}\profiles"
     CreateDirectory "$APPDATA\${APP_NAME}\logs"
     
@@ -106,9 +115,7 @@ Section "User Data" SecData
     File "${RELEASE_DIR}\profiles\wartime.yaml"
     File "${RELEASE_DIR}\profiles\presentation.yaml"
   ${Else}
-    ; Upgrade — only copy profiles the user doesn't already have
     SetOutPath "$APPDATA\${APP_NAME}\profiles"
-    
     ${IfNot} ${FileExists} "$APPDATA\${APP_NAME}\profiles\idle.yaml"
       File "${RELEASE_DIR}\profiles\idle.yaml"
     ${EndIf}
@@ -133,13 +140,13 @@ SectionEnd
 ; ── SHORTCUTS ──────────────────────────────────────────────────────────────────
 Section "Shortcuts" SecShortcuts
   CreateDirectory "$SMPROGRAMS\${APP_NAME}"
-  CreateShortcut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\AEGIS.exe" "" "$INSTDIR\assets\icons\idle.ico"
+  CreateShortcut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\AEGIS-silent.vbs" "" "$INSTDIR\assets\icons\idle.ico"
   CreateShortcut "$SMPROGRAMS\${APP_NAME}\Uninstall ${APP_NAME}.lnk" "$INSTDIR\Uninstall.exe"
 SectionEnd
 
 ; ── STARTUP TASK ───────────────────────────────────────────────────────────────
 Section "Startup Task" SecTask
-  ExecWait 'powershell.exe -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\scripts\install-task.ps1" -ExePath "$INSTDIR\AEGIS.exe" -VbsPath "$INSTDIR\AEGIS-silent.vbs"' $0
+  ExecWait 'powershell.exe -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\scripts\install-task.ps1" -ExePath "$INSTDIR\AEGIS-silent.vbs" -VbsPath "$INSTDIR\AEGIS-silent.vbs"' $0
 SectionEnd
 
 ; ── REGISTRY ───────────────────────────────────────────────────────────────────
@@ -158,22 +165,16 @@ SectionEnd
 
 ; ── UNINSTALLER ────────────────────────────────────────────────────────────────
 Section "Uninstall"
-  ; Kill running AEGIS
-  ExecWait 'taskkill /f /im AEGIS.exe'
+  ExecWait 'taskkill /f /im node.exe'
   
-  ; Remove startup task
   ExecWait 'powershell.exe -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\scripts\remove-task.ps1"'
   
-  ; Remove install dir (program files)
   RMDir /r "$INSTDIR"
   
-  ; Remove Start Menu entries
   RMDir /r "$SMPROGRAMS\${APP_NAME}"
   
-  ; Remove registry entries
   DeleteRegKey HKLM "${REG_KEY}"
   
-  ; Ask user about data
   MessageBox MB_YESNO|MB_ICONQUESTION \
     "Delete your AEGIS configuration and profiles?$\r$\n$\r$\nChoosing No preserves your custom profiles and settings at:$\r$\n$APPDATA\AEGIS" \
     IDNO uninstall_done

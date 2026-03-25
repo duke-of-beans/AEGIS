@@ -1,9 +1,8 @@
-// AEGIS v2.0 Build Release Script
-// Orchestrates: clean → copy dist → copy assets → pkg → stamp VERSION
+// AEGIS v2.1.0 Build Release Script
+// Orchestrates: clean → copy dist → copy node_modules → copy assets → stamp VERSION
 
-import { execSync } from 'child_process'
 import { copyFileSync, cpSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from 'fs'
-import { join, dirname } from 'path'
+import { dirname } from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -31,41 +30,56 @@ if (!existsSync('dist')) {
 console.log('Copying compiled TypeScript...')
 cpSync('dist', 'release/dist', { recursive: true })
 
-// 4. Copy scripts (PowerShell worker)
-console.log('Copying PowerShell worker...')
-copyFileSync('scripts/aegis-worker.ps1', 'release/scripts/aegis-worker.ps1')
+// 3a. Copy non-TS assets that tsc doesn't copy (JSON data files)
+if (existsSync('src/catalog/seed.json')) {
+  mkdirSync('dist/catalog', { recursive: true })
+  copyFileSync('src/catalog/seed.json', 'dist/catalog/seed.json')
+  mkdirSync('release/dist/catalog', { recursive: true })
+  copyFileSync('src/catalog/seed.json', 'release/dist/catalog/seed.json')
+}
 
-// 5. Copy assets (HTA, icons)
+// 4. Copy node_modules (required for native modules like better-sqlite3, winston-daily-rotate-file)
+console.log('Copying node_modules (production dependencies)...')
+cpSync('node_modules', 'release/node_modules', { recursive: true })
+
+// 5. Copy package.json (required for Node module resolution)
+console.log('Copying package.json...')
+copyFileSync('package.json', 'release/package.json')
+
+// 6. Copy scripts (PowerShell worker + installer task scripts)
+console.log('Copying scripts...')
+copyFileSync('scripts/aegis-worker.ps1', 'release/scripts/aegis-worker.ps1')
+if (existsSync('scripts/install-task.ps1')) {
+  copyFileSync('scripts/install-task.ps1', 'release/scripts/install-task.ps1')
+}
+if (existsSync('scripts/remove-task.ps1')) {
+  copyFileSync('scripts/remove-task.ps1', 'release/scripts/remove-task.ps1')
+}
+
+// 7. Copy assets (HTA, icons)
 console.log('Copying assets...')
 cpSync('assets', 'release/assets', { recursive: true })
 
-// 6. Copy default profiles
+// 8. Copy default profiles
 console.log('Copying default profiles...')
 cpSync('profiles', 'release/profiles', { recursive: true })
 
-// 7. Copy config template
+// 9. Copy config template
 console.log('Copying config template...')
 copyFileSync('aegis-config.yaml', 'release/aegis-config.yaml')
 
-// 8. Stamp VERSION file
+// 10. Stamp VERSION file
 writeFileSync('release/VERSION', VERSION)
 writeFileSync('VERSION', VERSION)
 
-// 9. Copy launcher scripts
+// 11. Copy launcher scripts
 if (existsSync('AEGIS-silent.vbs')) {
   copyFileSync('AEGIS-silent.vbs', 'release/AEGIS-silent.vbs')
 }
-
-// 10. pkg: bundle Node.js + dist into single AEGIS.exe
-console.log('Bundling with pkg...')
-try {
-  execSync(
-    `npx pkg dist/main.js --target node20-win-x64 --output release/AEGIS.exe`,
-    { stdio: 'inherit' }
-  )
-} catch (err) {
-  console.warn('WARNING: pkg bundling failed (expected in non-Windows CI). Skipping .exe generation.')
+if (existsSync('AEGIS.cmd')) {
+  copyFileSync('AEGIS.cmd', 'release/AEGIS.cmd')
 }
 
 console.log(`\n✅ Release built: v${VERSION}`)
 console.log(`   Output: release/`)
+console.log(`   Launch: node dist/main.js (or AEGIS.cmd / AEGIS-silent.vbs)`)
