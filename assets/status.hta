@@ -29,12 +29,15 @@ html, body { width: 320px; height: auto; min-height: 380px; }
   </div>
   <div style="display:flex;align-items:center;gap:8px">
     <span class="header-version" id="header-version">2.0</span>
-    <button class="header-close" onclick="window.close()">✕</button>
+    <button class="header-close" onclick="window.close()"
+      data-tooltip="Close the status window. AEGIS continues running in the tray."
+      data-tooltip-pos="left">✕</button>
   </div>
 </div>
 
 <!-- [B] Profile badge -->
-<div class="profile-badge" onclick="toggleProfileSwitcher()">
+<div class="profile-badge" onclick="toggleProfileSwitcher()"
+  data-tooltip="Current active profile. Click to expand the profile switcher and switch profiles instantly.">
   <div class="profile-badge-inner">
     <span class="profile-dot" id="profile-dot" style="background:#6b7280"></span>
     <div>
@@ -46,24 +49,28 @@ html, body { width: 320px; height: auto; min-height: 380px; }
 </div>
 
 <!-- [B2] Elevation warning (shown only when not elevated) -->
-<div id="elevation-warning" style="display:none;background:#78350f;color:#fef3c7;font-size:11px;padding:4px 12px;">
+<div id="elevation-warning" style="display:none;background:#78350f;color:#fef3c7;font-size:11px;padding:4px 12px;"
+  data-tooltip="AEGIS is not running as Administrator. CPU and I/O priority changes are inactive. Restart AEGIS as Administrator to enable resource control.">
   ⚠ No elevation — resource control inactive
 </div>
 
 <!-- [C] System vitals -->
 <div class="vitals">
   <div class="vital-row">
-    <span class="vital-label">CPU</span>
+    <span class="vital-label"
+      data-tooltip="CPU — Current system-wide CPU usage percentage. Updates every 2 seconds. Goes amber above 70%, red above 85%.">CPU</span>
     <div class="vital-bar-wrap"><div class="vital-bar" id="cpu-bar" style="width:0%"></div></div>
     <span class="vital-value" id="cpu-val">—</span>
   </div>
   <div class="vital-row">
-    <span class="vital-label">RAM</span>
+    <span class="vital-label"
+      data-tooltip="RAM — Current memory usage as a percentage of total installed RAM. Shows used GB alongside the percentage. Goes amber above 70%, red above 85%.">RAM</span>
     <div class="vital-bar-wrap"><div class="vital-bar" id="ram-bar" style="width:0%"></div></div>
     <span class="vital-value" id="ram-val">—</span>
   </div>
   <div class="vital-row">
-    <span class="vital-label">PWR</span>
+    <span class="vital-label"
+      data-tooltip="PWR — Active Windows power plan. Profiles can switch the power plan automatically (e.g. Wartime sets High Performance, Idle sets Balanced).">PWR</span>
     <span class="vital-text" id="pwr-val">—</span>
   </div>
 </div>
@@ -71,8 +78,10 @@ html, body { width: 320px; height: auto; min-height: 380px; }
 <!-- [D] Elevated processes -->
 <div class="process-section" id="elevated-section" style="display:none">
   <div class="section-header">
-    <span class="section-label">Elevated</span>
-    <span class="section-count" id="elevated-count">0</span>
+    <span class="section-label"
+      data-tooltip="Processes that AEGIS has boosted to High CPU and I/O priority for the active profile. These get more CPU time when resources are contested.">Elevated</span>
+    <span class="section-count" id="elevated-count"
+      data-tooltip="Number of elevated processes defined in the active profile.">0</span>
   </div>
   <div id="elevated-list"></div>
 </div>
@@ -80,8 +89,10 @@ html, body { width: 320px; height: auto; min-height: 380px; }
 <!-- [E] Throttled processes -->
 <div class="process-section" id="throttled-section" style="display:none">
   <div class="section-header">
-    <span class="section-label">Throttled</span>
-    <span class="section-count" id="throttled-count">0</span>
+    <span class="section-label"
+      data-tooltip="Processes that AEGIS has throttled to Idle CPU and Background I/O priority. They still run, but yield resources to elevated processes.">Throttled</span>
+    <span class="section-count" id="throttled-count"
+      data-tooltip="Number of throttled processes defined in the active profile.">0</span>
   </div>
   <div id="throttled-list"></div>
 </div>
@@ -89,51 +100,77 @@ html, body { width: 320px; height: auto; min-height: 380px; }
 <!-- [F] System health -->
 <div class="health">
   <div class="health-item">
-    <span class="health-dot health-offline" id="worker-dot"></span>
-    <span>Worker</span>
+    <span class="health-dot health-offline" id="worker-dot"
+      data-tooltip="Worker process status. The worker handles all resource prioritization in the background. Green = running normally. Orange = restarting. Red = failed and needs manual restart."></span>
+    <span data-tooltip="Worker process — runs the AEGIS sidecar that applies CPU and I/O priorities. Must be online for resource control to be active.">Worker</span>
     <span id="worker-text" style="color:var(--text-muted);margin-left:4px">—</span>
   </div>
   <div class="health-item">
-    <span class="health-dot health-offline" id="kernl-dot"></span>
-    <span>KERNL</span>
+    <span class="health-dot health-offline" id="kernl-dot"
+      data-tooltip="KERNL integration status. Gray = not connected (this is normal — KERNL is optional). Green = connected and sharing session context with AEGIS."></span>
+    <span data-tooltip="KERNL — optional session management integration. When connected, AEGIS can receive context hints from KERNL to improve profile suggestions. Not connected = harmless.">KERNL</span>
     <span id="kernl-text" style="color:var(--text-muted);margin-left:4px">—</span>
   </div>
 </div>
 
 <!-- [G] Timer -->
 <div class="timer-row">
-  <span class="timer-text" id="timer-text">⏱ No timer active</span>
-  <button class="timer-btn" id="timer-btn" onclick="showTimerForm()">Set Timer</button>
+  <span class="timer-text" id="timer-text"
+    data-tooltip="Active timer status. When a timer is running, AEGIS will switch to the target profile when it expires. No confirmation required — the switch is immediate.">⏱ No timer active</span>
+  <button class="timer-btn" id="timer-btn" onclick="showTimerForm()"
+    data-tooltip="Set a timed profile switch. Choose a target profile and a duration — AEGIS switches automatically when the timer expires. No confirmation required.">Set Timer</button>
 </div>
 <div class="timer-set-form" id="timer-form" style="padding:0 12px 8px">
   <span style="font-size:12px;color:var(--text-muted)">Switch to</span>
-  <select id="timer-profile-sel"></select>
+  <select id="timer-profile-sel"
+    data-tooltip="Profile to switch to when the timer expires."></select>
   <span style="font-size:12px;color:var(--text-muted)">for</span>
-  <input type="number" id="timer-duration" value="60" min="1" max="480" style="width:52px"/>
+  <input type="number" id="timer-duration" value="60" min="1" max="480" style="width:52px"
+    data-tooltip="Duration in minutes (1–480). AEGIS switches to the selected profile after this many minutes."/>
   <span style="font-size:12px;color:var(--text-muted)">min</span>
-  <button class="timer-btn" onclick="setTimer()">Set</button>
-  <button class="timer-btn" onclick="hideTimerForm()">✕</button>
+  <button class="timer-btn" onclick="setTimer()"
+    data-tooltip="Start the timer. AEGIS will switch profiles automatically when it expires.">Set</button>
+  <button class="timer-btn" onclick="hideTimerForm()"
+    data-tooltip="Cancel — discard this timer without setting it.">✕</button>
 </div>
 
-<!-- [K] Browser tab panel -->
+<!-- [K] Browser tab panel (collapsible) -->
 <div class="process-section" id="browser-section" style="display:none">
-  <div class="section-header">
-    <span class="section-label" id="browser-header-label">BRAVE</span>
-    <span class="section-count" id="browser-memory-badge"></span>
+  <div class="section-header" id="browser-panel-header" onclick="toggleBrowserPanel()" style="cursor:pointer">
+    <span class="section-label">
+      BRAVE <span id="browser-tab-count" style="font-weight:normal;text-transform:none;letter-spacing:0;font-size:11px"></span>
+    </span>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span class="section-count" id="browser-memory-badge"></span>
+      <button id="browser-suspend-all-btn" class="tab-action-btn tab-btn-suspend" onclick="tabSuspendAll(event)" style="display:none">Suspend All</button>
+      <button id="browser-restore-all-btn" class="tab-action-btn tab-btn-restore" onclick="tabRestoreAll(event)" style="display:none">Restore All</button>
+      <span id="browser-panel-toggle" style="color:var(--text-muted);font-size:11px;margin-left:2px">&#9660;</span>
+    </div>
   </div>
-  <div id="browser-tab-list"></div>
+  <div id="browser-panel-body">
+    <div id="browser-tab-list"></div>
+  </div>
 </div>
+
+<!-- [K2] Browser toast notification -->
+<div id="browser-toast" style="display:none;position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:#27200a;border:1px solid #f59e0b;color:#f59e0b;font-size:11px;padding:6px 14px;border-radius:6px;z-index:9999;white-space:nowrap;"></div>
 
 <!-- [H] Quick-switch dots -->
-<div class="quick-switch" id="quick-switch"></div>
+<div class="quick-switch" id="quick-switch"
+  data-tooltip="Quick-switch — one dot per profile. Click any dot to switch immediately. The outlined dot is the active profile. Hover a dot to see the profile name."></div>
 
 <!-- [I] History strip -->
-<div class="history-strip" id="history-strip"></div>
+<div class="history-strip" id="history-strip"
+  data-tooltip="Recent profile history — shows the last 3 profiles in the order they were active, with time since the most recent switch."></div>
 
 <!-- [J] Footer -->
 <div class="footer">
-  <button class="footer-link" onclick="openSettings()">Settings</button>
-  <button class="footer-link" onclick="openSettings()">About</button>
+  <button class="footer-link" onclick="openSettings()"
+    data-tooltip="Open AEGIS Settings — configure profiles, integrations, auto-detection, notifications, and startup behavior."
+    data-tooltip-pos="right">Settings</button>
+  <button class="footer-link" onclick="openSettings()"
+    data-tooltip="Open the About panel — version info, debug copy, and log folder access."
+    data-tooltip-pos="left">About</button>
 </div>
 
 <script src="status.js"></script>

@@ -131,11 +131,14 @@ function renderProcessSection(sectionId, listId, countId, processes) {
   shown.forEach(function(proc) {
     var row = document.createElement('div')
     row.className = 'process-row'
+    var runningTip = proc.running
+      ? 'Running — this process is currently active on the system.'
+      : 'Not running — this process is not currently active. AEGIS will apply priority settings when it starts.'
     row.innerHTML =
-      '<span class="process-name" title="' + proc.name + '">' + proc.name + '</span>' +
-      '<span class="process-cpu">' + proc.cpu_priority + '</span>' +
-      '<span class="process-io">' + proc.io_priority + '</span>' +
-      '<span class="process-status ' + (proc.running ? 'status-live' : 'status-idle') + '"></span>'
+      '<span class="process-name" title="' + proc.name + '" data-tooltip="' + proc.name + ' — managed by the active profile.">' + proc.name + '</span>' +
+      '<span class="process-cpu" data-tooltip="CPU priority assigned to this process. High = gets more CPU time when the system is busy. Idle = yields to all other processes.">' + proc.cpu_priority + '</span>' +
+      '<span class="process-io" data-tooltip="I/O priority for disk and network operations. Background = I/O requests are deferred to avoid impacting other processes.">' + proc.io_priority + '</span>' +
+      '<span class="process-status ' + (proc.running ? 'status-live' : 'status-idle') + '" data-tooltip="' + runningTip + '"></span>'
     list.appendChild(row)
   })
 
@@ -146,62 +149,167 @@ function renderProcessSection(sectionId, listId, countId, processes) {
     list.appendChild(more)
   }
 }
+// ── Browser panel state ───────────────────────────────────────────────────────
+var browserPanelOpen = (function() {
+  try { return localStorage.getItem('aegis_tab_panel_open') !== 'false' }
+  catch(e) { return true }
+})()
+
+function toggleBrowserPanel() {
+  browserPanelOpen = !browserPanelOpen
+  try { localStorage.setItem('aegis_tab_panel_open', String(browserPanelOpen)) }
+  catch(e) {}
+  applyBrowserPanelState()
+}
+
+function applyBrowserPanelState() {
+  var body = document.getElementById('browser-panel-body')
+  var toggle = document.getElementById('browser-panel-toggle')
+  if (!body || !toggle) return
+  body.style.display = browserPanelOpen ? '' : 'none'
+  toggle.innerHTML = browserPanelOpen ? '&#9660;' : '&#9658;'
+}
+
+function tabSuspend(tabId) {
+  httpPost(BASE_URL + '/tabs/' + encodeURIComponent(tabId) + '/suspend', {}, function(err) {
+    if (err) { showBrowserToast('Could not reach Brave — is it running?') }
+    else { setTimeout(fetchStatus, 300) }
+  })
+}
+
+function tabRestore(tabId) {
+  httpPost(BASE_URL + '/tabs/' + encodeURIComponent(tabId) + '/restore', {}, function(err) {
+    if (err) { showBrowserToast('Could not reach Brave — is it running?') }
+    else { setTimeout(fetchStatus, 300) }
+  })
+}
+
+function tabSuspendAll(evt) {
+  if (evt) { evt.stopPropagation() }
+  httpPost(BASE_URL + '/tabs/suspend-all', {}, function(err) {
+    if (err) { showBrowserToast('Could not reach Brave — is it running?') }
+    else { setTimeout(fetchStatus, 300) }
+  })
+}
+
+function tabRestoreAll(evt) {
+  if (evt) { evt.stopPropagation() }
+  httpPost(BASE_URL + '/tabs/restore-all', {}, function(err) {
+    if (err) { showBrowserToast('Could not reach Brave — is it running?') }
+    else { setTimeout(fetchStatus, 300) }
+  })
+}
+
+function showBrowserToast(msg) {
+  var el = document.getElementById('browser-toast')
+  if (!el) return
+  el.textContent = msg
+  el.style.display = ''
+  clearTimeout(el._aegisTimer)
+  el._aegisTimer = setTimeout(function() { el.style.display = 'none' }, 3500)
+}
+
 function renderBrowserTabs(bt) {
   var section = document.getElementById('browser-section')
-  var headerLabel = document.getElementById('browser-header-label')
+  var countEl = document.getElementById('browser-tab-count')
   var memBadge = document.getElementById('browser-memory-badge')
   var tabList = document.getElementById('browser-tab-list')
-  if (!section || !headerLabel || !memBadge || !tabList) return
+  var suspAllBtn = document.getElementById('browser-suspend-all-btn')
+  var restAllBtn = document.getElementById('browser-restore-all-btn')
+  if (!section) return
 
-  // Not enabled or not present in response — hide section
   if (!bt || !bt.enabled) {
     section.style.display = 'none'
     return
   }
 
   section.style.display = ''
+  applyBrowserPanelState()
 
   if (!bt.connected) {
-    headerLabel.textContent = 'BRAVE'
-    memBadge.textContent = ''
-    tabList.innerHTML = '<div style="font-size:11px;color:var(--text-muted);padding:2px 0">Browser tab manager: disabled</div>'
+    if (countEl) countEl.textContent = ''
+    if (memBadge) memBadge.textContent = ''
+    if (suspAllBtn) suspAllBtn.style.display = 'none'
+    if (restAllBtn) restAllBtn.style.display = 'none'
+    if (tabList) {
+      tabList.innerHTML = '<div style="font-size:11px;color:var(--text-muted);padding:4px 0">' +
+        'No tabs detected — is Brave running with --remote-debugging-port=9222?' +
+        '</div>'
+    }
     return
   }
 
-  headerLabel.textContent = 'BRAVE  ' + bt.active + ' active / ' + bt.suspended + ' suspended'
-  memBadge.textContent = bt.memory_recovered_mb > 0 ? '~' + bt.memory_recovered_mb + 'MB freed' : ''
+  var tabs = bt.tabs || []
+  var activeTabs = tabs.filter(function(t) { return !t.suspended })
+  var suspTabs = tabs.filter(function(t) { return t.suspended })
+
+  if (countEl) countEl.textContent = tabs.length > 0 ? '(' + tabs.length + ')' : ''
+  if (memBadge) memBadge.textContent = bt.memory_recovered_mb > 0 ? '~' + bt.memory_recovered_mb + 'MB freed' : ''
+  if (suspAllBtn) suspAllBtn.style.display = activeTabs.length > 0 ? '' : 'none'
+  if (restAllBtn) restAllBtn.style.display = suspTabs.length > 0 ? '' : 'none'
+
+  if (!tabList) return
+
+  if (tabs.length === 0) {
+    tabList.innerHTML = '<div style="font-size:11px;color:var(--text-muted);padding:4px 0">' +
+      'No tabs detected — is Brave running with --remote-debugging-port=9222?' +
+      '</div>'
+    return
+  }
 
   tabList.innerHTML = ''
-  var tabs = bt.tabs || []
   tabs.forEach(function(tab) {
     var row = document.createElement('div')
     row.className = 'process-row'
-    var prefix = tab.suspended ? '⏸ ' : ''
+    row.style.gap = '6px'
+
+    // Status dot
+    var dot = document.createElement('span')
+    dot.style.cssText = 'width:7px;height:7px;border-radius:50%;flex-shrink:0;background:' +
+      (tab.suspended ? '#f59e0b' : '#22c55e')
+    row.appendChild(dot)
+
+    // Title (truncated to 40 chars per spec)
     var titleEl = document.createElement('span')
     titleEl.className = 'process-name'
-    titleEl.title = tab.title
-    titleEl.textContent = prefix + tab.title
+    var titleText = tab.title || '(untitled)'
+    titleEl.title = titleText
+    titleEl.textContent = titleText.length > 40 ? titleText.slice(0, 40) : titleText
     if (tab.suspended) {
       titleEl.style.color = 'var(--text-muted)'
       titleEl.style.fontStyle = 'italic'
     }
-    var agoEl = document.createElement('span')
-    agoEl.className = 'process-cpu'
-    agoEl.style.color = 'var(--text-muted)'
-    agoEl.textContent = tab.suspended && tab.suspended_ago_min !== null
-      ? tab.suspended_ago_min + 'm ago'
-      : ''
     row.appendChild(titleEl)
-    row.appendChild(agoEl)
+
+    // Suspension badge
+    var badge = document.createElement('span')
+    badge.className = tab.suspended ? 'tab-badge-suspended' : 'tab-badge-active'
+    badge.textContent = tab.suspended ? 'SUSPENDED' : 'ACTIVE'
+    row.appendChild(badge)
+
+    // Age (suspended only)
+    if (tab.suspended && tab.suspended_ago_min !== null) {
+      var agoEl = document.createElement('span')
+      agoEl.className = 'process-cpu'
+      agoEl.style.color = 'var(--text-muted)'
+      agoEl.textContent = tab.suspended_ago_min + 'm'
+      row.appendChild(agoEl)
+    }
+
+    // Per-tab action button
+    var actionBtn = document.createElement('button')
+    actionBtn.className = 'tab-action-btn ' + (tab.suspended ? 'tab-btn-restore' : 'tab-btn-suspend')
+    actionBtn.textContent = tab.suspended ? 'Restore' : 'Suspend'
+    var capturedId = tab.id
+    if (tab.suspended) {
+      actionBtn.onclick = function() { tabRestore(capturedId) }
+    } else {
+      actionBtn.onclick = function() { tabSuspend(capturedId) }
+    }
+    row.appendChild(actionBtn)
+
     tabList.appendChild(row)
   })
-
-  if (tabs.length === 0) {
-    var empty = document.createElement('div')
-    empty.style.cssText = 'font-size:11px;color:var(--text-muted);padding:2px 0'
-    empty.textContent = 'No tabs tracked yet'
-    tabList.appendChild(empty)
-  }
 }
 
 function renderHealth(health) {
@@ -274,6 +382,7 @@ function renderQuickSwitch(profiles) {
     dot.className = 'qs-dot' + (currentSnapshot && currentSnapshot.profile.active === p.name ? ' active' : '')
     dot.style.background = p.color || '#6b7280'
     dot.title = p.display_name
+    dot.setAttribute('data-tooltip', 'Switch to ' + p.display_name + ' — takes effect immediately, no confirmation required.')
     dot.onclick = function() { switchProfile(p.name) }
     container.appendChild(dot)
   })
@@ -293,6 +402,7 @@ function toggleProfileSwitcher() {
     allProfiles.forEach(function(p) {
       var opt = document.createElement('div')
       opt.className = 'profile-option' + (currentSnapshot && currentSnapshot.profile.active === p.name ? ' active' : '')
+      opt.setAttribute('data-tooltip', 'Switch to ' + p.display_name + '. Takes effect immediately — CPU and I/O priorities update within one poll cycle (~2s).')
       opt.innerHTML =
         '<span class="profile-option-dot" style="background:' + p.color + '"></span>' +
         '<span class="profile-option-name">' + p.display_name + '</span>'
@@ -417,8 +527,8 @@ function loadProfilesTab() {
           '<div class="profile-list-desc">' + (p.description || '') + '</div>' +
         '</div>' +
         '<div class="profile-list-actions">' +
-          '<button class="settings-btn" onclick="editProfile(\'' + p.name + '\')">Edit</button>' +
-          '<button class="settings-btn" onclick="resetProfile(\'' + p.name + '\')">Reset</button>' +
+          '<button class="settings-btn" onclick="editProfile(\'' + p.name + '\')" data-tooltip="Open ' + p.display_name + '.yaml in your default editor. AEGIS reloads the profile automatically on save — no restart needed.">Edit</button>' +
+          '<button class="settings-btn" onclick="resetProfile(\'' + p.name + '\')" data-tooltip="Reset ' + p.display_name + ' to its factory defaults. Your customizations will be permanently lost. A confirmation prompt will appear first.">Reset</button>' +
         '</div>'
       list.appendChild(item)
     })

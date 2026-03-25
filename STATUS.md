@@ -1,79 +1,102 @@
-﻿# AEGIS — STATUS
-Status: Active Development
-Phase: Intelligence Layer Build-Out
-Last Sprint: AEGIS-PROCS-01 — process management complete with implications (CLOSED 2026-03-25, 685dd89)
-Last Updated: 2026-03-25
+# AEGIS — STATUS
+
+**Status:** active
+**Phase:** v2.x feature development — process intelligence + UI layer
+**Last Sprint:** AEGIS-HELP-01
+**Last Updated:** 2026-03-25
+**Completion:** 87%
+
+## Architectural Direction — Independent Daemon (March 23, 2026)
+
+GregLite's browser-native pivot decouples AEGIS from the GregLite window lifecycle entirely.
+AEGIS becomes (and in practice already is) an independent daemon — it runs whether or not
+the GregLite UI is open. This is the correct architecture: AEGIS monitors the system, not a
+window. Under Tauri, AEGIS was coupled to window events. Under browser-native, AEGIS
+communicates with the GregLite sidecar via local HTTP/socket. The daemon pattern also means
+AEGIS can serve multiple consumers (GregLite, GREGORE, standalone CLI queries, dashboard).
+pm2 lifecycle management already in place validates this direction.
+
+## Current State
+
+Process management is fully operational — pause/resume, priority, and end task with risk-aware
+implications. The intelligence engine is fully integrated: PolicyManager fires context overlays
+on every transition, sniper respects build context (2× threshold, node/cargo/rustc/tsc/python
+exempt), and context history persists across restarts. The cockpit context panel is live with
+confidence bar, time-in-context, focus-driving processes, and manual lock modal. Ambient mode
+is the default tray posture — profiles are manual overrides. The feedback/learning loop is
+wired end-to-end with implicit approval and auto mode at ≥75% confidence. Brave tab
+suspension is fully operational with per-tab and bulk controls from the status window.
+All cockpit interactive elements now have hover tooltips.
+
+ESLint gate: 0 errors across all source files. Quality gates passing on all recent sprints.
+
+Known friction: Desktop Commander read_file returns empty for text files in the Cowork
+environment — workaround is start_process + Get-Content. Logged to backlog.
+
+## What's Complete
+
+- [x] AEGIS-HELP-01: CSS-only tooltip system (data-tooltip + ::after) across all interactive
+  elements in status.hta, settings.hta, and dynamically-rendered elements in status.js (ecfd292)
+- [x] AEGIS-BRAVE-03: tab suspension UI — per-tab SUSPENDED/ACTIVE badges, per-tab
+  Suspend/Restore buttons, bulk Suspend All / Restore All, collapsible panel,
+  localStorage state persistence, browser toast notifications (2026-03-25)
+- [x] AEGIS-PROCS-01: process management — suspend_process (CreateToolhelp32Snapshot +
+  SuspendThread), resume_process (ResumeThread), get_process_info (30-process lookup,
+  risk_label/blast_radius/implication), pause/resume/end modals with risk-branched UX
+  (CRITICAL_SYSTEM red dismiss / CAUTION 2s hold / SAFE standard), action log with [Manual]
+  prefix and ✓/✗ icons, sidecar outcome/error fields (685dd89)
+- [x] AEGIS-INTEL-05: PolicyManager live — applyContextOverlays() on every context transition,
+  policies_updated events, timed overlay pruning, sniper context respect (build 2× threshold,
+  idle 0.5×, exempt node/cargo/rustc/tsc/python), context_history.jsonl persists to
+  %APPDATA%\AEGIS\, cockpit context panel fully live (confidence bar, time-in-context, top
+  focus processes, last 5 transitions, manual lock modal 30/60/120 min),
+  sidecar_lock_context Tauri command registered (bf59ef7 + 4a35f91)
+- [x] AEGIS-AMBIENT-01: tray rebuilt (TrayIconBuilder ambient-first, profiles under Manual
+  Override submenu, Release Override conditional), cockpit pill clickable (dim AMBIENT / amber
+  OVERRIDE), right-panel override section, per-process pin (localStorage aegis_process_pins,
+  applyPinsOnce()), sidecar override_active in get_state/apply_profile/heartbeat (0c63805)
+- [x] AEGIS-INTEL-04: LearningStore instantiated on boot, recordAction() on every sniper
+  action, feedback RPC wired (recordExplicitFeedback, double-count guard via feedbackReceived
+  Set, confidence_updated), implicit approval after 60s, detached tokio task emits
+  feedback_prompt at 90s, sidecar_feedback Tauri command, cockpit feedback bar + confidence
+  panel (live %, decisions-until-auto, auto mode offer at ≥75%, localStorage persist) (f75968c)
+- [x] AEGIS-INTEL-03: BaselineEngine + SniperEngine wired, listens on 'event'/action_taken,
+  update_processes RPC from metrics.rs on every 2s poll, suspend action in
+  handle_sniper_request, cockpit sniper_action → SNAP + renderAlog() + canvas spike (10fc32e)
+- [x] AEGIS-ELEV-01: elevation gate — checkIsElevated(), applyProfile() guard, startup toast,
+  status indicator (2026-03-22)
+- [x] AEGIS-PM2-01: pm2 ecosystem config, bounce.bat, startup resurrect
+- [x] ESLint gate: tab-manager.ts, cdp-client.ts, menu.ts, lifecycle.ts, index.ts
+- [x] BRAVE-02: status window tab panel, Brave launch helper, per-profile suspension config
+- [x] BRAVE-01: Brave tab manager — CDP client, tab tracking, suspension engine
+- [x] v2.0.0: installer built, installed to D:\Dev\aegis\
+- [x] Startup tasks removed
 
 ## Open Work
-- [x] AEGIS-DEVOPS-01 — pre-push lint hook (9428d99)
-- [x] AEGIS-INTEL-01 — per-drive disk I/O via WMI (closed in parallel session)
-- [x] AEGIS-INTEL-02 — wire cognitive load engine (CLOSED 2026-03-25)
-- [x] AEGIS-INTEL-03 — sniper + baseline operational (CLOSED 2026-03-25)
-- [x] AEGIS-INTEL-04 — learning store feedback loop (CLOSED 2026-03-25)
-- [x] AEGIS-AMBIENT-01 — profiles demoted, ambient-first (CLOSED 2026-03-25)
-- [x] AEGIS-INTEL-05 — context engine full integration (CLOSED 2026-03-25, bf59ef7)
-- [ ] AEGIS-INTEL-06 — process catalog live queue
-- [x] AEGIS-PROCS-01 — process management complete with feedback (CLOSED 2026-03-25, 685dd89)
-- [ ] AEGIS-HELP-01 — hover help system complete
-- [ ] AEGIS-DEVOPS-02 — full CI build pipeline
-- [ ] AEGIS-GPU-01 — GPU monitoring properly implemented
 
-## Closed
-- [x] AEGIS-COCKPIT-02 — complete cockpit rewrite (2026-03-25)
-- [x] AEGIS-DEVOPS-01 — pre-push lint hook (9428d99)
-- [x] AEGIS-INTEL-01 — per-drive disk I/O via WMI (closed in parallel session)
-- [x] AEGIS-INTEL-02 — cognitive load engine wired (2026-03-25)
-- [x] AEGIS-INTEL-03 — sniper + baseline operational (2026-03-25)
-- [x] AEGIS-INTEL-04 — learning store feedback loop (2026-03-25)
-- [x] AEGIS-AMBIENT-01 — ambient-first UI, profiles demoted to override (2026-03-25)
-- [x] AEGIS-INTEL-05 — context engine full integration (2026-03-25)
-- [x] AEGIS-PROCS-01 — process management complete with implications (2026-03-25, 685dd89)
+- [ ] **[P2]** AEGIS-INTEL-06: blocked — needs v4 spec rewrite before execution, do not run without it
+- [ ] **[P2]** Per-profile CDP port config (currently hardcoded)
+- [ ] **[P3]** Visual rule editor for profiles
+- [ ] **[P3]** Historical performance graphs (CPU/RAM over time)
+- [ ] **[P3]** pm2 boot health-check — verify resurrect succeeded at logon
 
-## Next Track
-  AEGIS-INTEL-06 — process catalog live queue (needs v4 spec rewrite before execution)
-  AEGIS-HELP-01 — hover tooltips (no dependencies, can run immediately)
-  AEGIS-HELP-01 — hover tooltips (no dependencies, run immediately)
+## Blockers
 
-## Architecture Decision: Profiles → Ambient
-Profiles are manual overrides, not primary features.
-AEGIS manages resources automatically via context + sniper + baseline.
-"Ambient mode" = no override active. Not a new profile — absence of one.
-Tray: "● Ambient — auto-managing" by default. Override submenu available.
-Cockpit pill: AMBIENT (dim) or OVERRIDE: [name] (amber).
-Per-process pins: localStorage only, intentionally not persisted to sidecar.
+AEGIS-INTEL-06 blocked on spec rewrite.
 
-## Known Issues (updated 2026-03-25)
-- Disk I/O: hardcoded 0 (fix in AEGIS-INTEL-01 — closed in parallel session, needs merge check)
-- Desktop/taskbar icon: still Tauri default (rebuild installer after COCKPIT-02)
-- Sidecar dead-code warnings: IntelligenceEvent, SniperRequest (pre-existing, not introduced this sprint)
+## Key Files
 
-## Fixed by AEGIS-PROCS-01
-- suspend_process: ✓ thread enumeration via CreateToolhelp32Snapshot/SuspendThread — was a no-op stub
-- resume_process: ✓ new command, ResumeThread, registered in main.rs
-- get_process_info: ✓ new command, 30-process lookup (risk_label/blast_radius/implication), registered in main.rs
-- Cargo.toml: ✓ Win32_System_Diagnostics_ToolHelp feature added
-- openPauseModal: ✓ PAUSED badge, resume button swap, inline confirm/error
-- openResumeModal: ✓ removes badge, restores pause button
-- openEndModal: ✓ CRITICAL_SYSTEM → red warning only; CAUTION → 2s hold; SAFE → click confirm
-- openPriorityModal: ✓ 5 radio options with plain-English implications, pin notice
-- pausedPids Set: ✓ survives re-renders via reapplyPausedBadges() in render()
-- Action log: ✓ [Manual] prefix, ✓/✗ outcome icons, merged sniper+manual
-- sidecar.rs: ✓ outcome + error in sniper_action event payload
-- npm run lint: ✓ 0 errors | cargo check: ✓ 0 errors
-
-## Fixed by AEGIS-INTEL-05
-- PolicyManager: ✓ instantiated in sidecar, wired to context_changed event
-- Context overlays: ✓ applyContextOverlays() called on every context transition
-- policies_updated event: ✓ emitted to cockpit on context change
-- get_policies RPC: ✓ returns base + overlays with metadata
-- lock_context RPC: ✓ user context lock with auto-release timer
-- Sniper context multiplier: ✓ build=2.0x, deep_work=1.5x, idle=0.5x, etc.
-- Build context exemptions: ✓ node/cargo/rustc/tsc never actioned, logged at debug
-- Context history: ✓ in-memory + persisted to %APPDATA%/AEGIS/context_history.jsonl
-- History survives restart: ✓ loaded from disk on ContextEngine startup
-- Cockpit context panel: ✓ confidence bar, time in context, focus drivers, last 5 transitions
-- Manual context lock UI: ✓ opens modal, invokes sidecar_lock_context, countdown shown
-- context_locked/released events: ✓ forwarded to cockpit via intelligence_update
-- sidecar_lock_context Tauri command: ✓ registered in main.rs
-- npm run lint: ✓ 0 errors
-- cargo check: ✓ 0 errors, 3 pre-existing warnings only
+| File | Purpose |
+|------|---------|
+| `src/browser/tab-manager.ts` | Brave tab tracking, suspension engine, launchBrave() |
+| `src/browser/cdp-client.ts` | WebSocket CDP client for Brave remote debugging |
+| `src/tray/lifecycle.ts` | Main process orchestration, tray wiring |
+| `src/tray/index.ts` | TrayDependencies interface, menu dispatch |
+| `sidecar/src/main.ts` | LearningStore, SniperEngine, PolicyManager, RPC dispatch |
+| `src/status/server.ts` | Status HTTP server, /status /switch /timer /tabs endpoints |
+| `assets/status.hta` | Status window HTML — profile badge, vitals, process sections, tabs |
+| `assets/settings.hta` | Settings window HTML — General/Profiles/Integrations/Startup/About |
+| `assets/status.js` | Shared JS — polling, renderStatus, profile switcher, timer, drag |
+| `assets/status.css` | Shared CSS — design system, tooltip system (AEGIS-HELP-01) |
+| `D:\Meta\ecosystem.config.cjs` | pm2 process config |
+| `D:\Meta\bounce.bat` | pm2 restart dashboard |

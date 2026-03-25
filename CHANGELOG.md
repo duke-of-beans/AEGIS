@@ -2,7 +2,39 @@
 
 ## [AEGIS-INTEL-05] — 2026-03-25
 
-### Context Engine: Full Integration
+## [AEGIS-BRAVE-03] — 2026-03-25
+### Shipped — Tab Suspension UI (Cockpit Operator Surface)
+
+**Added**
+- `src/status/server.ts` — `/tabs/suspend-all` and `/tabs/restore-all` POST endpoints. Bulk routes registered before `/:id` routes to prevent Express param shadowing. `onTabSuspendAll` / `onTabRestoreAll` callback registration methods.
+- `src/tray/lifecycle.ts` — wired `globalStatusServer.onTabSuspendAll` / `onTabRestoreAll` callbacks to `globalTabManager.suspendAll()` / `restoreAll()`.
+- `assets/status.hta` — `[K]` browser panel upgraded: collapsible header with toggle arrow, tab count badge, "Suspend All" / "Restore All" bulk buttons in header, `browser-panel-body` wrapper div, `browser-toast` notification div.
+- `assets/status.js` — new functions: `toggleBrowserPanel()`, `applyBrowserPanelState()`, `tabSuspend(id)`, `tabRestore(id)`, `tabSuspendAll(evt)`, `tabRestoreAll(evt)`, `showBrowserToast(msg)`. `renderBrowserTabs()` fully rewritten: per-tab SUSPENDED (amber) / ACTIVE (dim) badges, per-tab Suspend/Restore buttons, bulk button visibility driven by active/suspended counts, collapsible state persisted to `localStorage['aegis_tab_panel_open']`, graceful empty state with CDP instruction when Brave not running.
+- `assets/status.css` — tab action button styles: `.tab-action-btn`, `.tab-btn-suspend`, `.tab-btn-restore`, `.tab-badge-suspended`, `.tab-badge-active`, `.tab-domain`.
+- `src/status/server.ts` — inline cockpit HTML (`buildStatusHtml`) updated: collapsible browser section with toggle, SUSPENDED/ACTIVE badges, per-tab and bulk controls, toast notification, `localStorage` panel state persistence.
+
+**Design decisions**
+- Bulk HTTP endpoints (`/tabs/suspend-all`, `/tabs/restore-all`) added to `StatusServer` rather than wiring bulk logic into `lifecycle.ts` — keeps the HTTP surface complete and consistent; any future client (CLI, MCP) can call the same endpoints.
+- Express route registration order: bulk routes before `/:id` wildcard routes — prevents `suspend-all` being matched as a tab ID.
+- `showBrowserToast()` fires on HTTP error from any tab/bulk action — gives operator feedback when Brave is unreachable without crashing or hanging.
+- Panel collapse state persisted to `localStorage['aegis_tab_panel_open']` — survives HTA window close/reopen and cockpit refreshes.
+- Per-tab buttons are optimistic: button fires immediately, `fetchStatus` called 300ms later to confirm new state via the normal poll cycle.
+
+
+### Added — AEGIS-HELP-01 (2026-03-25)
+- CSS-only tooltip system in `assets/status.css` — `[data-tooltip]::after` pseudo-element, dark bg (#1a1a1a), 12px, 200ms fade, max-width 240px, position above by default with `data-tooltip-pos="below/left/right"` variants for edge elements
+- `data-tooltip` attributes on all interactive elements in `assets/status.hta`: close button, profile badge, elevation warning, CPU/RAM/PWR vital labels, elevated/throttled section headers and count badges, health dots and labels, timer text, Set Timer/Cancel/Set/✕ form buttons, browser section header and memory badge, quick-switch container, history strip, Settings and About footer buttons
+- `data-tooltip` attributes on all interactive elements in `assets/settings.hta`: all five tab buttons (below-positioned), every settings control in General/Profiles/Integrations/Startup/About tabs
+- `data-tooltip` on dynamically-rendered elements via `assets/status.js`: process row name/CPU/IO/status-dot cells, browser tab title and ago cells, quick-switch dots, profile switcher options, profile list Edit/Reset buttons
+- Zero layout shift — tooltips use `position:absolute`, not relative
+
+### Added — AEGIS-ELEV-01
+- `src/system/elevation.ts`: `checkIsElevated()` — async, PowerShell-based, session-cached
+- Elevation gate in `ProfileManager.applyProfile()` — all privileged IPC calls guarded
+- Startup elevation check in `lifecycle.ts` — one-time toast + warn log when not elevated
+- `isElevated?: boolean` added to `SystemSnapshot` type and populated by `StatsCollector`
+- Amber elevation warning indicator in status window (hidden when elevated)
+- AEGIS-ELEV-01: elevation gate in manager.ts
 
 - **PolicyManager instantiated** in `sidecar/src/main.ts` `initEngines()` — `policyManager` module-level variable; instantiated after ContextEngine; full PolicyManager from `context/policies.ts` (existing implementation, not rewritten)
 - **`applyContextOverlays()` wired to `context_changed`** — called on every context transition; emits `policies_updated` event to cockpit with overlay list (id, name, domain)
