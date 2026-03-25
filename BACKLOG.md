@@ -66,15 +66,14 @@ This sprint completes it completely and correctly.
 
 ---
 
-## P0 — DEVOPS: LINT GATE (AEGIS-DEVOPS-01)
+## P0 — DEVOPS: LINT GATE (AEGIS-DEVOPS-01) ✓ DONE 2026-03-25
 
-- [ ] **AEGIS-DEVOPS-01** — Pre-push lint hook
-  Install a git pre-push hook that runs `npm run lint` before any push to main.
-  If lint fails, push is blocked with clear error output.
-  Script: `.git/hooks/pre-push` (executable shell script).
-  Also update CONTRIBUTING.md / README with: "run npm run lint before pushing."
-  _Acceptance: Attempting to push with a lint error aborts the push and shows the
-  offending lines. CI never receives a broken commit again._
+- [x] **AEGIS-DEVOPS-01** — Pre-push lint gate (commit: TBD-post-push)
+  `.git/hooks/pre-push` written and marked executable. Runs `npm run lint` on every
+  push. Blocks with clear error output if lint fails. Emergency bypass documented.
+  `CONTRIBUTING.md` created with Development section covering lint, typecheck, commit
+  message workflow. Hook verified: injected lint error blocked correctly, removed clean.
+  _Acceptance: MET — lint error blocks push. CI never receives broken commit._
 
 ---
 

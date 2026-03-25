@@ -20,8 +20,8 @@ Last Updated: 2026-03-25
 - [ ] AEGIS-GPU-01 — GPU monitoring properly implemented
 
 ## Parallel Track A (run now)
-  AEGIS-DEVOPS-01 | AEGIS-COCKPIT-02 | AEGIS-INTEL-01
-  → All three are independent and can run simultaneously in Cowork
+  ~~AEGIS-DEVOPS-01~~ ✓ | AEGIS-COCKPIT-02 | ~~AEGIS-INTEL-01~~ ✓
+  → AEGIS-COCKPIT-02 is the remaining parallel track item
 
 ## Serial Track B (after Track A)
   AEGIS-INTEL-02 → AEGIS-INTEL-03 → AEGIS-INTEL-04

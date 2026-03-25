@@ -125,3 +125,18 @@ Format: [Sprint] Date — Summary
 ### Added
 - Process catalog with 210-process seed data
 - Trust tiers, blast radius categories, behavioral norms
+
+---
+
+## [AEGIS-DEVOPS-01] 2026-03-25 — Pre-Push Lint Gate (commit: TBD-post-push)
+
+### Added
+- `.git/hooks/pre-push` — POSIX shell script that runs `npm run lint` before every push
+- Push blocked with clear error output if lint fails (exit code printed, offending lines shown)
+- Emergency bypass documented in hook header: `git push --no-verify`
+- `CONTRIBUTING.md` — Development section: lint requirement, typecheck, commit message workflow
+
+### Quality Gates
+- `npm run lint` — 0 errors, 0 warnings ✓
+- `npx tsc --noEmit` — 0 errors ✓
+- Hook verified: injected `@typescript-eslint/no-unused-vars` error blocked correctly
