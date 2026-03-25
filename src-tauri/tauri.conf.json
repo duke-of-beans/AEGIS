@@ -1,0 +1,57 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "AEGIS",
+  "version": "4.0.0",
+  "identifier": "com.borrowedlight.aegis",
+  "build": {
+    "frontendDist": "../ui",
+    "beforeDevCommand": "",
+    "beforeBuildCommand": ""
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "cockpit",
+        "title": "AEGIS — Cognitive Resource OS",
+        "width": 1100,
+        "height": 680,
+        "minWidth": 820,
+        "minHeight": 500,
+        "resizable": true,
+        "visible": false,
+        "decorations": true,
+        "skipTaskbar": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "nsis",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../profiles": "profiles",
+      "../aegis-config.yaml": "aegis-config.yaml"
+    },
+    "externalBin": [
+      "binaries/aegis-sidecar"
+    ],
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": false,
+        "languages": ["English"],
+        "installMode": "currentUser",
+        "installerHooks": "./windows/hooks.nsi"
+      }
+    }
+  }
+}
