@@ -1,82 +1,42 @@
 # AEGIS — BACKLOG
-Last Updated: 2026-03-24 (AEGIS-MONITOR-01 shipped)
 
----
+## P0 — Ship Blockers
 
----
+- [ ] **AEGIS-TAURI-05** — NSIS installer with ASCII art welcome screen, Task Scheduler
+      entry at logon (runs as normal user token), Add/Remove Programs entry, Start Menu
+      shortcut. Tauri bundler NSIS target. Single .exe distributable.
+      _Acceptance: AEGIS-Setup-4.0.0.exe installs clean, tray appears at next logon_
 
-## P1 — Intelligence Core
+## P2 — Intelligence Layer Completion
 
-- [ ] AEGIS-UI-01: Command surface redesign
-      Full HTML rebuild. Cockpit — every metric adjacent to its action.
-      Spawn tree as default process view (indented, deviation indicators per node).
-      Action log as permanent right panel (reasoning, not conclusions).
-      Policy stack live panel (base + active overlays).
-      Cognitive load score in header. Tier color system (gray/amber/red).
-      Depends on: AEGIS-MONITOR-01.
+- [ ] **AEGIS-LEARN-02** — Action outcome analysis UI. Surface patterns from LearningStore:
+      which rules fire most, which get negative feedback, confidence drift over time.
+      Show in cockpit Action Log tab.
 
-- [ ] AEGIS-UI-01: Command surface redesign
-      Per-process baseline engine — rolling mean + stddev per context per time bucket.
-      Deviation detection — personal baseline trigger, not absolute values.
-      Graduated action: throttle → suspend → kill with configurable thresholds.
-      Context exemption rules. TESSRYX blast radius preview before Tier 3.
-      Cooldown tracking per process per rule.
-      Depends on: AEGIS-CATALOG-01, AEGIS-CONTEXT-01.
+- [ ] **AEGIS-CATALOG-02** — Live identification queue in cockpit. Unknown processes that
+      need cataloging shown inline with quick-resolve form (name, trust tier, blast radius).
 
----
+## P3 — Polish
 
-## P2 — Learning + MCP
+- [ ] **AEGIS-SNIPER-02** — Custom sniper rules. User-defined rules via YAML config or
+      cockpit UI. Per-process overrides on top of catalog defaults.
 
-- [ ] AEGIS-MCP-02: Rich MCP publisher — completed, see Completed section
-      Tools: get_cognitive_load, get_context, get_process_tree, get_system_snapshot,
-      apply_policy_overlay, get_runaways, get_action_log, get_session_summary.
-      GREGORE + GregLite integration protocols documented.
-      Depends on: AEGIS-LEARN-01, AEGIS-SNIPER-01.
+- [ ] **AEGIS-CONTEXT-02** — Manual context override from cockpit. Force a context, lock
+      it for a duration, unlock. Currently context is auto-detected only.
 
----
+- [ ] **AEGIS-ICON-01** — Custom AEGIS icon. Replace Tauri default. Needs .ico at 16x16,
+      32x32, 48x48, 256x256. Design: shield + circuit motif, dark bg.
 
-## P3 — Polish + Distribution
+- [ ] **AEGIS-PKG-01** — Upgrade sidecar bundler from pkg@5.8.1 (node18 target) to
+      @yao-pkg/pkg (node20+ targets). Reduces sidecar binary size, adds Node 20 support.
 
-- [ ] AEGIS-INSTALLER-01: v3.0.0 installer rebuild
-      NSIS updated for v3. SQLite binary bundled. Aesthetic standard applied.
-      v2 → v3 config migration script.
-      Depends on: AEGIS-MCP-02.
+- [ ] **AEGIS-SIGN-01** — Code signing. SmartScreen bypass for distribution. Self-signed
+      path documented. Post-MVP.
 
-- [ ] Historical performance graphs (CPU/RAM sparklines over time)
-- [ ] pm2 boot health-check — verify resurrect succeeded at logon
+## Icebox
 
----
-
-## Completed
-
-- [x] AEGIS-MONITOR-01: Extended monitoring surface — disk I/O per-drive delta, SMART health,
-      network per-adapter, GPU (nvidia-smi + WMI fallback), DPC/interrupt rate, hard page fault rate,
-      process spawn tree (WMI ParentProcessId), handle/thread counts. MonitorCollector with independent
-      per-metric try/catch, 5 new PowerShell IPC methods, 6 new TypeScript interfaces, 5 new HTML
-      sections (disk, network, GPU, system, process tree). (2227b10, 2026-03-24)
-- [x] AEGIS-CATALOG-01: Process knowledge base — SQLite catalog.db, 210-process seed,
-      CatalogDb + CatalogManager, canActOn gate, suspicion heuristics, Claude ID bridge,
-      /catalog/identify + /catalog/resolve endpoints, catalog HTML section in status window,
-      wired into lifecycle + collector (2026-03-24)
-- [x] AEGIS-CONTEXT-01: Context detection engine — PowerShell WinEvent poller, ContextEngine
-      (8 context types, rule evaluator, focus weight decay), PolicyManager (composable stack,
-      overlay system, CONTEXT_OVERLAY_TEMPLATES), context field in SystemSnapshot,
-      renderContext in status window, wired into collector + lifecycle (2026-03-24)
-- [x] AEGIS-LEARN-01: LearningStore (sessions.db, action outcomes, load samples, confidence
-      state with weighted feedback scoring), CognitiveLoadEngine (6-signal composite 0-100,
-      normalized pressures, equal weights learned over time), POST /feedback + onFeedback,
-      renderLoad badge, renderConfidence progress bar, session lifecycle wired to context
-      changes, wired into collector + lifecycle (2026-03-24)
-- [x] AEGIS-SNIPER-01: BaselineEngine (Welford variance, baselines.db, per-process/context
-      fingerprints, getDeviation z-scores, MIN_SAMPLES=20), SniperEngine (3 built-in rules,
-      blast radius multipliers, graduated throttle→suspend→kill, catalog gate, context
-      exemptions, cooldown tracking), worker PID methods, sniper section in status window,
-      wired into collector + lifecycle (2026-03-24)
-- [x] AEGIS-BRAVE-03: tab suspension UI, HTML command surface v1, per-profile CDP port (ca936bc, 2026-03-24)
-- [x] AEGIS-ELEV-01: elevation gate, startup toast, amber indicator (2026-03-22)
-- [x] AEGIS-PM2-01: pm2 migration, bounce.bat, startup resurrect (2026-03-22)
-- [x] ESLint gate: all 26 source files clean (2026-03-22)
-- [x] BRAVE-02: status window tab panel, Brave launch helper, per-profile suspension config
-- [x] BRAVE-01: CDP client, tab tracking, suspension engine
-- [x] v2.0.0 installer
-- [x] Startup task removal
+- MCP server port: currently MCP uses stdio transport (KERNL calls via stdio).
+  If HTTP transport needed for GregLite integration, add as separate sprint.
+- GPU monitoring: nvidia-smi shell-out working for NVIDIA. AMD/Intel requires
+  different APIs. Out of scope until GPU monitoring is a requested feature.
+- AEGIS-TAURI-05 installer: signed binary path. Self-signed documented post-ship.

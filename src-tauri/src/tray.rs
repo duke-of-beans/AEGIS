@@ -1,8 +1,9 @@
 // tray.rs — Native Windows system tray icon and menu
-// Profile checkmarks, cognitive load in tooltip, left-click opens cockpit
+// Profile switching with bullet prefix for active profile.
+// Left-click opens/hides cockpit window.
 
 use tauri::{
-    menu::{MenuBuilder, MenuItemBuilder, CheckMenuItemBuilder},
+    menu::{MenuBuilder, MenuItemBuilder},
     tray::{TrayIconBuilder, TrayIconEvent},
     App, Emitter, Manager, Runtime,
 };
@@ -23,12 +24,16 @@ pub fn setup_tray<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std::error
     // Separator
     menu_builder = menu_builder.separator();
 
-    // Profile items
+    // Profile items — active profile gets "● " prefix, inactive get "  "
     for name in &profile_names {
         let is_idle = name == "idle";
-        let item = CheckMenuItemBuilder::new(name.to_uppercase())
+        let label = if is_idle {
+            format!("● {}", name.to_uppercase())
+        } else {
+            format!("  {}", name.to_uppercase())
+        };
+        let item = MenuItemBuilder::new(&label)
             .id(format!("profile_{}", name))
-            .checked(is_idle)
             .build(app)?;
         menu_builder = menu_builder.item(&item);
     }
@@ -83,14 +88,13 @@ pub fn setup_tray<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std::error
                     app.exit(0);
                 }
                 id if id.starts_with("profile_") => {
-                    let profile_name = id.trim_start_matches("profile_");
+                    let profile_name = id.trim_start_matches("profile_").to_string();
                     let app_clone = app.clone();
-                    let profile_name_owned = profile_name.to_string();
                     tauri::async_runtime::spawn(async move {
-                        if let Ok(profile) = profiles::load_profile(&profile_name_owned) {
+                        if let Ok(profile) = profiles::load_profile(&profile_name) {
                             let _ = profiles::apply_profile(&profile);
-                            let _ = app_clone.emit("profile_changed", &profile_name_owned);
-                            log::info!("Profile switched via tray: {}", profile_name_owned);
+                            let _ = app_clone.emit("profile_changed", &profile_name);
+                            log::info!("Profile switched via tray: {}", profile_name);
                         }
                     });
                 }

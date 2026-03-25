@@ -28,7 +28,7 @@ pub struct ProcessRule {
 fn default_priority() -> String { "normal".to_string() }
 
 fn profiles_dir() -> PathBuf {
-    // Dev: relative to src-tauri
+    // Dev: relative to src-tauri (working dir during `cargo tauri dev`)
     let dev_path = PathBuf::from("../profiles");
     if dev_path.exists() { return dev_path; }
     // Installed: next to exe
@@ -57,10 +57,75 @@ pub fn list_profiles() -> Vec<String> {
     names
 }
 
+/// Profiles have a nested `profile:` key in YAML — handle both flat and nested
+#[derive(Debug, Deserialize)]
+struct ProfileFile {
+    // Nested form: profile: { name: ..., power_plan: ..., ... }
+    profile: Option<ProfileInner>,
+    // Flat form fallback
+    #[serde(flatten)]
+    flat: Option<ProfileInner>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+struct ProfileInner {
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub power_plan: Option<String>,
+    #[serde(default)]
+    pub elevated_processes: Vec<ElevatedRule>,
+    #[serde(default)]
+    pub throttled_processes: Vec<ThrottledRule>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+struct ElevatedRule {
+    pub name: String,
+    #[serde(default = "default_priority")]
+    pub cpu_priority: String,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+struct ThrottledRule {
+    pub name: String,
+    #[serde(default = "default_idle")]
+    pub cpu_priority: String,
+}
+
+fn default_idle() -> String { "idle".to_string() }
+
 pub fn load_profile(name: &str) -> Result<Profile, String> {
     let path = profiles_dir().join(format!("{}.yaml", name));
     let content = std::fs::read_to_string(&path)
         .map_err(|e| format!("Cannot read profile '{}': {}", name, e))?;
+
+    // Try nested YAML first (profiles use `profile:` key)
+    if let Ok(pf) = serde_yaml::from_str::<ProfileFile>(&content) {
+        if let Some(inner) = pf.profile.or(pf.flat) {
+            // Build process rules from elevated + throttled lists
+            let mut rules: Vec<ProcessRule> = inner.elevated_processes.iter().map(|r| ProcessRule {
+                name: r.name.clone(),
+                cpu_priority: r.cpu_priority.clone(),
+                io_priority: "normal".to_string(),
+            }).collect();
+            rules.extend(inner.throttled_processes.iter().map(|r| ProcessRule {
+                name: r.name.clone(),
+                cpu_priority: r.cpu_priority.clone(),
+                io_priority: "background".to_string(),
+            }));
+            return Ok(Profile {
+                name: name.to_string(),
+                description: inner.description.unwrap_or_default(),
+                processes: rules,
+                power_plan: inner.power_plan,
+            });
+        }
+    }
+
+    // Fallback: flat profile YAML
     let mut profile: Profile = serde_yaml::from_str(&content)
         .map_err(|e| format!("Cannot parse profile '{}': {}", name, e))?;
     profile.name = name.to_string();
@@ -91,8 +156,10 @@ pub fn apply_profile(profile: &Profile) -> Result<(), String> {
 }
 
 fn apply_process_rule(rule: &ProcessRule) {
-    use sysinfo::{System, ProcessRefreshKind};
-    let mut sys = System::new();
+    use sysinfo::{System, ProcessRefreshKind, RefreshKind};
+    let mut sys = System::new_with_specifics(
+        RefreshKind::nothing().with_processes(ProcessRefreshKind::nothing())
+    );
     sys.refresh_processes_specifics(
         sysinfo::ProcessesToUpdate::All,
         true,

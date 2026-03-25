@@ -1,61 +1,62 @@
 # AEGIS — STATUS
 
-**Version:** 4.0.0 (Tauri migration in progress)
+**Status:** active
 **Phase:** AEGIS-TAURI — Native Windows app migration
-**Last Sprint:** AEGIS-TAURI-01
+**Last Sprint:** AEGIS-TAURI-02-04
 **Last Updated:** 2026-03-24
-**Architecture:** Tauri 2 + Rust core + TypeScript sidecar
 
 ---
 
 ## CURRENT STATE
 
-AEGIS v4 is being migrated from Node.js/pm2/PowerShell-worker to a proper
-native Tauri 2 Windows desktop application. The first build compiles and
-runs successfully as aegis.exe with a native process window and system tray.
+AEGIS v4 Tauri migration is functionally complete through Sprint 04.
+aegis.exe and aegis-sidecar.exe both run as native Windows processes.
+The cockpit WebView shows live metrics via Tauri events (no HTTP server).
+Profile switching works from the tray menu.
+The intelligence sidecar (context, sniper, learning, catalog, MCP) is wired.
 
-### What works today (AEGIS-TAURI-01 complete):
+### What works today:
 - cargo check: 0 errors
-- cargo tauri dev: compiles and runs as aegis.exe (PID verified, 49MB RAM)
-- Rust core scaffold: main.rs, metrics.rs, commands.rs, profiles.rs, tray.rs, sidecar.rs
-- sysinfo polling wired (CPU/RAM/disk/network/processes — no elevation)
-- Tauri IPC commands registered
-- Sidecar spawn architecture ready
-- ui/index.html placeholder in place
+- aegis.exe running (native Tauri 2 process, ~52MB RAM)
+- aegis-sidecar.exe running alongside (pkg bundle, ~45MB RAM)
+- Native system tray with 6 profile items + Open Cockpit + Quit
+- Full Task Manager-style cockpit WebView (35KB, ported from v3 html.ts)
+- Live CPU/RAM/disk/network/process metrics via sysinfo — no elevation
+- Profile switching via tray → applies Win32 SetPriorityClass via Rust
+- Intelligence engines wired: context, sniper, learning, catalog, policy
+- JSON-RPC over stdio between Rust core and sidecar
 
-### What's next:
-- AEGIS-TAURI-02: Verify tray icon appears, profile switching works, metrics emit to WebView
-- AEGIS-TAURI-03: Wire full intelligence sidecar (context, sniper, learning, catalog, MCP)
-- AEGIS-TAURI-04: Full cockpit WebView (v3 HTML ported to invoke/listen)
-- AEGIS-TAURI-05: NSIS installer with ASCII art
+### Next:
+- AEGIS-TAURI-05: NSIS installer with ASCII art, Task Scheduler startup
 
 ---
 
 ## OPEN WORK
 
-- [ ] **[P0]** AEGIS-TAURI-02: Verify tray + profile switching + metrics live
-- [ ] **[P0]** AEGIS-TAURI-03: Intelligence sidecar wired (context/sniper/learning/MCP)
-- [ ] **[P0]** AEGIS-TAURI-04: Full cockpit WebView — v3 UI ported to Tauri events
-- [ ] **[P0]** AEGIS-TAURI-05: NSIS installer, ASCII art welcome, Task Scheduler startup
-- [ ] **[P2]** Custom AEGIS icon (replace Tauri default)
-- [ ] **[P3]** Code signing for SmartScreen
-
----
+- [ ] **[P0]** AEGIS-TAURI-05: NSIS installer — ASCII art welcome, Task Scheduler at logon,
+      single .exe distributable. Tauri bundler target: nsis.
+- [ ] **[P2]** AEGIS-LEARN-02: Action outcome analysis — surface patterns from LearningStore
+- [ ] **[P2]** AEGIS-CATALOG-02: Live identification queue UI in cockpit
+- [ ] **[P3]** AEGIS-SNIPER-02: Custom sniper rules — user-defined via config or cockpit UI
+- [ ] **[P3]** AEGIS-CONTEXT-02: Manual context override from cockpit — force/lock context
+- [ ] **[P3]** Custom AEGIS icon (replace Tauri default Tauri logo)
+- [ ] **[P3]** Code signing (SmartScreen — post-MVP)
+- [ ] **[P3]** Upgrade pkg to @yao-pkg/pkg for node20+ target support
 
 ## ARCHITECTURE
 
 ```
-AEGIS.exe (Tauri 2)
+AEGIS.exe (Tauri 2, ~52MB)
 ├── Rust core (src-tauri/)
-│   ├── metrics.rs      — sysinfo polling, no elevation
-│   ├── commands.rs     — IPC commands to WebView
+│   ├── metrics.rs      — sysinfo polling, no elevation, emits "metrics" events
+│   ├── commands.rs     — IPC: switch_profile, set_priority, kill, get_intelligence
 │   ├── profiles.rs     — YAML loader + Win32 SetPriorityClass
-│   ├── tray.rs         — native system tray
+│   ├── tray.rs         — native system tray, profile menu
 │   └── sidecar.rs      — spawn/supervise intelligence sidecar
-├── Intelligence sidecar (sidecar/) — JSON-RPC over stdio
-│   └── context/sniper/learning/catalog/MCP (Sprint 03)
-└── Cockpit WebView (ui/)
-    └── Task Manager layout HTML (Sprint 04)
+├── Intelligence sidecar (sidecar/ → pkg binary, ~48.5MB)
+│   └── context/sniper/learning/catalog/mcp — JSON-RPC over stdio
+└── Cockpit WebView (ui/index.html, 35KB)
+    └── window.__TAURI__.event.listen + invoke
 ```
 
 ## KEY FILES
@@ -69,14 +70,17 @@ AEGIS.exe (Tauri 2)
 | `src-tauri/src/tray.rs` | System tray + profile menu |
 | `src-tauri/src/sidecar.rs` | Intelligence sidecar orchestration |
 | `src-tauri/tauri.conf.json` | Tauri config |
-| `sidecar/src/main.ts` | Sidecar entry (Sprint 03) |
-| `ui/index.html` | Cockpit WebView (Sprint 04) |
+| `src-tauri/binaries/aegis-sidecar-*.exe` | Compiled intelligence sidecar (48.5MB) |
+| `sidecar/src/main.ts` | Sidecar entry — JSON-RPC dispatcher |
+| `ui/index.html` | Cockpit WebView (full Task Manager layout) |
 | `AEGIS_V4_BLUEPRINT.md` | Full migration blueprint |
+| `MORNING_BRIEFING.md` | Latest session briefing |
 
 ## SPRINT LOG
 
-| Sprint | Commit | Summary |
-|--------|--------|---------|
-| AEGIS-TAURI-01 | 18f3812 | Tauri 2 scaffold, Rust core, first compile |
-| AEGIS-UI-01 | d7b8772 | v3 cockpit (Node era, retired) |
-| AEGIS-MCP-02 | b0c416a | 14-tool MCP publisher |
+| Sprint | Commit | Date | Summary |
+|--------|--------|------|---------|
+| AEGIS-TAURI-02-04 | pending | 2026-03-24 | Tray, metrics, sidecar, cockpit |
+| AEGIS-TAURI-01 | 18f3812 | 2026-03-24 | Tauri 2 scaffold, first compile |
+| AEGIS-UI-01 | d7b8772 | 2026-03-24 | v3 cockpit (Node era, retired) |
+| AEGIS-MCP-02 | b0c416a | 2026-03-24 | 14-tool MCP publisher |

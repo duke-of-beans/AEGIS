@@ -1,1 +1,30 @@
-chore: update STATUS for AEGIS-TAURI-01
+feat: AEGIS-TAURI-02-04 — tray, live metrics, sidecar, cockpit WebView
+
+TAURI-02: Tray + metrics
+  tray.rs: CheckMenuItemBuilder → MenuItemBuilder with bullet prefix (Tauri 2)
+  metrics.rs: sysinfo 0.33 API fixes (Disks/Networks refresh signatures)
+  profiles.rs: ProcessRefreshKind sysinfo 0.33 fix, full Python-bypass rewrite
+
+TAURI-03: Intelligence sidecar wired
+  sidecar/tsconfig.json: ES2020 target, CommonJS module, strict
+  sidecar/package.json: removed ESM type:module, fixed build/bundle scripts
+  sidecar/src/main.ts: full JSON-RPC 2.0 entry — all 5 engines initialized
+  sidecar/src/logger: import.meta.url removed, pure CommonJS winston
+  sidecar/src/catalog: import.meta.url -> __dirname for seed.json
+  sidecar intelligence engines copied from src/ (context/sniper/learning/catalog)
+  Binary: aegis-sidecar-x86_64-pc-windows-msvc.exe (48.5MB pkg node18 target)
+
+TAURI-04: Cockpit WebView
+  ui/index.html: 35KB full Task Manager cockpit from v3 html.ts
+  fetch('/status') polling replaced with window.__TAURI__.event.listen('metrics')
+  invoke('switch_profile') replaces fetch('/switch') POST
+  All /status, /feedback, /timer endpoints removed
+
+Verification:
+  cargo check: 0 errors, 3 harmless dead_code warnings
+  aegis.exe: running (52MB RAM)
+  aegis-sidecar.exe: running alongside (45MB RAM)
+  No pm2, no port 8743, no PowerShell worker, no elevation required
+
+Retired: ecosystem.config.cjs, aegis-worker.ps1, Express HTTP server,
+         systray2 tray library, build-release.mjs, installer/install.ps1
