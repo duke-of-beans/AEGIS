@@ -97,17 +97,13 @@ Nothing in this list is optional. This IS the product.
 
 ### AEGIS-INTEL-02 — Cognitive Load Engine: Wire It
 
-- [ ] **AEGIS-INTEL-02** — Wire cognitive load score to cockpit
-  The CognitiveLoadEngine exists in the sidecar src but `cognitiveLoad` in main.ts
-  is never updated. This sprint:
-  · Instantiates CognitiveLoadEngine in initEngines()
-  · Feeds it CPU, memory, and context state on each heartbeat
-  · Emits `load_score_updated` event with current score
-  · Rust relays to cockpit via `intelligence_update` event
-  · Cockpit load number (currently always --) shows live 0-100 score
-  · Color states: green <40, amber 40-70, red >70 with red-crit glow
-  _Acceptance: Load number in header animates as CPU/memory changes.
-  Sustained heavy load shows amber then red._
+- [x] **AEGIS-INTEL-02** — Wire cognitive load score to cockpit (DONE 2026-03-25)
+  · CognitiveLoadEngine.update()/getScore() adapter added; constructor now accepts optional store
+  · loadEngine instantiated in initEngines(); update_metrics JSON-RPC handler added to sidecar
+  · send_to_sidecar() added to sidecar.rs; metrics.rs calls it on every 2s poll cycle
+  · Cockpit intelligence_update listener handles load_score_updated (score 0-100 int) with g/a/r class
+  · Sidecar binary rebuilt via @yao-pkg/pkg node20-win-x64
+  _Acceptance: MET — load number shows live score; green <40, amber 40-70, red ≥70 with glow._
 
 ### AEGIS-INTEL-03 — Sniper Engine: Wire Baseline
 

@@ -1,14 +1,14 @@
 # AEGIS — STATUS
 Status: Active Development
 Phase: Intelligence Layer Build-Out
-Last Sprint: AEGIS-COCKPIT-02 — complete cockpit rewrite (CLOSED 2026-03-25)
+Last Sprint: AEGIS-INTEL-02 — cognitive load engine wired to cockpit (CLOSED 2026-03-25)
 Last Updated: 2026-03-25
 
 ## Open Work
 - [ ] AEGIS-DEVOPS-01 — pre-push lint hook (SPRINT file written, ready for Cowork)
 - [ ] AEGIS-INTEL-01 — disk I/O via WMI Rust (SPRINT file written, ready for Cowork)
-- [ ] AEGIS-INTEL-02 — wire cognitive load engine (SPRINT file written, blocked on INTEL-01+COCKPIT-02 ✓)
-- [ ] AEGIS-INTEL-03 — sniper + baseline operational (SPRINT file written, blocked on INTEL-02)
+- [x] AEGIS-INTEL-02 — wire cognitive load engine (CLOSED 2026-03-25)
+- [ ] AEGIS-INTEL-03 — sniper + baseline operational (SPRINT file written, blocked on INTEL-02 ✓)
 - [ ] AEGIS-INTEL-04 — learning store feedback loop (SPRINT file written, blocked on INTEL-03)
 - [ ] AEGIS-AMBIENT-01 — profiles demoted, ambient-first (SPRINT file written, blocked on INTEL-03)
 - [ ] AEGIS-PROCS-01 — process management complete with feedback
@@ -39,7 +39,7 @@ See VISION.md for full philosophy. AEGIS-AMBIENT-01 implements this.
 
 ## Known Issues (updated 2026-03-25)
 - Disk I/O: hardcoded 0 (fix in AEGIS-INTEL-01)
-- Cognitive load: always -- (fix in AEGIS-INTEL-02)
+- Cognitive load: live score from CPU/memory/context via CognitiveLoadEngine ✓ (AEGIS-INTEL-02)
 - Sniper engine: silently failing on startup (fix in AEGIS-INTEL-03)
 - Learning store: never called (fix in AEGIS-INTEL-04)
 - Desktop/taskbar icon: still Tauri default (rebuild installer after COCKPIT-02 ✓ now building)

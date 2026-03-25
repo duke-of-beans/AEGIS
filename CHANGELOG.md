@@ -5,6 +5,26 @@ Format: [Sprint] Date — Summary
 
 ---
 
+## [AEGIS-INTEL-02] 2026-03-25 — Cognitive Load Engine: Wire to Cockpit
+
+### Added
+- `CognitiveLoadEngine.update(cpu, mem, context)` adapter method — baseline formula: `(cpu * 0.5) + (mem * 0.3) + (context !== idle ? 20 : 0)`, clamped 0-100
+- `CognitiveLoadEngine.getScore()` — returns last computed score
+- `CognitiveLoadEngine` constructor now accepts optional `LearningStore` — can be instantiated standalone for INTEL-02 path; full compute() path preserved for INTEL-04
+- `loadEngine` module-level variable in sidecar `main.ts` — instantiated in `initEngines()`, best-effort (logs warn if unavailable)
+- `update_metrics` JSON-RPC method in sidecar — receives `cpu_percent` + `memory_percent` from Rust, calls `loadEngine.update()`, emits `load_score_updated` event with score + tier
+- `send_to_sidecar()` in `sidecar.rs` — writes JSON-RPC request to sidecar stdin via `AppState.sidecar_tx`; best-effort, logs on failure, never panics
+- Metrics polling loop (`metrics.rs`) now calls `send_to_sidecar("update_metrics", {cpu_percent, memory_percent})` on every 2s cycle
+- Sidecar exit clears `AppState.sidecar_tx` to `None` so subsequent `send_to_sidecar` calls are silent no-ops
+- Cockpit `intelligence_update` listener: new `load_score_updated` branch reads `d.score` (0-100 int) directly; sets `load-num` class to `g`/`a`/`r` (green <40, amber 40-70, red ≥70 with glow); legacy `d.cognitive_load` (0-1 float) path preserved for heartbeat compatibility
+
+### Quality Gate
+- `npm run lint` — 0 errors ✓
+- `cargo check` — 0 errors, 3 pre-existing warnings (not introduced by this sprint) ✓
+- Sidecar binary rebuilt: `src-tauri/binaries/aegis-sidecar-x86_64-pc-windows-msvc.exe` ✓
+
+---
+
 ## [AEGIS-COCKPIT-02] 2026-03-25 — Complete Cockpit Rewrite
 
 ### Fixed

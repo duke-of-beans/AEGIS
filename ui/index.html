@@ -909,7 +909,18 @@ waitForTauri(function(invoke,listen){
   listen('intelligence_update',function(event){
     var d=event.payload;if(!d||!SNAP)return;
     if(d.context){SNAP.context={current:d.context,confidence:d.confidence||0,focus_weights:d.focus_weights||{}};}
-    if(d.cognitive_load!==undefined){
+    // load_score_updated: score is already 0-100 integer
+    if(d.type==='load_score_updated'&&d.score!==undefined){
+      var ln=document.getElementById('ln');
+      if(ln){
+        var score=Math.round(d.score);
+        ln.textContent=score+'';
+        ln.className='load-num'+(score<40?' g':score<70?' a':' r');
+      }
+      if(SNAP)SNAP.cognitive_load=d.score/100;
+    }
+    // Legacy path: cognitive_load is 0-1 float (heartbeat / get_state)
+    if(d.cognitive_load!==undefined&&d.type!=='load_score_updated'){
       var ln=document.getElementById('ln');
       if(ln){
         var score=Math.round(d.cognitive_load*100);

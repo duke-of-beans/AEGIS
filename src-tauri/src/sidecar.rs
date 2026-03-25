@@ -25,6 +25,28 @@ pub struct SniperRequest {
     pub reason: String,
 }
 
+/// Send a JSON-RPC request to the sidecar's stdin.
+/// Best-effort — logs on failure, never panics.
+/// Called from metrics.rs on each poll cycle to push CPU/memory data.
+pub fn send_to_sidecar<R: Runtime>(app: &AppHandle<R>, method: &str, params: serde_json::Value) {
+    if let Some(state) = app.try_state::<crate::AppState>() {
+        let mut guard = state.sidecar_tx.lock().unwrap();
+        if let Some(child) = guard.as_mut() {
+            let req = serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 0,
+                "method": method,
+                "params": params
+            });
+            let mut line = req.to_string();
+            line.push('\n');
+            if let Err(e) = child.write(line.as_bytes()) {
+                log::warn!("send_to_sidecar({}) write failed: {}", method, e);
+            }
+        }
+    }
+}
+
 pub async fn start_sidecar<R: Runtime>(app: AppHandle<R>) {
     loop {
         log::info!("Starting intelligence sidecar...");
@@ -62,6 +84,11 @@ pub async fn start_sidecar<R: Runtime>(app: AppHandle<R>) {
                         }
                         _ => {}
                     }
+                }
+
+                // Clear the child handle on exit so send_to_sidecar fails gracefully
+                if let Some(state) = app.try_state::<crate::AppState>() {
+                    *state.sidecar_tx.lock().unwrap() = None;
                 }
 
                 log::warn!("Sidecar exited — restarting in 3s");

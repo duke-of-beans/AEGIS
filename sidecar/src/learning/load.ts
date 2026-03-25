@@ -59,15 +59,33 @@ const NORM = {
 
 export class CognitiveLoadEngine {
   private weights: LoadWeights
-  private store: LearningStore
+  private store: LearningStore | null
   private lastScore = 0
   private logger = getLogger()
 
-  constructor(store: LearningStore) {
-    this.store = store
+  // store is optional — can be instantiated without LearningStore
+  // for the basic update()/getScore() path used in INTEL-02.
+  // Full compute() path with store is wired in INTEL-04.
+  constructor(store?: LearningStore) {
+    this.store = store ?? null
     this.weights = { ...DEFAULT_WEIGHTS }
   }
 
+  // ── Simple adapter used by main.ts update_metrics handler ──────────────
+  // Computes a score from raw CPU%, memory%, and context string.
+  // Formula: (cpu * 0.5) + (mem * 0.3) + (context !== 'idle' ? 20 : 0), clamped 0-100.
+  // This is the baseline — INTEL-04 replaces it with the full weighted compute().
+  update(cpuPercent: number, memPercent: number, context: string): void {
+    const contextLoad = (context === 'idle' || context === 'unknown') ? 0 : 20
+    const raw = (cpuPercent * 0.5) + (memPercent * 0.3) + contextLoad
+    this.lastScore = Math.round(Math.min(100, Math.max(0, raw)))
+  }
+
+  getScore(): number {
+    return this.lastScore
+  }
+
+  // ── Full weighted compute — used when SystemSnapshot is available ───────
   compute(snapshot: SystemSnapshot, activeWatches: number): LoadBreakdown {
     // Normalize each signal to 0-1
     const cpuP = Math.min(1, (snapshot.cpu_percent ?? 0) / NORM.cpu)
@@ -132,8 +150,8 @@ export class CognitiveLoadEngine {
 
   // Tray icon color tier
   static getTier(score: number): 'green' | 'amber' | 'red' {
-    if (score <= 33) return 'green'
-    if (score <= 66) return 'amber'
+    if (score < 40) return 'green'
+    if (score < 70) return 'amber'
     return 'red'
   }
 }

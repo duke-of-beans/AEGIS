@@ -76,6 +76,14 @@ pub async fn start_polling<R: Runtime>(app: AppHandle<R>) {
         networks.refresh(true);
 
         let metrics = collect_metrics(&sys, &disks, &networks);
+
+        // Push CPU + memory to sidecar for cognitive load computation.
+        // Best-effort — if sidecar is not running, send_to_sidecar is a no-op.
+        crate::sidecar::send_to_sidecar(&app, "update_metrics", serde_json::json!({
+            "cpu_percent": metrics.cpu.percent,
+            "memory_percent": metrics.memory.percent
+        }));
+
         let _ = app.emit("metrics", &metrics);
     }
 }

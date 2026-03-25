@@ -22,6 +22,7 @@ function log(level: string, msg: string, data?: Record<string, unknown>): void {
 let contextEngine: any = null
 let sniperEngine: any = null
 let catalogManager: any = null
+let loadEngine: any = null
 
 async function initEngines(): Promise<void> {
   try {
@@ -42,6 +43,14 @@ async function initEngines(): Promise<void> {
     log('info', 'ContextEngine started')
   } catch (e: any) {
     log('warn', 'ContextEngine unavailable — running without context detection', { err: e.message })
+  }
+
+  try {
+    const { CognitiveLoadEngine } = require('./learning/load')
+    loadEngine = new CognitiveLoadEngine()
+    log('info', 'CognitiveLoadEngine started')
+  } catch (e: any) {
+    log('warn', 'CognitiveLoadEngine unavailable', { err: e.message })
   }
 
   try {
@@ -119,6 +128,29 @@ function handleRequest(req: any): void {
       activeProfile = params?.name ?? 'idle'
       if (sniperEngine?.setProfile) sniperEngine.setProfile(activeProfile)
       writeResponse(id, { ok: true, profile: activeProfile })
+      break
+    }
+
+    case 'update_metrics': {
+      // Rust sends this on every metrics poll cycle with current CPU and memory %
+      const cpu = params?.cpu_percent ?? 0
+      const mem = params?.memory_percent ?? 0
+      const ctx = contextEngine?.getState()?.current ?? 'unknown'
+      if (loadEngine) {
+        loadEngine.update(cpu, mem, ctx)
+        const score = loadEngine.getScore()
+        cognitiveLoad = score
+        // Emit load update event to Rust — relayed to cockpit as intelligence_update
+        writeEvent({
+          type: 'load_score_updated',
+          score,
+          tier: score < 40 ? 'green' : score < 70 ? 'amber' : 'red',
+          timestamp: new Date().toISOString(),
+        })
+        writeResponse(id, { ok: true, score })
+      } else {
+        writeResponse(id, { ok: true, score: 0 })
+      }
       break
     }
 
