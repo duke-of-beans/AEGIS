@@ -1,77 +1,82 @@
 # AEGIS — STATUS
 
-**Status:** active
-**Phase:** v3.0 — core complete, UI shipped, installer shipped
-**Last Sprint:** AEGIS-UI-01
+**Version:** 4.0.0 (Tauri migration in progress)
+**Phase:** AEGIS-TAURI — Native Windows app migration
+**Last Sprint:** AEGIS-TAURI-01
 **Last Updated:** 2026-03-24
-**Completion:** v3 100% core / installer ready
+**Architecture:** Tauri 2 + Rust core + TypeScript sidecar
 
 ---
 
-## Architectural Direction
+## CURRENT STATE
 
-AEGIS is a Cognitive Resource OS. All five intelligences are live, wired, and published.
-The cockpit UI is the command surface — every metric adjacent to its action.
-The MCP publisher exposes the full intelligence stack to GREGORE and GregLite.
-Full vision: D:\Projects\AEGIS\VISION.md (locked 2026-03-24).
+AEGIS v4 is being migrated from Node.js/pm2/PowerShell-worker to a proper
+native Tauri 2 Windows desktop application. The first build compiles and
+runs successfully as aegis.exe with a native process window and system tray.
 
-## Open Work
+### What works today (AEGIS-TAURI-01 complete):
+- cargo check: 0 errors
+- cargo tauri dev: compiles and runs as aegis.exe (PID verified, 49MB RAM)
+- Rust core scaffold: main.rs, metrics.rs, commands.rs, profiles.rs, tray.rs, sidecar.rs
+- sysinfo polling wired (CPU/RAM/disk/network/processes — no elevation)
+- Tauri IPC commands registered
+- Sidecar spawn architecture ready
+- ui/index.html placeholder in place
 
-- [ ] **[P2]** AEGIS-LEARN-02: Action outcome analysis — surface patterns from LearningStore
-      (which rules fire most, which get negative feedback, confidence drift over time)
-- [ ] **[P2]** AEGIS-CATALOG-02: Live identification queue UI in cockpit — unknown processes
-      that need cataloging shown inline with quick-resolve form
-- [ ] **[P3]** AEGIS-SNIPER-02: Custom sniper rules — user-defined rules via config or cockpit UI
-- [ ] **[P3]** AEGIS-INSTALLER-02: Signed installer / NSIS package (single .exe, no ps1 execution policy)
-- [ ] **[P3]** AEGIS-CONTEXT-02: Manual context override from cockpit — force context, lock it
+### What's next:
+- AEGIS-TAURI-02: Verify tray icon appears, profile switching works, metrics emit to WebView
+- AEGIS-TAURI-03: Wire full intelligence sidecar (context, sniper, learning, catalog, MCP)
+- AEGIS-TAURI-04: Full cockpit WebView (v3 HTML ported to invoke/listen)
+- AEGIS-TAURI-05: NSIS installer with ASCII art
 
-## Completed
+---
 
-- [x] AEGIS-UI-01: Command surface redesign — full HTML cockpit builder (src/status/html.ts).
-      3-column layout: left (vitals/context/profile/timer), center (process tree + tabs),
-      right (action log permanent + confidence). Process spawn tree with │ ├─ └─ hierarchy.
-      Cognitive load score as hero element with phosphor glow. CRT scanlines, grid atmosphere.
-      JetBrains Mono → Consolas cascade. ASCII structural box-drawing (┌─ SECTION ───).
-      Installer: rich PowerShell with 6-line block-art AEGIS banner, 6-step ceremony,
-      pm2 daemon, startup task, Claude Desktop MCP auto-config. (0e35683, 2026-03-24)
-- [x] AEGIS-MCP-02: Rich MCP publisher — 14 tools, setIntelligence() wires all v3 engines.
-      aegis_preflight() is the GREGORE entry point. (b0c416a, 2026-03-24)
-- [x] AEGIS-LEARN-01: LearningStore + CognitiveLoadEngine (8d3b4cd, 2026-03-24)
-- [x] AEGIS-SNIPER-01: BaselineEngine + SniperEngine (ad95dd0, 2026-03-24)
-- [x] AEGIS-CONTEXT-01: ContextEngine + PolicyManager (2bf86be, 2026-03-24)
-- [x] AEGIS-MONITOR-01: Disk/SMART/network/GPU/DPC/spawn tree (f88a926, 2026-03-24)
-- [x] AEGIS-CATALOG-01: Process knowledge base, 210-process seed (1c4df3f, 2026-03-24)
-- [x] AEGIS-BRAVE-03, AEGIS-ELEV-01, AEGIS-PM2-01, ESLint, BRAVE-02, BRAVE-01, v2.0.0
+## OPEN WORK
 
-## Blockers
+- [ ] **[P0]** AEGIS-TAURI-02: Verify tray + profile switching + metrics live
+- [ ] **[P0]** AEGIS-TAURI-03: Intelligence sidecar wired (context/sniper/learning/MCP)
+- [ ] **[P0]** AEGIS-TAURI-04: Full cockpit WebView — v3 UI ported to Tauri events
+- [ ] **[P0]** AEGIS-TAURI-05: NSIS installer, ASCII art welcome, Task Scheduler startup
+- [ ] **[P2]** Custom AEGIS icon (replace Tauri default)
+- [ ] **[P3]** Code signing for SmartScreen
 
-None.
+---
 
-## Key Files
+## ARCHITECTURE
+
+```
+AEGIS.exe (Tauri 2)
+├── Rust core (src-tauri/)
+│   ├── metrics.rs      — sysinfo polling, no elevation
+│   ├── commands.rs     — IPC commands to WebView
+│   ├── profiles.rs     — YAML loader + Win32 SetPriorityClass
+│   ├── tray.rs         — native system tray
+│   └── sidecar.rs      — spawn/supervise intelligence sidecar
+├── Intelligence sidecar (sidecar/) — JSON-RPC over stdio
+│   └── context/sniper/learning/catalog/MCP (Sprint 03)
+└── Cockpit WebView (ui/)
+    └── Task Manager layout HTML (Sprint 04)
+```
+
+## KEY FILES
 
 | File | Purpose |
 |------|---------|
-| `src/status/html.ts` | Cockpit HTML builder — full command surface |
-| `src/status/server.ts` | Express server + all HTTP routes |
-| `src/mcp/server.ts` | Rich MCP publisher — 14 tools |
-| `src/learning/store.ts` | LearningStore — sessions, outcomes, confidence |
-| `src/learning/load.ts` | CognitiveLoadEngine — 0-100 composite score |
-| `src/sniper/baseline.ts` | Welford baseline engine |
-| `src/sniper/engine.ts` | Sniper rules engine |
-| `src/context/engine.ts` | Context detection |
-| `src/context/policies.ts` | Composable policy stack |
-| `src/catalog/manager.ts` | Process knowledge base |
-| `src/tray/lifecycle.ts` | Main orchestration — all engine init |
-| `installer/install.ps1` | Rich PowerShell installer — v3.0.0 |
+| `src-tauri/src/main.rs` | Tauri entry + async runtime |
+| `src-tauri/src/metrics.rs` | sysinfo polling → WebView events |
+| `src-tauri/src/commands.rs` | IPC: switch_profile, set_priority, etc. |
+| `src-tauri/src/profiles.rs` | YAML profiles + Win32 apply |
+| `src-tauri/src/tray.rs` | System tray + profile menu |
+| `src-tauri/src/sidecar.rs` | Intelligence sidecar orchestration |
+| `src-tauri/tauri.conf.json` | Tauri config |
+| `sidecar/src/main.ts` | Sidecar entry (Sprint 03) |
+| `ui/index.html` | Cockpit WebView (Sprint 04) |
+| `AEGIS_V4_BLUEPRINT.md` | Full migration blueprint |
 
-## Sprint Commit Log
+## SPRINT LOG
 
-| Sprint | Commit | Date | Summary |
-|--------|--------|------|---------|
-| AEGIS-UI-01 | 0e35683 | 2026-03-24 | Cockpit redesign + installer |
-| AEGIS-MCP-02 | b0c416a | 2026-03-24 | 14-tool MCP publisher |
-| AEGIS-LEARN-01 | 8d3b4cd | 2026-03-24 | LearningStore + CognitiveLoad |
-| AEGIS-SNIPER-01 | ad95dd0 | 2026-03-24 | Baseline + Sniper engines |
-| AEGIS-CONTEXT-01 | 2bf86be | 2026-03-24 | Context + Policy stack |
-| AEGIS-MONITOR-01 | f88a926 | 2026-03-24 | Extended monitoring surface |
-| AEGIS-CATALOG-01 | 1c4df3f | 2026-03-24 | Process knowledge base |
+| Sprint | Commit | Summary |
+|--------|--------|---------|
+| AEGIS-TAURI-01 | 18f3812 | Tauri 2 scaffold, Rust core, first compile |
+| AEGIS-UI-01 | d7b8772 | v3 cockpit (Node era, retired) |
+| AEGIS-MCP-02 | b0c416a | 14-tool MCP publisher |
