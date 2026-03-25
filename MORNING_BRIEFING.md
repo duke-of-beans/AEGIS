@@ -1,90 +1,86 @@
-﻿# MORNING_BRIEFING — AEGIS-INTEL-05
-Date: 2026-03-25
-Sprint: AEGIS-INTEL-05 — Context Engine: Full Integration
-Session type: Implementation
+# MORNING BRIEFING
+**Session:** 2026-03-25T00:00:00
+**Environment:** DEV
+**Project:** AEGIS — Cognitive Resource OS
+**Blueprint:** SPRINT_AEGIS-PROCS-01.md
 
 ---
 
 ## SHIPPED
 
-**PolicyManager wired to context_changed**
-- `policyManager` instantiated in `sidecar/src/main.ts` after ContextEngine
-- `applyContextOverlays()` called on every context transition
-- `policies_updated` event emitted to cockpit with overlay metadata
-- `pruneExpired()` called on 30s heartbeat
-
-**`get_policies` and `lock_context` RPC methods added**
-- `get_policies` returns base + overlays with full metadata
-- `lock_context` accepts context + duration_min, calls setUserContext(), pushes timed overlay, emits context_locked, auto-releases via setTimeout
-
-**Sniper context multipliers**
-- `getContextMultiplier()`: build=2.0x, deep_work=1.5x, idle=0.5x, meeting/gaming/media=0.7-0.8x
-- Applied to DEVIATION_ZSCORE_THRESHOLD in both ingest() and findRule()
-- Build context exemptions: node/npm/npx/cargo/rustc/tsc/msbuild/python/python3/gradle/mvn — never actioned, logged at debug
-
-**Context history persistence**
-- `ContextHistoryEntry[]` in ContextEngine (max 50, newest-first)
-- Persisted to %APPDATA%/AEGIS/context_history.jsonl on every transition
-- Loaded from disk on startup — survives restarts
-- getHistory() returns last 5 entries, exposed in get_state RPC
-
-**Cockpit context panel: fully live**
-- Added: #ctx-time-in, #ctx-focus-drivers, #ctx-history, #ctx-lock-wrap, #ctx-overlays-info
-- updateContextPanel() handles all live updates from context_changed events
-- Time-in-context counter updates every 10s
-- Focus weight drivers: top 3 processes by accumulated focus seconds
-- Context history: last 5 transitions with relative time, opacity fades for old entries
-
-**Manual context lock**
-- openContextLock() modal: context selector + 30/60/120 min dropdown
-- submitContextLock() invokes sidecar_lock_context Tauri command
-- Countdown shown while locked; lock button hidden; restored on context_lock_released
-- sidecar_lock_context registered in main.rs invoke handler
-
-**Sidecar.rs event routing**
-- context_locked, context_lock_released, policies_updated → forwarded via intelligence_update
+| Item | Status | Files Modified |
+|------|--------|----------------|
+| suspend_process — fixed stub with real thread enumeration | COMPLETE | src-tauri/src/commands.rs, src-tauri/Cargo.toml |
+| resume_process — new command via ResumeThread | COMPLETE | src-tauri/src/commands.rs, src-tauri/src/main.rs |
+| get_process_info — 30-process lookup table with risk_label/implication | COMPLETE | src-tauri/src/commands.rs, src-tauri/src/main.rs |
+| Win32_System_Diagnostics_ToolHelp feature flag | COMPLETE | src-tauri/Cargo.toml |
+| openPauseModal — pause with PAUSED badge + resume button swap | COMPLETE | ui/index.html |
+| openResumeModal — resume, badge removal, button restore | COMPLETE | ui/index.html |
+| openEndModal — risk-branching: CRITICAL_SYSTEM/DO_NOT_TOUCH/CAUTION/SAFE | COMPLETE | ui/index.html |
+| 2-second hold button for CAUTION end confirmation | COMPLETE | ui/index.html |
+| openPriorityModal — 5-option radio with plain-English implications | COMPLETE | ui/index.html |
+| pausedPids Set — survives re-renders via reapplyPausedBadges() | COMPLETE | ui/index.html |
+| Action log — [Manual] prefix, ✓/✗ outcome, merged with sniper actions | COMPLETE | ui/index.html |
+| sidecar.rs — outcome + error fields in sniper_action event | COMPLETE | src-tauri/src/sidecar.rs |
+| Portfolio docs — STATUS, BACKLOG, CHANGELOG updated | COMPLETE | STATUS.md, BACKLOG.md, CHANGELOG.md |
 
 ---
 
 ## QUALITY GATES
 
-- `npm run lint`: ✅ 0 errors, 0 warnings
-- `cargo check`: ✅ 0 errors, 3 pre-existing warnings (unchanged from prior sprints)
-- `tsc` compilation: ✅ 0 errors
-- Sidecar binary: ✅ rebuilt 2026-03-25 (61MB, node20-win-x64, exit code 0)
+- **npm run lint:** PASS — 0 errors, 0 warnings
+- **cargo check:** PASS — 0 errors, 3 pre-existing warnings (profiles.rs dead field, IntelligenceEvent/SniperRequest structs in sidecar — all pre-existing, not introduced this sprint)
+- **Git:** pending commit (see below)
 
 ---
 
 ## DECISIONS MADE BY AGENT
 
-1. **Context multiplier applied in both directions** — multiplier raises the effective threshold for flagging (ingest) AND for rule-matching (findRule uses inverse division). This ensures consistency: a build-context process needs 2x the deviation to be flagged AND 2x to match a rule. Alternative was applying only to rules — rejected because that would still flag processes in the watch list at normal sensitivity.
+- **Thread enumeration approach chosen over ntapi** — Cargo.toml had no ntapi dependency. Thread enumeration via Win32 ToolHelp API is pure windows crate, no new dependency. Added `Win32_System_Diagnostics_ToolHelp` feature flag only. Confidence: HIGH.
 
-2. **JS history injected from context_changed event, not polled** — get_state is not called on a timer in the cockpit; all live updates flow through intelligence_update events. History is updated whenever context_changed fires (which includes the context_history field from the heartbeat indirectly). Clean and reactive.
+- **Legacy openPriMenu/selectPri kept as aliases** — Sprint replaced the dropdown priority menu with a modal. Old function names were referenced in existing HTML via onclick attributes on the priority button row. Rather than risk a broken reference, kept `openPriMenu` and `selectPri` as one-line aliases that call the new functions. The new button onclick calls `openPriorityModal` directly. Confidence: HIGH.
 
-3. **ctx-lock-modal created on demand** — not pre-rendered in HTML. Avoids cluttering the DOM for a feature the user may never use. Created once on first openContextLock() call, reused thereafter.
+- **get_process_info called client-side for end modal only, not for pause** — Pause modal uses the existing client-side PROC_INFO table (already present in JS) for the warning text, which is sufficient for pause decisions. End modal makes the full Tauri call to get risk_label for the branching logic (CRITICAL_SYSTEM vs CAUTION vs SAFE). Avoids unnecessary Tauri round-trips for pause. Confidence: HIGH.
 
-4. **policies_updated forwarded as intelligence_update (not a new event type)** — consistent with existing sidecar event routing pattern. Cockpit already listens on intelligence_update. Adding a new event would require a new listener — unnecessary.
+- **suspend_process returns thread count in success message** — Sprint spec showed `0u32` in the format string (likely a copy error). Agent fixed to return actual `suspended` count for debuggability. Confidence: HIGH.
+
+- **Sniper action log outcome icon added for pre-existing entries** — renderAlog now shows ✓/✗ for sniper actions. Entries without an `outcome` field default to 'success' (safe assumption for pre-existing log entries that succeeded by definition of being logged). Confidence: HIGH.
 
 ---
 
 ## UNEXPECTED FINDINGS
 
-- `Get-Content` returning empty results for .md files in this session — all file reads had to go via PowerShell `-Raw` flag. Pre-existing Desktop Commander quirk, not new.
-- BACKLOG.md had a file lock on first write attempt — race condition with another process. Resolved with WriteAllText on second attempt.
-- `js-yaml` module resolution warnings from pkg are pre-existing (same as all prior sprints) — not regressions.
+- **Desktop Commander read_file returns empty content for all markdown/text files** — every file read in this session required `start_process` with `Get-Content` as workaround. Appears to be a DC tool issue in this environment. Does not affect code correctness but adds friction to every read operation. Recommend: test DC read_file on session open and fall back automatically.
+
+- **index.html is a single-line minified file (~75KB)** — all JS, CSS, and HTML on one line. Makes substring matching for edits fragile. Sprint edits were successfully applied but required careful context selection. Pre-existing condition from prior sprints.
+
+- **git binary at `D:\Program Files\Git\cmd\git.exe` not accessible from cmd shell with quoted path** — quotes inside cmd cause "not recognized" errors. Workaround: use Desktop Commander start_process with powershell and the `&` call operator, or use the commit-msg.txt pattern with a batch script.
 
 ---
 
 ## FRICTION LOG
 
-1. **LOG ONLY**: `_ctxSwitchedAt` starts at 0 in JS — "0m 0s in context" shows on cold load before first context_changed fires. Cosmetic. Resolves itself within 2s.
-2. **LOG ONLY**: `getContextMultiplier()` inverse-division pattern in `findRule()` is non-obvious but correct. Comment added in code.
-3. **LOG ONLY**: `context_history.jsonl` does a double-file read on every append (append + trim-check). Low frequency (minutes apart), acceptable.
+### Backlogged
+
+| # | Category | What happened | Recommended fix | Destination | Effort |
+|---|----------|--------------|-----------------|-------------|--------|
+| 1 | ENV | DC read_file returns empty for all markdown/text files — forced PowerShell Get-Content workaround on every read | Investigate DC config; add session-open check that falls back to start_process automatically | D:\Projects\AEGIS\BACKLOG.md (DEVOPS section) | S |
+
+### Logged Only
+
+| # | Category | What happened |
+|---|----------|--------------|
+| 1 | SPEC | index.html is single-line minified — all edits require careful character-level context matching |
+| 2 | ENV | Git binary path with spaces not callable from cmd with quotes — must use PowerShell `&` operator |
 
 ---
 
-## NEXT QUEUE
+## NEXT QUEUE (RECOMMENDED)
 
-1. **AEGIS-INTEL-06** — Process catalog live unknown queue (P1). Needs v4 spec rewrite before execution — CATALOG-01 spec is outdated. Do not execute without updated spec.
-2. **AEGIS-HELP-01** — Hover tooltip system (P2). No dependencies. Can run immediately. Every metric, control, and panel section needs tooltip coverage.
-3. **AEGIS-DEVOPS-02** — Full CI pipeline (P2). cargo tauri build in CI, sidecar pkg step, release artifact upload on tag.
+1. **AEGIS-HELP-01** — Hover help system — unblocked, no dependencies, all infrastructure exists. Ready to run immediately.
+2. **AEGIS-INTEL-05** — Context engine full integration — unblocked, can run in parallel with HELP-01. Context changes → sniper threshold influence + cockpit context history view.
+3. **AEGIS-INTEL-06** — Process catalog — needs spec rewrite for v4 architecture before sprint can start. get_process_info from this sprint provides the Rust foundation it will need.
+
+---
+
+*Written by Cowork agent at session end. Do not edit — this is a point-in-time record.*

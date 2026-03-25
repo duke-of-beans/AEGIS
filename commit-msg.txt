@@ -1,1 +1,18 @@
-﻿chore: backfill bf59ef7 hash into STATUS and BACKLOG for AEGIS-INTEL-05
+feat(procs): AEGIS-PROCS-01 — process management complete with implications
+
+- Fix suspend_process stub: thread enumeration via CreateToolhelp32Snapshot/SuspendThread
+- Add resume_process command via ResumeThread (same thread enumeration pattern)
+- Add get_process_info command: 30-process lookup table, risk_label/blast_radius/implication
+- Register resume_process, get_process_info in main.rs invoke_handler
+- Cargo.toml: add Win32_System_Diagnostics_ToolHelp windows crate feature
+- openPauseModal: PAUSED badge, button swap to resume, inline error
+- openResumeModal: removes badge, restores pause button
+- openEndModal: risk-branches on get_process_info — CRITICAL_SYSTEM shows red warning only,
+  CAUTION requires 2s hold, SAFE standard click; removes row on success
+- openPriorityModal: 5 radio options with plain-English implications, pin notice
+- pausedPids Set survives re-renders via reapplyPausedBadges() in render()
+- Action log: logManualAction() with [Manual] prefix, ✓/✗ outcome; merged render
+- sidecar.rs: outcome + error fields emitted in sniper_action event payload
+- lint: 0 errors | cargo check: 0 errors
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
