@@ -1,31 +1,20 @@
-feat: AEGIS-TAURI-05 — NSIS installer with ASCII art boot sequence
+fix: AEGIS-TAURI-05 post-install bugs (double tray, IPC, window bounce)
 
-src-tauri/windows/hooks.nsi:
-  NSIS_HOOK_POSTINSTALL macro — 6-line Unicode block-art AEGIS banner
-  rendered in Courier New in the installer progress window.
-  Task Scheduler logon entry registered (per-user, no elevation).
-  First-install config initialization at %APPDATA%\AEGIS.
-  NSIS_HOOK_POSTUNINSTALL macro — removes task, prompts for user data.
+Double tray icon:
+  tauri.conf.json: removed trayIcon block — it auto-created a second tray icon
+  alongside the one built in tray.rs. One source of truth: tray.rs only.
 
-src-tauri/tauri.conf.json:
-  installerHooks: "./windows/hooks.nsi" wired to Tauri NSIS bundler.
+No data / IPC not wiring:
+  tauri.conf.json: added withGlobalTauri:true — required for window.__TAURI__
+  to be injected into the WebView. Without it, window.__TAURI__.event.listen
+  doesn't exist and metrics events land nowhere.
+  ui/index.html: updated waitForTauri() to check window.__TAURI__.event.listen
+  directly (not __TAURI_INTERNALS__ which doesn't expose listen). Updated
+  listen/invoke bindings to window.__TAURI__.event.listen and
+  window.__TAURI__.core.invoke — the correct Tauri 2 global API surface.
 
-Build output:
-  D:\Tools\.cargo-target\release\bundle\nsis\AEGIS_4.0.0_x64-setup.exe
-  15.2MB — clean NSIS installer, x64, currentUser installMode.
-
-ASCII art (Courier New, NSIS progress window):
-
-   █████╗  ███████╗  ██████╗  ██╗  ███████╗
-  ██╔══██╗ ██╔════╝ ██╔════╝  ██║  ██╔════╝
-  ███████║ █████╗   ██║  ███╗ ██║  ███████╗
-  ██╔══██║ ██╔══╝   ██║   ██║ ██║  ╚════██║
-  ██║  ██║ ███████╗ ╚██████╔╝ ██║  ███████║
-  ╚═╝  ╚═╝ ╚══════╝  ╚═════╝  ╚═╝  ╚══════╝
-
-  ─────────────────────────────────────────
-  Cognitive Resource OS              v4.0.0
-  ─────────────────────────────────────────
-
-Warning: __TAURI_BUNDLE_TYPE binary patch failed (known Tauri bundler
-cosmetic issue — does not affect installer or app functionality).
+Window bouncing on first open:
+  main.rs: on_window_event CloseRequested now guards window.label() == "cockpit"
+  to avoid firing on WebView2 internal init events from other contexts.
+  main.rs: profile_changed emit delayed 1s after startup to give WebView time
+  to register listeners before first event fires.

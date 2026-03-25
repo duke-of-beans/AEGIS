@@ -347,31 +347,25 @@ function renderAlog(s){
 function render(s){renderHdr(s);renderNav(s);updDH();updDS();updDB();renderAlog(s);rg()}
 
 // ── Tauri IPC ─────────────────────────────────────────────────────────────────
-// Tauri 2 injects window.TAURI automatically — no bundler, no script tag needed.
+// withGlobalTauri:true in tauri.conf.json injects window.__TAURI__ globally.
+// listen  = window.__TAURI__.event.listen
+// invoke  = window.__TAURI__.core.invoke
 (function initTauri(){
   function waitForTauri(cb, attempts){
     attempts = attempts || 0;
-    if(window.__TAURI_INTERNALS__ || (window.TAURI && window.TAURI.event)){
+    if(window.__TAURI__ && window.__TAURI__.event && window.__TAURI__.event.listen){
       cb();
     } else if(attempts < 50){
       setTimeout(function(){ waitForTauri(cb, attempts+1); }, 100);
     } else {
-      console.warn('AEGIS: Tauri IPC not available after 5s');
+      console.warn('AEGIS: window.__TAURI__ not available after 5s');
     }
   }
 
   waitForTauri(function(){
-    var listen, invoke;
-    // Tauri 2.x API
-    if(window.__TAURI_INTERNALS__){
-      listen  = window.__TAURI_INTERNALS__.listen || (window.TAURI && window.TAURI.event && window.TAURI.event.listen);
-      invoke  = window.__TAURI_INTERNALS__.invoke || (window.TAURI && window.TAURI.core && window.TAURI.core.invoke);
-    }
-    if(!listen && window.TAURI){
-      listen = window.TAURI.event && window.TAURI.event.listen;
-      invoke = window.TAURI.core && window.TAURI.core.invoke;
-    }
-    if(!listen){ console.error('AEGIS: listen not found'); return; }
+    var listen = window.__TAURI__.event.listen;
+    var invoke = window.__TAURI__.core.invoke;
+    if(!listen){ console.error('AEGIS: listen not found on window.__TAURI__.event'); return; }
 
     // ── metrics event from Rust core (every 2s) ───────────────────────────────
     listen('metrics', function(event){

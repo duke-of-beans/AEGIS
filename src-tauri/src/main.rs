@@ -43,9 +43,10 @@ fn main() {
                 sidecar::start_sidecar(app_handle2).await;
             });
 
-            // Load and apply default profile
+            // Load and apply default profile — delay 1s so WebView is ready
             let app_handle3 = app.handle().clone();
             tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
                 if let Ok(profile) = profiles::load_profile("idle") {
                     let _ = profiles::apply_profile(&profile);
                     log::info!("Applied default profile: idle");
@@ -65,9 +66,12 @@ fn main() {
             commands::get_active_profile,
         ])
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                window.hide().unwrap();
-                api.prevent_close();
+            // Only intercept close on the cockpit — hide to tray instead of quit
+            if window.label() == "cockpit" {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    let _ = window.hide();
+                    api.prevent_close();
+                }
             }
         })
         .run(tauri::generate_context!())
