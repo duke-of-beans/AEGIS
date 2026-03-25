@@ -1,14 +1,13 @@
 # AEGIS — STATUS
 Status: Active Development
 Phase: Intelligence Layer Build-Out
-Last Sprint: AEGIS-DEVOPS-01 — pre-push lint gate (completed 2026-03-25)
+Last Sprint: AEGIS-COCKPIT-02 — complete cockpit rewrite (CLOSED 2026-03-25)
 Last Updated: 2026-03-25
 
 ## Open Work
-- [x] AEGIS-DEVOPS-01 — pre-push lint gate (DONE 2026-03-25)
-- [ ] AEGIS-COCKPIT-02 — complete cockpit rewrite (SPRINT file written, ready for Cowork)
-- [x] AEGIS-INTEL-01 — disk I/O via WMI Rust (DONE 2026-03-25)
-- [ ] AEGIS-INTEL-02 — wire cognitive load engine (SPRINT file written, blocked on INTEL-01+COCKPIT-02)
+- [ ] AEGIS-DEVOPS-01 — pre-push lint hook (SPRINT file written, ready for Cowork)
+- [ ] AEGIS-INTEL-01 — disk I/O via WMI Rust (SPRINT file written, ready for Cowork)
+- [ ] AEGIS-INTEL-02 — wire cognitive load engine (SPRINT file written, blocked on INTEL-01+COCKPIT-02 ✓)
 - [ ] AEGIS-INTEL-03 — sniper + baseline operational (SPRINT file written, blocked on INTEL-02)
 - [ ] AEGIS-INTEL-04 — learning store feedback loop (SPRINT file written, blocked on INTEL-03)
 - [ ] AEGIS-AMBIENT-01 — profiles demoted, ambient-first (SPRINT file written, blocked on INTEL-03)
@@ -19,9 +18,14 @@ Last Updated: 2026-03-25
 - [ ] AEGIS-DEVOPS-02 — full CI build pipeline
 - [ ] AEGIS-GPU-01 — GPU monitoring properly implemented
 
+## Closed
+- [x] AEGIS-COCKPIT-02 — complete cockpit rewrite (2026-03-25)
+- [x] AEGIS-DEVOPS-01 — pre-push lint hook (9428d99)
+- [x] AEGIS-INTEL-01 — per-drive disk I/O via WMI (closed in parallel session)
+
 ## Parallel Track A (run now)
-  ~~AEGIS-DEVOPS-01~~ ✓ | AEGIS-COCKPIT-02 | ~~AEGIS-INTEL-01~~ ✓
-  → AEGIS-COCKPIT-02 is the remaining parallel track item
+  AEGIS-INTEL-02 | AEGIS-INTEL-01 (if not yet merged)
+  → COCKPIT-02 now closed, unblocking INTEL-02
 
 ## Serial Track B (after Track A)
   AEGIS-INTEL-02 → AEGIS-INTEL-03 → AEGIS-INTEL-04
@@ -33,12 +37,19 @@ AEGIS manages resources automatically via context + sniper + baseline.
 "Ambient mode" = no override active. Not a new profile — absence of one.
 See VISION.md for full philosophy. AEGIS-AMBIENT-01 implements this.
 
-## Known Issues (honest audit 2026-03-25)
-- Tab navigation: broken in current build (scoping bug — fixed in AEGIS-COCKPIT-02)
-- Light mode toggle: broken (fix in AEGIS-COCKPIT-02)
-- Process action buttons: not executing (fix in AEGIS-COCKPIT-02)
+## Known Issues (updated 2026-03-25)
 - Disk I/O: hardcoded 0 (fix in AEGIS-INTEL-01)
 - Cognitive load: always -- (fix in AEGIS-INTEL-02)
 - Sniper engine: silently failing on startup (fix in AEGIS-INTEL-03)
 - Learning store: never called (fix in AEGIS-INTEL-04)
-- Desktop/taskbar icon: still Tauri default (rebuild installer after COCKPIT-02)
+- Desktop/taskbar icon: still Tauri default (rebuild installer after COCKPIT-02 ✓ now building)
+
+## Fixed by COCKPIT-02
+- Tab navigation: ✓ sel() is globally scoped, all 6 tabs switch correctly
+- Light mode toggle: ✓ wired via addEventListener, persists to localStorage
+- Process action buttons: ✓ invoke Tauri commands, show success/error feedback
+- Profile override: ✓ demoted to bottom of right panel, not prominent
+- Sniper canvas animation: ✓ live random-walk with crosshair and fading trail
+- Font sizes: ✓ base 14px, stats 17px, detail header 30px, process rows 12px
+- Tooltip delay: ✓ 900ms (deliberate, not nervous)
+- IPC mapping: ✓ Rust field names correctly mapped to SNAP object

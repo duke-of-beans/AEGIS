@@ -1,13 +1,14 @@
-feat(AEGIS-INTEL-01): per-drive disk I/O via WMI
+AEGIS-COCKPIT-02: complete cockpit rewrite — all systems functional
 
-Add wmi crate and disk_io module to replace hardcoded 0s in DiskMetrics
-with real read/write bytes-per-second from Win32_PerfFormattedData_PerfDisk_LogicalDisk.
+Tab navigation fixed (sel() globally scoped), light mode persists to
+localStorage, process action buttons execute Tauri IPC with visible
+feedback (no silent failures), sniper canvas animation live, profile
+override demoted to bottom panel, font sizes increased, IPC field
+mapping corrected (Rust → SNAP), DOMContentLoaded init wired.
 
-- src-tauri/Cargo.toml: wmi = "0.13" added
-- src-tauri/src/disk_io.rs: new module — get_disk_io() returns HashMap<drive, (read,write)>;
-  all WMI errors caught and logged, empty map returned on failure (never panics)
-- src-tauri/src/main.rs: mod disk_io registered
-- src-tauri/src/metrics.rs: collect_metrics() calls get_disk_io() once per cycle,
-  looks up values per drive letter, graceful fallback to 0 if WMI unavailable
+Root cause: COCKPIT-01 session was interrupted — the final script block
+(modals, IPC init, toggleTheme, DOMContentLoaded) was never written.
+This sprint adds the complete missing block and corrects the tooltip
+block to match spec.
 
-Quality gate: cargo check — 0 errors, 0 new warnings
+Quality: npm run lint 0 errors, npx tsc --noEmit 0 errors.

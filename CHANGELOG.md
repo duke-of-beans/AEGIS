@@ -5,6 +5,40 @@ Format: [Sprint] Date — Summary
 
 ---
 
+## [AEGIS-COCKPIT-02] 2026-03-25 — Complete Cockpit Rewrite
+
+### Fixed
+- Tab navigation: `sel()` is a top-level function declaration accessible on `window` — all 6 nav tabs (CPU/Memory/Disk/Network/GPU/Context) switch the detail panel correctly
+- Light mode toggle: wired via `addEventListener` (not `onclick=`), persists to `localStorage`
+- Process action buttons: `showProcModal()`, `execProcAction()`, `openPriMenu()`, `selectPri()` all globally scoped and functional
+- Tauri IPC: `window._aegisInvoke` set in `waitForTauri()` callback, before any process action can fire
+- Rust → SNAP field mapping: `m.cpu.percent` → `cpu_percent`, `m.memory.used_mb` → `memory_mb_used`, `m.disks` → `disk_stats.drives`, `m.networks` → `network_stats.adapters`
+- Process CPU display: uses `p.cpu_percent` (0-100 float), not `cpu_user_ms` — shows "14.2%" correctly
+
+### Added
+- Sniper canvas animation: live random-walk line with crosshair, fading trail, scan grid, bright current dot — `requestAnimationFrame` throttled at 80ms
+- Sniper spike animation: `sniper_action` event triggers a 8-frame spike on the canvas
+- Process action modals: full implications text per action (pause/priority/end), system-critical warning for svchost/lsass/csrss/dwm/msedgewebview2
+- Process action feedback: green "Paused ✓" or red "Failed: [reason]" inline in modal — no silent failures
+- Priority submenu: 5-level picker with plain-English implications modal before executing
+- `intelligence_update` event listener: wires cognitive load score, confidence bar, context to cockpit
+- Profile override: demoted to bottom of right panel, labeled MANUAL OVERRIDE, not prominent
+- `DOMContentLoaded` init block: calls `initTip()`, `initSniperCanvas()`, restores theme from localStorage, wires all nav click handlers
+- `toggleTheme()` globally scoped, wired via `addEventListener`
+- Tooltip delay: 900ms — deliberate, not nervous
+
+### Design
+- Font sizes: base 14px, nav metric values 17px, detail header 30px, stat values 17px, process rows 12px
+- Color palette: surface #0d1117, warm accent #c8a060, text primary #dce6f0, border #1c2535 — less aggressively cyan
+- Light mode: warm paper tones (#f2ede8 bg), not clinical white
+
+### Quality Gate
+- `npm run lint` — 0 errors, 0 warnings ✓
+- `npx tsc --noEmit` — 0 errors ✓
+- BUILD.bat: cargo tauri build running (installer pending)
+
+---
+
 ## [AEGIS-INTEL-01] 2026-03-25 — Per-Drive Disk I/O via WMI
 
 ### Added

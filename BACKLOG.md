@@ -36,7 +36,7 @@ The AEGIS-COCKPIT-01 commit (c04c469) introduced the right architecture but the
 index.html rewrite was interrupted mid-session and left in a broken state.
 This sprint completes it completely and correctly.
 
-- [ ] **AEGIS-COCKPIT-02** — Complete cockpit rewrite
+- [x] **AEGIS-COCKPIT-02** — Complete cockpit rewrite (CLOSED 2026-03-25)
   Fixes from this session's feedback:
   · Tab navigation: sel() must be globally scoped, not inside IIFE. All onclick= attributes
     call global functions. Verify every tab switches the detail panel correctly.
