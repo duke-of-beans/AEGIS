@@ -10,17 +10,34 @@
   --bg:#06080f;--bg2:#0d1120;--bg3:#111827;
   --cyan:#00e5ff;--cyan-dim:#0088aa;--cyan-f:rgba(0,229,255,.07);
   --amber:#ffbb00;--amber-d:#7a5200;
+  --red-crit:#e8192c;--red-crit-d:rgba(232,25,44,.18);
   --red:#ff4757;--red-d:#6b1a22;
   --green:#4ade80;--green-d:#1a4a2e;
   --white:#e2eaf8;--mid:#8899bb;--dim:#5570a0;
   --dimmer:#1e2a42;--border:#1a2540;--border2:#223060;
+  --tip-bg:#0d1120;--tip-border:#223060;--tip-text:#8899bb;
+}
+body.light{
+  --bg:#f5f4f0;--bg2:#ffffff;--bg3:#ede9e3;
+  --cyan:#0077aa;--cyan-dim:#005588;--cyan-f:rgba(0,119,170,.07);
+  --amber:#b86000;--amber-d:#f5e0c0;
+  --red-crit:#e8192c;--red-crit-d:rgba(232,25,44,.10);
+  --red:#cc2233;--red-d:#fdd;
+  --green:#217040;--green-d:#d4f0e0;
+  --white:#1a1a18;--mid:#4a4a50;--dim:#888090;
+  --dimmer:#e0dcd8;--border:#d8d4cc;--border2:#c8c4bc;
+  --tip-bg:#ffffff;--tip-border:#c8c4bc;--tip-text:#4a4a50;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100vh;overflow:hidden;background:var(--bg);color:var(--white);
   font-family:'JetBrains Mono',Consolas,monospace;font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased}
+</style>
+</head>
+<style>
 body::after{content:'';position:fixed;inset:0;
-  background-image:linear-gradient(rgba(0,229,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,.02) 1px,transparent 1px);
+  background-image:linear-gradient(rgba(0,229,255,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,.015) 1px,transparent 1px);
   background-size:32px 32px;pointer-events:none;z-index:0}
+body.light::after{display:none}
 #app{position:relative;z-index:1;display:flex;flex-direction:column;height:100vh;overflow:hidden}
 #hdr{flex-shrink:0;height:52px;display:flex;align-items:center;background:var(--bg2);border-bottom:1px solid var(--border);overflow:hidden}
 .hdr-wm{flex-shrink:0;padding:0 16px;border-right:1px solid var(--border);height:100%;display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:130px}
@@ -28,20 +45,24 @@ body::after{content:'';position:fixed;inset:0;
 .wm-sub{color:var(--dim);font-size:9px;letter-spacing:.16em;text-transform:uppercase}
 .hdr-load{flex-shrink:0;padding:0 16px;border-right:1px solid var(--border);height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:80px}
 .load-num{font-size:28px;font-weight:700;line-height:1;letter-spacing:-.03em;transition:color .6s;color:var(--dim)}
-.load-num.g{color:var(--green);text-shadow:0 0 16px rgba(74,222,128,.4)}
-.load-num.a{color:var(--amber);text-shadow:0 0 16px rgba(255,187,0,.4)}
-.load-num.r{color:var(--red);text-shadow:0 0 16px rgba(255,71,87,.4)}
+.load-num.g{color:var(--green)}
+.load-num.a{color:var(--amber)}
+.load-num.r{color:var(--red-crit);text-shadow:0 0 18px rgba(232,25,44,.5)}
 .load-lbl{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
 .hdr-pills{flex:1;display:flex;align-items:center;gap:5px;padding:0 12px;overflow:hidden}
-.pill{font-size:10px;padding:2px 7px;border:1px solid var(--border2);color:var(--mid);letter-spacing:.05em;white-space:nowrap;flex-shrink:0;transition:color .3s,border-color .3s}
+.pill{font-size:10px;padding:2px 7px;border:1px solid var(--border2);color:var(--mid);letter-spacing:.05em;white-space:nowrap;flex-shrink:0;transition:color .3s,border-color .3s;cursor:default}
 .pill.ctx-active{border-color:var(--cyan-dim);color:var(--cyan)}
 .pill.w-online{border-color:var(--green-d);color:var(--green)}
 .pill.w-fail{border-color:var(--red-d);color:var(--red)}
 .pill.watch-on{border-color:var(--amber-d);color:var(--amber)}
 .pill.pp{border-color:var(--cyan-dim);color:var(--cyan);cursor:pointer}
 .pill.pp:hover{background:var(--cyan-f)}
-.hdr-right{flex-shrink:0;padding:0 12px;border-left:1px solid var(--border);height:100%;display:flex;align-items:center}
+.hdr-right{flex-shrink:0;padding:0 12px;border-left:1px solid var(--border);height:100%;display:flex;align-items:center;gap:8px}
 .spinner{color:var(--dim);font-size:12px}
+.light-btn{background:none;border:1px solid var(--border2);color:var(--dim);font-family:inherit;font-size:9px;padding:2px 7px;cursor:pointer;letter-spacing:.08em;text-transform:uppercase;transition:all .15s}
+.light-btn:hover{color:var(--cyan);border-color:var(--cyan-dim)}
+</style>
+<style>
 #main{flex:1;display:grid;grid-template-columns:168px 1fr 260px;overflow:hidden;min-height:0}
 #nav{border-right:1px solid var(--border);overflow-y:auto;overflow-x:hidden;background:var(--bg2)}
 #detail{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border)}
@@ -61,20 +82,26 @@ canvas.sp{width:100%;height:28px;display:block}
 .dv{font-size:26px;font-weight:700;color:var(--white);letter-spacing:-.02em}
 .du{font-size:11px;color:var(--dim)}
 .db{font-size:9px;padding:2px 6px;border:1px solid;letter-spacing:.08em;margin-left:auto;flex-shrink:0;display:none}
-.dgw{flex-shrink:0;position:relative;height:176px;background:var(--bg)}
-canvas.dc{width:100%;height:176px;display:block}
+.d-help{flex-shrink:0;font-size:9px;padding:2px 6px;border:1px solid var(--border2);color:var(--dim);cursor:pointer;background:none;font-family:inherit;letter-spacing:.05em;transition:all .15s;margin-left:4px}
+.d-help:hover{color:var(--cyan);border-color:var(--cyan-dim)}
+.dgw{flex-shrink:0;position:relative;height:160px;background:var(--bg)}
+canvas.dc{width:100%;height:160px;display:block}
 .dgl{position:absolute;right:6px;top:4px;font-size:8px;color:var(--dim);text-align:right;line-height:1.9}
 .dga{position:absolute;bottom:2px;left:10px;right:10px;display:flex;justify-content:space-between;font-size:8px;color:var(--dim)}
 .ds{flex-shrink:0;display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid var(--border)}
-.sc{padding:8px 12px;border-right:1px solid var(--border)}
+.sc{padding:8px 12px;border-right:1px solid var(--border);cursor:default}
 .sc:last-child{border-right:none}
 .sl{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:3px}
 .sv{font-size:16px;font-weight:700;color:var(--white);letter-spacing:-.02em}
 .ss{font-size:9px;color:var(--mid);margin-top:1px}
 .db2{flex:1;overflow-y:auto;overflow-x:hidden}
 .dsec{background:var(--bg2);border-bottom:1px solid var(--border);padding:3px 11px;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);position:sticky;top:0;z-index:5}
-.pr{display:flex;align-items:center;padding:2px 11px;min-height:19px;font-size:11px;border-left:2px solid transparent;transition:background .1s}
+</style>
+<style>
+/* Process rows */
+.pr{display:flex;align-items:center;padding:2px 11px;min-height:22px;font-size:11px;border-left:2px solid transparent;transition:background .1s;position:relative}
 .pr:hover{background:var(--cyan-f)}
+.pr:hover .pr-acts{opacity:1}
 .pn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--white)}
 .pn.dim{color:var(--mid)}
 .pbw{width:72px;padding-left:7px;flex-shrink:0}
@@ -82,11 +109,17 @@ canvas.dc{width:100%;height:176px;display:block}
 .pbf{height:100%;transition:width .4s}
 .pc{width:40px;text-align:right;flex-shrink:0;font-size:11px;font-weight:500}
 .pm{width:42px;text-align:right;flex-shrink:0;font-size:11px;color:var(--mid)}
-.cz{color:var(--dim)}.cl{color:var(--mid)}.cm{color:var(--cyan)}.ch{color:var(--amber)}.cc{color:var(--red);font-weight:700}
+/* Process action buttons — visible on row hover */
+.pr-acts{opacity:0;transition:opacity .12s;display:flex;gap:3px;flex-shrink:0;margin-left:4px}
+.pr-act{font-size:8px;padding:1px 5px;border:1px solid var(--border2);color:var(--dim);background:var(--bg2);font-family:inherit;cursor:pointer;letter-spacing:.05em;transition:all .12s;white-space:nowrap}
+.pr-act:hover{border-color:var(--cyan-dim);color:var(--cyan)}
+.pr-act.kill:hover{border-color:var(--red-crit);color:var(--red-crit)}
+.pr-act.pri:hover{border-color:var(--amber-d);color:var(--amber)}
+.cz{color:var(--dim)}.cl{color:var(--mid)}.cm{color:var(--cyan)}.ch{color:var(--amber)}.cc{color:var(--red-crit);font-weight:700}
 .dt2{width:100%;border-collapse:collapse}
 .dt2 th{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--border);padding:4px 11px;text-align:left;font-weight:400;background:var(--bg2);position:sticky;top:0}
 .dt2 td{font-size:11px;padding:3px 11px;border-bottom:1px solid var(--border);color:var(--white)}
-.dt2 td.dim{color:var(--mid)}.dt2 td.am{color:var(--amber)}.dt2 td.re{color:var(--red)}.dt2 td.gr{color:var(--green)}
+.dt2 td.dim{color:var(--mid)}.dt2 td.am{color:var(--amber)}.dt2 td.re{color:var(--red-crit)}.dt2 td.gr{color:var(--green)}
 .sec{background:var(--bg2);border-bottom:1px solid var(--border);padding:4px 10px;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);display:flex;align-items:center;gap:5px;flex-shrink:0;position:sticky;top:0;z-index:10}
 .sec-n{color:var(--mid)}.sec-d{color:var(--dim);margin-left:auto;font-size:9px}
 #slog{overflow-y:auto;max-height:120px;border-bottom:1px solid var(--border)}
@@ -95,12 +128,12 @@ canvas.dc{width:100%;height:176px;display:block}
 .seb{font-size:8px;padding:1px 4px;border:1px solid var(--amber-d);color:var(--amber);margin-left:auto;flex-shrink:0}
 #alog{flex:1;overflow-y:auto;overflow-x:hidden}
 .ae{padding:5px 11px;border-bottom:1px solid var(--border);border-left:3px solid transparent}
-.ae:hover{background:var(--cyan-f)}.ae.t{border-left-color:var(--amber)}.ae.s{border-left-color:#ff6600}.ae.k{border-left-color:var(--red)}
+.ae:hover{background:var(--cyan-f)}.ae.t{border-left-color:var(--amber)}.ae.s{border-left-color:#ff6600}.ae.k{border-left-color:var(--red-crit)}
 .aet{display:flex;align-items:center;gap:5px}
 .aeti{font-size:9px;color:var(--dim);flex-shrink:0}
 .aep{font-size:11px;color:var(--white);font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .aeb{font-size:8px;padding:1px 5px;border:1px solid;letter-spacing:.06em;flex-shrink:0}
-.aeb.t{color:var(--amber);border-color:var(--amber-d)}.aeb.s{color:#ff6600;border-color:#5a2800}.aeb.k{color:var(--red);border-color:var(--red-d)}
+.aeb.t{color:var(--amber);border-color:var(--amber-d)}.aeb.s{color:#ff6600;border-color:#5a2800}.aeb.k{color:var(--red-crit);border-color:var(--red-crit-d)}
 .aer{font-size:9px;color:var(--dim);margin-top:2px;line-height:1.5}
 #cpanel{border-top:1px solid var(--border);flex-shrink:0}
 .cs{display:flex;align-items:center;padding:5px 11px;gap:7px}
@@ -109,47 +142,109 @@ canvas.dc{width:100%;height:176px;display:block}
 .ci{padding:0 11px 5px;font-size:9px;color:var(--dim)}
 #ftr{flex-shrink:0;height:20px;display:flex;align-items:center;gap:14px;padding:0 12px;border-top:1px solid var(--border);background:var(--bg2);font-size:9px;color:var(--dim);overflow:hidden}
 .fi{display:flex;align-items:center;gap:4px}.fv{color:var(--white)}
-.fd{width:5px;height:5px;border-radius:50%;background:var(--dim)}.fd.g{background:var(--green)}.fd.r{background:var(--red)}
-#ob{display:none;position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--red-d);border:1px solid var(--red);color:var(--red);font-size:10px;padding:4px 14px;z-index:1000}
+.fd{width:5px;height:5px;border-radius:50%;background:var(--dim)}.fd.g{background:var(--green)}.fd.r{background:var(--red-crit)}
 .empty{padding:14px 11px;font-size:10px;color:var(--dim);text-align:center}
+</style>
+<style>
+/* ── Tooltip system ──────────────────────────────────────────────────────── */
+#tip{position:fixed;z-index:9999;pointer-events:none;max-width:260px;opacity:0;transition:opacity .12s}
+#tip.show{opacity:1}
+.tip-inner{background:var(--tip-bg);border:1px solid var(--tip-border);border-top:2px solid var(--cyan);padding:8px 11px;font-size:10px;line-height:1.55;color:var(--tip-text);font-family:'JetBrains Mono',Consolas,monospace}
+.tip-title{color:var(--white);font-weight:700;font-size:10px;margin-bottom:4px;letter-spacing:.05em}
+.tip-warn{color:var(--amber);margin-top:4px;font-size:9px}
+.tip-crit{color:var(--red-crit);margin-top:4px;font-size:9px;font-weight:700}
+
+/* ── Process implications modal ─────────────────────────────────────────── */
+#proc-modal{display:none;position:fixed;inset:0;background:rgba(6,8,15,.88);z-index:800;align-items:center;justify-content:center}
+#proc-modal.open{display:flex}
+.pm2{background:var(--bg2);border:1px solid var(--border2);border-top:2px solid var(--cyan);padding:20px 22px;width:360px;max-width:90vw}
+.pm2-t{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--mid);margin-bottom:10px}
+.pm2-proc{font-size:14px;font-weight:700;color:var(--white);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pm2-pid{font-size:9px;color:var(--dim);margin-bottom:14px}
+.pm2-section{margin-bottom:12px}
+.pm2-section-label{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:5px}
+.pm2-desc{font-size:11px;color:var(--mid);line-height:1.55;margin-bottom:10px}
+.pm2-action-label{font-size:10px;font-weight:700;color:var(--white);margin-bottom:5px;letter-spacing:.05em}
+.pm2-impl{font-size:10px;line-height:1.6;color:var(--tip-text)}
+.pm2-warn{font-size:10px;color:var(--amber);margin-top:6px;line-height:1.5}
+.pm2-crit{font-size:10px;color:var(--red-crit);margin-top:6px;line-height:1.5;font-weight:700}
+.pm2-b{display:flex;gap:7px;margin-top:16px}
+.pb2{flex:1;background:none;border:1px solid var(--border2);color:var(--mid);font-family:inherit;font-size:10px;padding:5px;cursor:pointer;letter-spacing:.1em;text-transform:uppercase;transition:all .15s}
+.pb2:hover{border-color:var(--cyan-dim);color:var(--cyan)}
+.pb2.confirm-kill{border-color:var(--red-crit-d);color:var(--red-crit)}
+.pb2.confirm-kill:hover{background:var(--red-crit-d)}
+.pb2.confirm-ok:hover{border-color:var(--green-d);color:var(--green)}
+/* Priority submenu */
+.pri-menu{display:none;position:fixed;z-index:9000;background:var(--bg2);border:1px solid var(--border2);min-width:160px}
+.pri-menu.open{display:block}
+.pri-item{padding:5px 11px;font-size:10px;cursor:pointer;color:var(--mid);letter-spacing:.06em;transition:background .1s}
+.pri-item:hover{background:var(--cyan-f);color:var(--cyan)}
+/* Profile modal */
 #piw{display:none;position:fixed;inset:0;background:rgba(6,8,15,.85);z-index:500;align-items:center;justify-content:center}
 #piw.open{display:flex}
-.pm2{background:var(--bg2);border:1px solid var(--border2);border-top:2px solid var(--cyan);padding:18px 22px;width:270px}
-.pm2-t{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--mid);margin-bottom:10px}
-.pm2 input{width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--white);font-family:inherit;font-size:13px;padding:6px 9px;outline:none}
-.pm2 input:focus{border-color:var(--cyan-dim)}
-.pm2-h{font-size:9px;color:var(--dim);margin-top:4px}
-.pm2-b{display:flex;gap:7px;margin-top:12px}
-.pb2{flex:1;background:none;border:1px solid var(--border2);color:var(--mid);font-family:inherit;font-size:10px;padding:5px;cursor:pointer;letter-spacing:.1em;text-transform:uppercase;transition:all .15s}
-.pb2:hover,.pb2.ok{border-color:var(--cyan-dim);color:var(--cyan)}
+#ob{display:none;position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--red-crit-d);border:1px solid var(--red-crit);color:var(--red-crit);font-size:10px;padding:4px 14px;z-index:1000}
 </style>
 </head>
 <body>
 <div id="app">
 <div id="hdr">
   <div class="hdr-wm"><div class="wm-name">&#x258c;AEGIS<span style="color:var(--cyan-dim);font-size:11px;font-weight:400">&#x2590;</span></div><div class="wm-sub">cognitive resource os</div></div>
-  <div class="hdr-load"><div class="load-num" id="ln">--</div><div class="load-lbl">LOAD</div></div>
+  <div class="hdr-load" data-tip="load" data-tip-title="Cognitive Load Score"><div class="load-num" id="ln">--</div><div class="load-lbl">LOAD</div></div>
   <div class="hdr-pills">
-    <span class="pill" id="pp-ctx">CTX: --</span>
-    <span class="pill w-online" id="pp-wrk">WORKER: NATIVE</span>
-    <span class="pill pp" id="pp-prof" onclick="openPM()">--</span>
-    <span class="pill" id="pp-wat">0 WATCHES</span>
+    <span class="pill" id="pp-ctx" data-tip="pill-ctx" data-tip-title="Active Context">CTX: --</span>
+    <span class="pill w-online" id="pp-wrk" data-tip="pill-wrk" data-tip-title="Data Source">WORKER: NATIVE</span>
+    <span class="pill pp" id="pp-prof" onclick="openPM()" data-tip="pill-prof" data-tip-title="Resource Profile">--</span>
+    <span class="pill" id="pp-wat" data-tip="pill-wat" data-tip-title="Active Watches">0 WATCHES</span>
   </div>
-  <div class="hdr-right"><span class="spinner" id="spin">&#x25d0;</span></div>
+  <div class="hdr-right">
+    <button class="light-btn" id="theme-btn" onclick="toggleTheme()" data-tip="theme" data-tip-title="Theme">&#x263c; LIGHT</button>
+    <span class="spinner" id="spin">&#x25d0;</span>
+  </div>
 </div>
 <div id="main">
   <div id="nav">
-    <div class="mc active" id="mc-cpu" onclick="sel('cpu')"><div class="mch"><span class="mcn">CPU</span><span class="mcv" id="mv-cpu">0%</span></div><div class="mcs" id="ms-cpu">idle</div><canvas class="sp" id="sp-cpu" height="28"></canvas></div>
-    <div class="mc" id="mc-ram" onclick="sel('ram')"><div class="mch"><span class="mcn">Memory</span><span class="mcv" id="mv-ram">0%</span></div><div class="mcs" id="ms-ram">0 / 0 GB</div><canvas class="sp" id="sp-ram" height="28"></canvas></div>
-    <div class="mc" id="mc-dsk" onclick="sel('dsk')"><div class="mch"><span class="mcn">Disk</span><span class="mcv" id="mv-dsk">--</span></div><div class="mcs" id="ms-dsk">read MB/s</div><canvas class="sp" id="sp-dsk" height="28"></canvas></div>
-    <div class="mc" id="mc-net" onclick="sel('net')"><div class="mch"><span class="mcn">Network</span><span class="mcv" id="mv-net">--</span></div><div class="mcs" id="ms-net">MB/s</div><canvas class="sp" id="sp-net" height="28"></canvas></div>
-    <div class="mc" id="mc-gpu" onclick="sel('gpu')"><div class="mch"><span class="mcn">GPU</span><span class="mcv" id="mv-gpu">--</span></div><div class="mcs" id="ms-gpu">util</div><canvas class="sp" id="sp-gpu" height="28"></canvas></div>
-    <div class="mc" id="mc-ctx" onclick="sel('ctx')"><div class="mch"><span class="mcn">Context</span></div><div class="mcs" id="ms-ctx">detecting</div><div style="height:6px"></div></div>
+    <div class="mc active" id="mc-cpu" onclick="sel('cpu')" data-tip="nav-cpu" data-tip-title="CPU — Processor">
+      <div class="mch"><span class="mcn">CPU</span><span class="mcv" id="mv-cpu">0%</span></div>
+      <div class="mcs" id="ms-cpu">idle</div><canvas class="sp" id="sp-cpu" height="28"></canvas>
+    </div>
+    <div class="mc" id="mc-ram" onclick="sel('ram')" data-tip="nav-ram" data-tip-title="Memory — RAM">
+      <div class="mch"><span class="mcn">Memory</span><span class="mcv" id="mv-ram">0%</span></div>
+      <div class="mcs" id="ms-ram">0 / 0 GB</div><canvas class="sp" id="sp-ram" height="28"></canvas>
+    </div>
+    <div class="mc" id="mc-dsk" onclick="sel('dsk')" data-tip="nav-dsk" data-tip-title="Disk — Storage Activity">
+      <div class="mch"><span class="mcn">Disk</span><span class="mcv" id="mv-dsk">--</span></div>
+      <div class="mcs" id="ms-dsk">MB/s</div><canvas class="sp" id="sp-dsk" height="28"></canvas>
+    </div>
+    <div class="mc" id="mc-net" onclick="sel('net')" data-tip="nav-net" data-tip-title="Network — Traffic">
+      <div class="mch"><span class="mcn">Network</span><span class="mcv" id="mv-net">--</span></div>
+      <div class="mcs" id="ms-net">MB/s</div><canvas class="sp" id="sp-net" height="28"></canvas>
+    </div>
+    <div class="mc" id="mc-gpu" onclick="sel('gpu')" data-tip="nav-gpu" data-tip-title="GPU — Graphics Card">
+      <div class="mch"><span class="mcn">GPU</span><span class="mcv" id="mv-gpu">--</span></div>
+      <div class="mcs" id="ms-gpu">util</div><canvas class="sp" id="sp-gpu" height="28"></canvas>
+    </div>
+    <div class="mc" id="mc-ctx" onclick="sel('ctx')" data-tip="nav-ctx" data-tip-title="Context Detection">
+      <div class="mch"><span class="mcn">Context</span></div>
+      <div class="mcs" id="ms-ctx">detecting</div><div style="height:6px"></div>
+    </div>
   </div>
   <div id="detail">
-    <div class="dh"><span class="dt" id="d-title">CPU</span><span class="dv" id="d-val">0</span><span class="du" id="d-unit">%</span><span class="db" id="d-badge"></span></div>
-    <div class="dgw"><canvas class="dc" id="d-canvas" height="176"></canvas><div class="dgl"><div>100%</div><div style="margin-top:32px">75%</div><div style="margin-top:32px">50%</div><div style="margin-top:32px">25%</div><div style="margin-top:32px">0</div></div><div class="dga"><span>3:00</span><span>2:00</span><span>1:00</span><span>now</span></div></div>
-    <div class="ds"><div class="sc"><div class="sl" id="sl0">utilization</div><div class="sv" id="sv0">--</div><div class="ss" id="ss0"></div></div><div class="sc"><div class="sl" id="sl1">uptime</div><div class="sv" id="sv1">--</div><div class="ss" id="ss1"></div></div><div class="sc"><div class="sl" id="sl2">profile</div><div class="sv" id="sv2" style="font-size:12px">--</div><div class="ss" id="ss2"></div></div></div>
+    <div class="dh">
+      <span class="dt" id="d-title">CPU</span>
+      <span class="dv" id="d-val">0</span>
+      <span class="du" id="d-unit">%</span>
+      <span class="db" id="d-badge"></span>
+      <button class="d-help" id="d-help-btn" onclick="showDetailHelp()">? help</button>
+    </div>
+    <div class="dgw"><canvas class="dc" id="d-canvas" height="160"></canvas>
+      <div class="dgl"><div>100%</div><div style="margin-top:28px">75%</div><div style="margin-top:28px">50%</div><div style="margin-top:28px">25%</div><div style="margin-top:28px">0</div></div>
+      <div class="dga"><span>3:00</span><span>2:00</span><span>1:00</span><span>now</span></div>
+    </div>
+    <div class="ds">
+      <div class="sc" id="sc0" data-tip-id="stat0"><div class="sl" id="sl0">utilization</div><div class="sv" id="sv0">--</div><div class="ss" id="ss0"></div></div>
+      <div class="sc" id="sc1" data-tip-id="stat1"><div class="sl" id="sl1">uptime</div><div class="sv" id="sv1">--</div><div class="ss" id="ss1"></div></div>
+      <div class="sc" id="sc2" data-tip-id="stat2"><div class="sl" id="sl2">profile</div><div class="sv" id="sv2" style="font-size:12px">--</div><div class="ss" id="ss2"></div></div>
+    </div>
     <div class="dsec" id="dsec">PROCESSES</div>
     <div class="db2" id="dbody"><div class="empty">initializing&#x2026;</div></div>
   </div>
@@ -158,15 +253,60 @@ canvas.dc{width:100%;height:176px;display:block}
     <div id="slog"><div class="empty" style="padding:6px 11px">no switches yet</div></div>
     <div class="sec"><span class="sec-n">ACTION LOG</span><span class="sec-d" id="ac">0</span></div>
     <div id="alog"><div class="ae" style="padding:14px;text-align:center;font-size:10px;color:var(--dim)">sniper watching&#x2026;</div></div>
-    <div id="cpanel"><div class="sec"><span class="sec-n">CONFIDENCE</span></div><div class="cs"><div class="cbt"><div class="cbf" id="cbf" style="width:0"></div></div><div class="cp" id="cpct">--%</div></div><div class="ci" id="ci">loading&#x2026;</div></div>
+    <div id="cpanel">
+      <div class="sec"><span class="sec-n" data-tip="confidence" data-tip-title="Context Confidence">CONFIDENCE</span></div>
+      <div class="cs"><div class="cbt"><div class="cbf" id="cbf" style="width:0"></div></div><div class="cp" id="cpct">--%</div></div>
+      <div class="ci" id="ci">loading&#x2026;</div>
+    </div>
   </div>
 </div>
 <div id="ftr"><div class="fi"><div class="fd g" id="fd"></div><span id="fv">AEGIS v4.0.0</span></div><div class="fi"><span>UP</span><span class="fv" id="fu">--</span></div><div class="fi"><span>PROFILE</span><span class="fv" id="fw" style="color:var(--cyan)">idle</span></div><div class="fi" style="margin-left:auto"><span id="ft">--</span></div></div>
 </div>
-<div id="piw" onclick="closePM(event)"><div class="pm2"><div class="pm2-t">&#x250c;&#x2500; SWITCH PROFILE</div><input type="text" id="pi" placeholder="profile name&#x2026;" onkeydown="piKey(event)"><div class="pm2-h" id="ph">enter profile name</div><div class="pm2-b"><button class="pb2" onclick="closePM()">CANCEL</button><button class="pb2 ok" onclick="doSwitch()">SWITCH</button></div></div></div>
+<!-- Profile switcher -->
+<div id="piw" onclick="closePM(event)"><div class="pm2">
+  <div class="pm2-t">&#x250c;&#x2500; SWITCH PROFILE</div>
+  <input type="text" id="pi" placeholder="profile name&#x2026;" onkeydown="piKey(event)" style="width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--white);font-family:inherit;font-size:13px;padding:6px 9px;outline:none">
+  <div class="pm2-h" id="ph" style="font-size:9px;color:var(--dim);margin-top:4px">enter profile name</div>
+  <div class="pm2-b"><button class="pb2" onclick="closePM()">CANCEL</button><button class="pb2 ok" onclick="doSwitch()" style="flex:1;background:none;border:1px solid var(--border2);color:var(--mid);font-family:inherit;font-size:10px;padding:5px;cursor:pointer;letter-spacing:.1em;text-transform:uppercase;transition:all .15s">SWITCH</button></div>
+</div></div>
+
+<!-- Process action modal -->
+<div id="proc-modal" onclick="closeProcModal(event)">
+  <div class="pm2" id="proc-modal-inner" style="width:380px">
+    <div class="pm2-t" id="proc-modal-action-label">&#x250c;&#x2500; PROCESS ACTION</div>
+    <div class="pm2-proc" id="proc-modal-name">process.exe</div>
+    <div class="pm2-pid" id="proc-modal-pid">PID —</div>
+    <div class="pm2-section">
+      <div class="pm2-section-label">What is this?</div>
+      <div class="pm2-desc" id="proc-modal-desc">Loading process information…</div>
+    </div>
+    <div class="pm2-section">
+      <div class="pm2-action-label" id="proc-modal-action-heading">Action</div>
+      <div class="pm2-impl" id="proc-modal-impl"></div>
+      <div id="proc-modal-warn"></div>
+    </div>
+    <div class="pm2-b" id="proc-modal-btns">
+      <button class="pb2" onclick="closeProcModal()">CANCEL</button>
+      <button class="pb2 confirm-ok" id="proc-modal-confirm" onclick="execProcAction()">CONFIRM</button>
+    </div>
+  </div>
+</div>
+
+<!-- Priority submenu -->
+<div id="pri-menu" class="pri-menu">
+  <div class="pri-item" onclick="showProcModal(window._priPid,window._priName,'priority','high')">High — maximum CPU time</div>
+  <div class="pri-item" onclick="showProcModal(window._priPid,window._priName,'priority','above_normal')">Above Normal</div>
+  <div class="pri-item" onclick="showProcModal(window._priPid,window._priName,'priority','normal')">Normal (default)</div>
+  <div class="pri-item" onclick="showProcModal(window._priPid,window._priName,'priority','below_normal')">Below Normal</div>
+  <div class="pri-item" onclick="showProcModal(window._priPid,window._priName,'priority','idle')">Idle — background only</div>
+</div>
+
+<!-- Floating tooltip -->
+<div id="tip"><div class="tip-inner"><div class="tip-title" id="tip-title"></div><div id="tip-body"></div></div></div>
+
+<!-- Offline banner -->
 <div id="ob">&#x26a0; AEGIS OFFLINE</div>
 <script>
-(function(){
 'use strict';
 var HIST=90,SNAP=null,M='cpu',SPI=0;
 var SPIN=['\u25d0','\u25d3','\u25d1','\u25d2'];
@@ -179,13 +319,45 @@ var COL={
   net:{d:'#7a3010',o:'#f97316',fd:'rgba(122,48,16,.15)',fo:'rgba(249,115,22,.10)'},
   gpu:{d:'#3b1f6b',o:'#c084fc',fd:'rgba(59,31,107,.15)',fo:'rgba(192,132,252,.10)'}
 };
+// Process knowledge base — common Windows processes explained in plain English
+var PROC_INFO = {
+  'system':            {desc:'Core Windows kernel. The OS itself.',crit:true},
+  'system idle process':{desc:'Represents unused CPU capacity — not a real process.',crit:true},
+  'svchost.exe':       {desc:'Windows service host. Runs multiple background services. One of many that run simultaneously. Ending one may break networking, audio, or Windows Update.',crit:true},
+  'explorer.exe':      {desc:'Your desktop and file manager. Ending it makes your taskbar and desktop disappear — Windows can restart it.',crit:false,semi:true},
+  'csrss.exe':         {desc:'Windows core subsystem. Ending this will immediately crash Windows.',crit:true},
+  'lsass.exe':         {desc:'Windows login and security. Ending this will force a system restart.',crit:true},
+  'winlogon.exe':      {desc:'Manages Windows login and logout screens.',crit:true},
+  'dwm.exe':           {desc:'Desktop Window Manager — draws all windows on screen. Ending it causes a forced logout.',crit:true},
+  'msedgewebview2.exe':{desc:'WebView2 runtime — AEGIS uses this to render its cockpit. Ending it will close AEGIS immediately.',crit:true},
+  'chrome.exe':        {desc:'Google Chrome browser. Multiple instances are normal — each tab and extension runs as a separate process.',crit:false},
+  'msedge.exe':        {desc:'Microsoft Edge browser.',crit:false},
+  'firefox.exe':       {desc:'Mozilla Firefox browser.',crit:false},
+  'code.exe':          {desc:'Visual Studio Code — code editor.',crit:false},
+  'node.exe':          {desc:'Node.js runtime. Likely running a local development server or background script.',crit:false},
+  'python.exe':        {desc:'Python interpreter. May be running a script or server in the background.',crit:false},
+  'discord.exe':       {desc:'Discord voice and text chat app.',crit:false},
+  'slack.exe':         {desc:'Slack messaging app.',crit:false},
+  'zoom.exe':          {desc:'Zoom video conferencing.',crit:false},
+  'msmpeng.exe':       {desc:'Windows Defender antivirus scanner. Ending it disables real-time virus protection.',crit:false,warn:true},
+  'audiodg.exe':       {desc:'Windows audio engine. Ending this kills all system sound.',crit:false,semi:true},
+  'searchindexer.exe': {desc:'Windows Search indexer — reads your files to make search faster. High disk use in bursts is normal.',crit:false},
+  'steam.exe':         {desc:'Steam gaming platform.',crit:false},
+  'aegis.exe':         {desc:'AEGIS itself. Ending this closes the cockpit and stops all monitoring.',crit:true},
+};
+function getProcInfo(name){
+  var k=(name||'').toLowerCase();
+  return PROC_INFO[k]||null;
+}
 function ip(p){return p&&p!=='idle'&&p!==''}
 function es(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function ag(ms){var s=Math.floor((Date.now()-ms)/1000);if(s<5)return 'now';if(s<60)return s+'s';var m=Math.floor(s/60);return m<60?m+'m':Math.floor(m/60)+'h'}
 function st(id,t){var e=document.getElementById(id);if(e)e.textContent=t}
 function sh(id,h){var e=document.getElementById(id);if(e)e.innerHTML=h}
 function pu(k,v,p){H[k].push({v:v,p:p});if(H[k].length>HIST*2)H[k].shift()}
-
+</script>
+<script>
+// ── Drawing ───────────────────────────────────────────────────────────────
 function draw(id,hist,col,mxv){
   var cv=document.getElementById(id);if(!cv)return;
   var dpr=window.devicePixelRatio||1;
@@ -219,7 +391,6 @@ function draw(id,hist,col,mxv){
     ctx.setLineDash([2,3]);ctx.strokeStyle='#ffbb00';ctx.lineWidth=1;ctx.globalAlpha=.65;
     ctx.beginPath();ctx.moveTo(mx2,0);ctx.lineTo(mx2,H2);ctx.stroke();
     ctx.setLineDash([]);ctx.globalAlpha=1;
-    if(H2>40){ctx.fillStyle='#ffbb00';ctx.font='bold 7px JetBrains Mono,monospace';ctx.textAlign='center';ctx.fillText(m.ev.to.substring(0,8).toUpperCase(),Math.min(Math.max(mx2,2),W-2),H2-2)}
   });
 }
 function rg(){
@@ -235,12 +406,18 @@ function renderSlog(){
     return '<div class="se"><span class="set">'+t+'</span><span style="color:var(--mid)">\u2192</span><span class="seto">'+es(e.to||'idle')+'</span>'+(ip(e.to)?'<span class="seb">ON</span>':'')+'</div>';
   }).join(''));
 }
+</script>
+<script>
+// ── sel — globally defined, not inside IIFE ───────────────────────────────
+// CRITICAL: must be globally accessible for onclick= attributes in HTML
 function sel(m){
   M=m;
   document.querySelectorAll('.mc').forEach(function(el){el.classList.toggle('active',el.id==='mc-'+m)});
   updDH();updDS();updDB();rg();
 }
+
 function cpCls(v){return v<.1?'cz':v<2?'cl':v<8?'cm':v<20?'ch':'cc'}
+
 function updDH(){
   var s=SNAP||{};
   var titles={cpu:'CPU',ram:'MEMORY',dsk:'DISK',net:'NETWORK',gpu:'GPU',ctx:'CONTEXT'};
@@ -249,69 +426,161 @@ function updDH(){
   var v='--';
   if(M==='cpu')v=(s.cpu_percent||0).toFixed(0);
   else if(M==='ram')v=(s.memory_percent||0).toFixed(0);
-  else if(M==='dsk'&&s.disk_stats&&s.disk_stats.drives&&s.disk_stats.drives.length){var r=s.disk_stats.drives.reduce(function(m,d){return m+(d.read_bytes_sec||0)},0)/1048576;v=r.toFixed(1)}
-  else if(M==='net'&&s.network_stats&&s.network_stats.adapters){var ta=s.network_stats.adapters.filter(function(a){return a.status==='Up'});if(ta.length){var tot=ta.reduce(function(m,a){return m+(a.bytes_sent_sec+a.bytes_recv_sec)},0)/1048576;v=tot.toFixed(1)}}
-  else if(M==='gpu'&&s.gpu_stats&&s.gpu_stats.available&&s.gpu_stats.gpus&&s.gpu_stats.gpus.length)v=s.gpu_stats.gpus[0].gpu_util_percent.toFixed(0);
+  else if(M==='dsk'&&s.disk_stats&&s.disk_stats.drives&&s.disk_stats.drives.length){
+    var r=s.disk_stats.drives.reduce(function(m,d){return m+(d.read_bytes_sec||0)+(d.write_bytes_sec||0)},0)/1048576;
+    v=r.toFixed(1);
+  }
+  else if(M==='net'&&s.network_stats&&s.network_stats.adapters){
+    var ta=s.network_stats.adapters.filter(function(a){return a.status==='Up'});
+    if(ta.length){var tot=ta.reduce(function(m,a){return m+(a.bytes_sent_sec+a.bytes_recv_sec)},0)/1048576;v=tot.toFixed(1)}
+  }
+  else if(M==='gpu'&&s.gpu_stats&&s.gpu_stats.available&&s.gpu_stats.gpus&&s.gpu_stats.gpus.length)
+    v=s.gpu_stats.gpus[0].gpu_util_percent.toFixed(0);
   st('d-val',v);
   var badge=document.getElementById('d-badge'),prof=s.active_profile||'';
   if(badge){if(ip(prof)){badge.style.display='';badge.textContent=prof.toUpperCase();badge.style.color='var(--amber)';badge.style.borderColor='var(--amber-d)'}else badge.style.display='none'}
 }
+
 function updDS(){
   var s=SNAP||{},up=s.system_extended?s.system_extended.uptime_sec||0:0;
   var upS=Math.floor(up/3600)+'h '+Math.floor((up%3600)/60)+'m',prof=s.active_profile||'idle';
   if(M==='cpu'){st('sv0',(s.cpu_percent||0).toFixed(0)+'%');st('ss0','utilization');st('sv1',upS);st('ss1','uptime');st('sv2',prof);st('ss2','profile')}
   else if(M==='ram'){var u=(s.memory_mb_used||0)/1024,tt=((s.memory_mb_used||0)+(s.memory_mb_available||0))/1024;st('sv0',u.toFixed(1)+' GB');st('ss0','in use');st('sv1',(s.memory_percent||0).toFixed(0)+'%');st('ss1','utilization');st('sv2',tt.toFixed(0)+' GB');st('ss2','total')}
-  else if(M==='dsk'){var dv=s.disk_stats&&s.disk_stats.drives||[];var rr=dv.reduce(function(m,d){return m+(d.read_bytes_sec||0)},0)/1048576;var wr=dv.reduce(function(m,d){return m+(d.write_bytes_sec||0)},0)/1048576;var mq=dv.reduce(function(m,d){return Math.max(m,d.queue_depth||0)},0);st('sv0',rr.toFixed(1)+' MB/s');st('ss0','read');st('sv1',wr.toFixed(1)+' MB/s');st('ss1','write');st('sv2',mq.toFixed(1));st('ss2','queue')}
-  else if(M==='net'){var ad=s.network_stats&&s.network_stats.adapters||[];var up2=ad.filter(function(a){return a.status==='Up'});var sn=up2.reduce(function(m,a){return m+a.bytes_sent_sec},0)/1048576;var rc=up2.reduce(function(m,a){return m+a.bytes_recv_sec},0)/1048576;st('sv0',sn.toFixed(2)+' MB/s');st('ss0','sent');st('sv1',rc.toFixed(2)+' MB/s');st('ss1','recv');st('sv2',up2.length.toString());st('ss2','adapters up')}
+  else if(M==='dsk'){
+    var dv=s.disk_stats&&s.disk_stats.drives||[];
+    var rr=dv.reduce(function(m,d){return m+(d.read_bytes_sec||0)},0)/1048576;
+    var wr=dv.reduce(function(m,d){return m+(d.write_bytes_sec||0)},0)/1048576;
+    var mq=dv.reduce(function(m,d){return Math.max(m,d.queue_depth||0)},0);
+    var dc=dv.length;
+    st('sv0',rr.toFixed(1)+' MB/s');st('ss0','read');
+    st('sv1',wr.toFixed(1)+' MB/s');st('ss1','write');
+    st('sv2',dc+' drive'+(dc!==1?'s':''));st('ss2','connected');
+  }
+  else if(M==='net'){
+    var ad=s.network_stats&&s.network_stats.adapters||[];
+    var up2=ad.filter(function(a){return a.status==='Up'});
+    var sn=up2.reduce(function(m,a){return m+a.bytes_sent_sec},0)/1048576;
+    var rc=up2.reduce(function(m,a){return m+a.bytes_recv_sec},0)/1048576;
+    st('sv0',sn.toFixed(2)+' MB/s');st('ss0','sent');st('sv1',rc.toFixed(2)+' MB/s');st('ss1','recv');st('sv2',up2.length.toString());st('ss2','adapters up');
+  }
   else if(M==='ctx'){var cx=s.context||{};st('sv0',(cx.current||'unknown').replace(/_/g,'-'));st('ss0','context');st('sv1',Math.round((cx.confidence||0)*100)+'%');st('ss1','confidence');st('sv2',prof);st('ss2','profile')}
+  // Add data-tip to stat cells based on current mode
+  setStatTips();
 }
+</script>
+<script>
+function setStatTips(){
+  var tips={
+    cpu:['How busy your CPU is. 0% = idle, 100% = fully loaded. Sustained 90%+ causes thermal throttling and sluggishness.','How long Windows has been running without a restart.','Active AEGIS resource profile. Controls how CPU/memory priorities are managed.'],
+    ram:['How much of your RAM is currently in use by apps and the OS.','Percent of total RAM in use. Above 85% = Windows starts using your disk as slow overflow memory.','Total installed RAM. This is fixed hardware — you can only use what\'s in the machine.'],
+    dsk:['Data being read from your drives right now. High during file copies, installs, or app launches.','Data being written to your drives right now. High during saves, downloads, and background indexing.','Number of physical drives connected. AEGIS monitors all of them simultaneously.'],
+    net:['Data your PC is sending out — uploads, API calls, sync services, cloud backups.','Data your PC is receiving — downloads, web pages, streaming, updates.','Number of active network connections. Wi-Fi and Ethernet can both be active at once.'],
+    ctx:['What AEGIS thinks you\'re doing right now, based on your active apps.','How certain AEGIS is about its context detection. Higher = more confident profile switches.','Active AEGIS resource profile.'],
+    gpu:['How busy your graphics card is. Near 0 at desktop is normal. High during gaming or video rendering.','--','--'],
+  };
+  var t=tips[M]||[];
+  [0,1,2].forEach(function(i){
+    var sc=document.getElementById('sc'+i);
+    if(!sc)return;
+    if(t[i]&&t[i]!=='--'){sc.setAttribute('data-tip-raw',t[i]);sc.setAttribute('data-tip-title',document.getElementById('sl'+i)?document.getElementById('sl'+i).textContent:'');}
+    else sc.removeAttribute('data-tip-raw');
+  });
+}
+
 function updDB(){
   var s=SNAP||{};
   if(M==='cpu'){
     var pr=s.process_tree||[];if(!pr.length){sh('dbody','<div class="empty">waiting for data\u2026</div>');st('dsec','PROCESSES');return}
-    st('dsec','PROCESSES BY CPU TIME');
-    sh('dbody',pr.slice().sort(function(a,b){return(b.cpu_user_ms||0)-(a.cpu_user_ms||0)}).slice(0,50).map(function(p){
+    st('dsec','PROCESSES — hover a row to manage');
+    var sorted=pr.slice().sort(function(a,b){return(b.cpu_user_ms||0)-(a.cpu_user_ms||0)}).slice(0,50);
+    sh('dbody',sorted.map(function(p){
       var cs=(p.cpu_user_ms/1000).toFixed(1),pct=Math.min(100,parseFloat(cs)/10);
       var mm=p.memory_mb>=1024?(p.memory_mb/1024).toFixed(1)+'G':p.memory_mb.toFixed(0)+'M';
-      return '<div class="pr"><span class="pn">'+es(p.name)+'</span><div class="pbw"><div class="pbt"><div class="pbf" style="width:'+pct+'%;background:#00e5ff"></div></div></div><span class="pc '+cpCls(parseFloat(cs))+'">'+cs+'s</span><span class="pm">'+mm+'</span></div>';
+      var info=getProcInfo(p.name);
+      var tip=info?es(info.desc.substring(0,80)):'';
+      return '<div class="pr" data-pid="'+p.pid+'" data-name="'+es(p.name)+'" data-tip-raw="'+tip+'" data-tip-title="'+es(p.name)+'">'
+        +'<span class="pn'+( info&&info.crit?' dim':'')+'" title="'+es(p.name)+'">'+es(p.name)+'</span>'
+        +'<div class="pbw"><div class="pbt"><div class="pbf" style="width:'+pct+'%;background:#00e5ff"></div></div></div>'
+        +'<span class="pc '+cpCls(parseFloat(cs))+'">'+cs+'s</span>'
+        +'<span class="pm">'+mm+'</span>'
+        +'<div class="pr-acts">'
+        +'<button class="pr-act" onclick="event.stopPropagation();showProcModal('+p.pid+',\''+es(p.name)+'\',\'suspend\')">⏸ pause</button>'
+        +'<button class="pr-act pri" onclick="event.stopPropagation();openPriMenu(event,'+p.pid+',\''+es(p.name)+'\')">⚡ priority</button>'
+        +'<button class="pr-act kill" onclick="event.stopPropagation();showProcModal('+p.pid+',\''+es(p.name)+'\',\'kill\')">✕ end</button>'
+        +'</div></div>';
     }).join(''));
-  }else if(M==='ram'){
+  } else if(M==='ram'){
     var pr2=s.process_tree||[];if(!pr2.length){sh('dbody','<div class="empty">waiting for data\u2026</div>');st('dsec','PROCESSES');return}
-    st('dsec','PROCESSES BY MEMORY');
+    st('dsec','PROCESSES BY MEMORY — hover a row to manage');
     var s2=pr2.slice().sort(function(a,b){return(b.memory_mb||0)-(a.memory_mb||0)}).slice(0,50);
     var mxm=s2[0]?s2[0].memory_mb:1;
     sh('dbody',s2.map(function(p){
       var mm=p.memory_mb>=1024?(p.memory_mb/1024).toFixed(1)+'G':p.memory_mb.toFixed(0)+'M';
-      return '<div class="pr"><span class="pn">'+es(p.name)+'</span><div class="pbw"><div class="pbt"><div class="pbf" style="width:'+Math.min(100,(p.memory_mb/mxm)*100)+'%;background:#4ade80"></div></div></div><span class="pm" style="color:var(--white);font-weight:500">'+mm+'</span></div>';
+      var info=getProcInfo(p.name);var tip=info?es(info.desc.substring(0,80)):'';
+      return '<div class="pr" data-pid="'+p.pid+'" data-name="'+es(p.name)+'" data-tip-raw="'+tip+'" data-tip-title="'+es(p.name)+'">'
+        +'<span class="pn">'+es(p.name)+'</span>'
+        +'<div class="pbw"><div class="pbt"><div class="pbf" style="width:'+Math.min(100,(p.memory_mb/mxm)*100)+'%;background:#4ade80"></div></div></div>'
+        +'<span class="pm" style="color:var(--white);font-weight:500">'+mm+'</span>'
+        +'<div class="pr-acts">'
+        +'<button class="pr-act" onclick="event.stopPropagation();showProcModal('+p.pid+',\''+es(p.name)+'\',\'suspend\')">⏸ pause</button>'
+        +'<button class="pr-act pri" onclick="event.stopPropagation();openPriMenu(event,'+p.pid+',\''+es(p.name)+'\')">⚡ priority</button>'
+        +'<button class="pr-act kill" onclick="event.stopPropagation();showProcModal('+p.pid+',\''+es(p.name)+'\',\'kill\')">✕ end</button>'
+        +'</div></div>';
     }).join(''));
-  }else if(M==='dsk'){
+  } else if(M==='dsk'){
     var ds=s.disk_stats;if(!ds){sh('dbody','<div class="empty">no disk data</div>');st('dsec','DRIVES');return}
-    st('dsec','DRIVES');
-    var rows='<table class="dt2"><thead><tr><th>DRIVE</th><th>FREE</th><th>READ</th><th>WRITE</th><th>QUEUE</th></tr></thead><tbody>';
-    (ds.drives||[]).forEach(function(d){var fp=d.free_gb/d.size_gb*100;rows+='<tr><td>'+es(d.letter)+(d.label?' <span style="color:var(--mid)">'+es(d.label)+'</span>':'')+'</td><td class="'+(fp<10?'re':fp<20?'am':'')+'">'+(d.free_gb).toFixed(1)+'/'+d.size_gb.toFixed(0)+'G</td><td>'+(d.read_bytes_sec/1048576).toFixed(1)+'</td><td>'+(d.write_bytes_sec/1048576).toFixed(1)+'</td><td>'+(d.queue_depth||0).toFixed(1)+'</td></tr>'});
-    rows+='</tbody></table>';sh('dbody',rows);
-  }else if(M==='net'){
+    st('dsec','DRIVES — '+( ds.drives?ds.drives.length:0)+' connected');
+    var rows='<table class="dt2"><thead><tr><th>DRIVE</th><th data-tip-raw="Space remaining on this drive. Red = critically low — less than 10% free." data-tip-title="Free Space">FREE</th><th data-tip-raw="Data being read from this drive right now." data-tip-title="Read Speed">READ MB/s</th><th data-tip-raw="Data being written to this drive right now." data-tip-title="Write Speed">WRITE MB/s</th><th data-tip-raw="How many read/write requests are waiting. Above 1.0 means the drive is a bottleneck." data-tip-title="Queue Depth">QUEUE</th></tr></thead><tbody>';
+    (ds.drives||[]).forEach(function(d){
+      var fp=d.free_gb/d.size_gb*100;
+      rows+='<tr><td><strong>'+es(d.letter)+'</strong>'+(d.label?' <span style="color:var(--mid)">'+es(d.label)+'</span>':'')+'</td>'
+        +'<td class="'+(fp<10?'re':fp<20?'am':'')+'">'+(d.free_gb).toFixed(1)+' / '+d.size_gb.toFixed(0)+' GB</td>'
+        +'<td>'+(d.read_bytes_sec/1048576).toFixed(1)+'</td>'
+        +'<td>'+(d.write_bytes_sec/1048576).toFixed(1)+'</td>'
+        +'<td class="'+(d.queue_depth>2?'re':d.queue_depth>1?'am':'')+'">'+(d.queue_depth||0).toFixed(1)+'</td></tr>';
+    });
+    rows+='</tbody></table><div style="padding:8px 11px;font-size:9px;color:var(--dim)">Add more drives anytime — AEGIS detects them automatically on next refresh.</div>';
+    sh('dbody',rows);
+  } else if(M==='net'){
     var ns=s.network_stats;if(!ns||!ns.adapters||!ns.adapters.length){sh('dbody','<div class="empty">no network data</div>');st('dsec','NETWORK');return}
-    st('dsec','NETWORK ADAPTERS');
-    var rows2='<table class="dt2"><thead><tr><th>ADAPTER</th><th>STATUS</th><th>SENT</th><th>RECV</th></tr></thead><tbody>';
-    ns.adapters.forEach(function(a){var nm=a.name.length>20?a.name.substring(0,19)+'\u2026':a.name;rows2+='<tr><td>'+es(nm)+'</td><td class="'+(a.status==='Up'?'gr':'dim')+'">'+es(a.status)+'</td><td>'+(a.bytes_sent_sec/1048576).toFixed(2)+'</td><td>'+(a.bytes_recv_sec/1048576).toFixed(2)+'</td></tr>'});
-    rows2+='</tbody></table>';sh('dbody',rows2);
-  }else if(M==='ctx'){
+    st('dsec','NETWORK ADAPTERS — '+ns.adapters.filter(function(a){return a.status==='Up'}).length+' active');
+    var rows2='<table class="dt2"><thead><tr><th>ADAPTER</th><th>STATUS</th><th data-tip-raw="Data being uploaded — sent to the internet or local network." data-tip-title="Upload">SENT MB/s</th><th data-tip-raw="Data being downloaded — coming from the internet or network." data-tip-title="Download">RECV MB/s</th></tr></thead><tbody>';
+    ns.adapters.forEach(function(a){
+      var nm=a.name.length>22?a.name.substring(0,21)+'\u2026':a.name;
+      var snt=a.bytes_sent_sec/1048576,rcv=a.bytes_recv_sec/1048576;
+      rows2+='<tr><td>'+es(nm)+'</td><td class="'+(a.status==='Up'?'gr':'dim')+'">'+es(a.status)+'</td>'
+        +'<td class="'+(snt>0.5?'cm':'')+'">'+snt.toFixed(2)+'</td>'
+        +'<td class="'+(rcv>0.5?'cm':'')+'">'+rcv.toFixed(2)+'</td></tr>';
+    });
+    rows2+='</tbody></table><div style="padding:8px 11px;font-size:9px;color:var(--dim)">Values near 0.00 mean no traffic right now. Any value above 0.5 MB/s = active transfer.</div>';
+    sh('dbody',rows2);
+  } else if(M==='ctx'){
     st('dsec','CONTEXT DETAILS');
     var cx2=s.context||{},fw=cx2.focus_weights||{};
     var h3='<div style="padding:10px 12px"><div class="sl">current context</div><div style="font-size:18px;font-weight:700;color:var(--cyan);margin:4px 0 12px">'+(cx2.current||'detecting\u2026').replace(/_/g,' ')+'</div>';
-    h3+='<div class="sl" style="margin-bottom:6px">focus weights</div>';
+    h3+='<div class="sl" style="margin-bottom:6px">focus weights — apps driving this detection</div>';
     var fw2=Object.keys(fw).sort(function(a,b){return fw[b]-fw[a]}).slice(0,10);
     fw2.forEach(function(k){var pct=Math.min(100,(fw[k]/300)*100);h3+='<div style="display:flex;align-items:center;gap:7px;margin-bottom:3px"><span style="font-size:10px;color:var(--white);width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+es(k)+'</span><div style="flex:1;height:3px;background:var(--dimmer)"><div style="height:100%;width:'+pct+'%;background:var(--cyan)"></div></div><span style="font-size:9px;color:var(--dim);width:28px;text-align:right">'+fw[k].toFixed(0)+'s</span></div>'});
     h3+='</div>';sh('dbody',h3);
+  } else if(M==='gpu'){
+    var gs=s.gpu_stats;if(!gs||!gs.available){sh('dbody','<div class="empty">GPU data not available</div>');st('dsec','GPU');return}
+    st('dsec','GPU');
+    var gh='<div style="padding:10px 12px">';
+    (gs.gpus||[]).forEach(function(g,i){
+      gh+='<div style="margin-bottom:12px"><div class="sl">GPU '+i+' — '+es(g.name||'Unknown')+'</div>'
+        +'<div style="font-size:18px;font-weight:700;color:var(--white);margin:3px 0">'+g.gpu_util_percent.toFixed(0)+'% util</div>'
+        +'<div style="font-size:11px;color:var(--mid)">VRAM: '+(g.vram_used_mb||0).toFixed(0)+' / '+(g.vram_total_mb||0).toFixed(0)+' MB</div></div>';
+    });
+    gh+='</div>';sh('dbody',gh);
   }
 }
+</script>
+<script>
 function renderHdr(s){
   var cx=s.context||{},cp=document.getElementById('pp-ctx');
   if(cp){cp.textContent='CTX:'+(cx.current||'--').replace(/_/g,'-').toUpperCase();cp.className='pill'+(cx.current&&cx.current!=='unknown'?' ctx-active':'')}
   var pp=document.getElementById('pp-prof');if(pp)pp.textContent=(s.active_profile||'--').toUpperCase();
-  var wn=0,wl=document.getElementById('pp-wat');
-  if(wl){wl.textContent=wn+' WATCH'+(wn!==1?'ES':'');wl.className='pill'+(wn>0?' watch-on':'')}
+  var wl=document.getElementById('pp-wat');if(wl){wl.textContent='0 WATCHES';wl.className='pill'}
 }
 function renderNav(s){
   var cpu=s.cpu_percent||0,ram=s.memory_percent||0,prof=s.active_profile||'';
@@ -321,14 +590,17 @@ function renderNav(s){
   var tot=(s.memory_mb_used+s.memory_mb_available)/1024;
   st('mv-ram',ram.toFixed(0)+'%');st('ms-ram',(s.memory_mb_used/1024).toFixed(1)+' / '+tot.toFixed(0)+' GB');
   if(s.disk_stats&&s.disk_stats.drives&&s.disk_stats.drives.length){
-    var rMB=s.disk_stats.drives.reduce(function(m,d){return m+(d.read_bytes_sec||0)},0)/1048576;
-    var mq=s.disk_stats.drives.reduce(function(m,d){return Math.max(m,d.queue_depth||0)},0);
-    pu('dsk',Math.min(100,mq*10),prof);st('mv-dsk',rMB.toFixed(1)+' MB/s');st('ms-dsk','q:'+mq.toFixed(1));
+    var dv=s.disk_stats.drives;
+    var rMB=dv.reduce(function(m,d){return m+(d.read_bytes_sec||0)+(d.write_bytes_sec||0)},0)/1048576;
+    pu('dsk',Math.min(100,rMB*5),prof); // 20 MB/s = full bar
+    st('mv-dsk',rMB.toFixed(1)+' MB/s');
+    st('ms-dsk',dv.length+' drive'+(dv.length!==1?'s':''));
   }
   if(s.network_stats&&s.network_stats.adapters){
     var up2=s.network_stats.adapters.filter(function(a){return a.status==='Up'});
     var tot2=up2.reduce(function(m,a){return m+(a.bytes_sent_sec+a.bytes_recv_sec)},0)/1048576;
-    pu('net',Math.min(100,tot2),prof);st('mv-net',tot2.toFixed(1)+' MB/s');
+    pu('net',Math.min(100,tot2*10),prof); // 10 MB/s = full bar
+    st('mv-net',tot2.toFixed(1)+' MB/s');
     st('ms-net',up2.length?up2[0].name.substring(0,14):'offline');
   }
   st('ms-ctx',(s.context&&s.context.current||'detecting').replace(/_/g,' '));
@@ -346,138 +618,301 @@ function renderAlog(s){
 }
 function render(s){renderHdr(s);renderNav(s);updDH();updDS();updDB();renderAlog(s);rg()}
 
-// ── Tauri IPC ─────────────────────────────────────────────────────────────────
-// withGlobalTauri:true in tauri.conf.json injects window.__TAURI__ globally.
-// listen  = window.__TAURI__.event.listen
-// invoke  = window.__TAURI__.core.invoke
-(function initTauri(){
-  function waitForTauri(cb, attempts){
-    attempts = attempts || 0;
-    if(window.__TAURI__ && window.__TAURI__.event && window.__TAURI__.event.listen){
-      cb();
-    } else if(attempts < 50){
-      setTimeout(function(){ waitForTauri(cb, attempts+1); }, 100);
-    } else {
-      console.warn('AEGIS: window.__TAURI__ not available after 5s');
+// ── Detail help button — context-aware help text ──────────────────────────
+var DETAIL_HELP = {
+  cpu: 'CPU (processor) is your computer\'s brain — it runs your apps and the OS. The graph shows the last 3 minutes. Spikes are normal; sustained high usage (90%+) for minutes means something is working hard. The process list below shows what\'s consuming the most CPU time.',
+  ram: 'Memory (RAM) is your PC\'s fast workspace. When it fills up, Windows starts using your disk as overflow — this is called "paging" and makes everything dramatically slower. 85%+ consistently means you need more RAM or fewer apps open.',
+  dsk: 'Disk shows how much data is being read from and written to your drives right now. High activity during updates, installs, or file copies is normal. Sustained high queue depth (above 1.0) means the drive is a bottleneck. Multiple drives are shown individually below.',
+  net: 'Network shows data moving in (downloads, streaming) and out (uploads, sync, cloud). Near-zero is normal when idle. Unexpected high traffic when you\'re not doing anything can mean background updates, cloud sync, or unwanted activity.',
+  gpu: 'GPU is your graphics card. It handles video, gaming, and increasingly AI workloads. Near 0% at desktop is normal — it should spike when you open a game or video. High GPU at idle may mean a browser is doing heavy rendering.',
+  ctx: 'AEGIS watches your active apps and automatically detects what you\'re doing — coding, gaming, video editing, etc. It uses this to switch resource profiles automatically. Higher confidence means it\'s more certain about the context.',
+};
+function showDetailHelp(){
+  var t=DETAIL_HELP[M]||'No additional help available for this view.';
+  alert('AEGIS — ' + M.toUpperCase() + '\n\n' + t);
+}
+</script>
+<script>
+// ── Tooltip system ────────────────────────────────────────────────────────
+var TIP_CONTENT = {
+  'load': 'AEGIS cognitive load score (0–100). Green = easy, amber = moderate, red = overloaded. Combines CPU pressure, memory pressure, disk queue, and active profile intensity.',
+  'pill-ctx': 'What AEGIS thinks you\'re doing right now — coding, browsing, video, idle. Detected from your active app windows.',
+  'pill-wrk': 'How AEGIS is reading system data. NATIVE = direct Windows APIs (fastest, most accurate). Online = worker mode.',
+  'pill-prof': 'Active resource management profile. Click to switch. Profiles adjust CPU/memory/disk priorities automatically.',
+  'pill-wat': 'Active process watches. AEGIS can monitor specific processes and act when they misbehave.',
+  'theme': 'Toggle between dark terminal mode and light mode.',
+  'confidence': 'How certain AEGIS is about its current context detection. Drives automatic profile switching — low confidence = no switch.',
+  'nav-cpu': 'Processor (CPU)\nYour computer\'s brain — runs all your apps. High % = it\'s working hard. Sustained 90%+ can cause slowdowns.',
+  'nav-ram': 'Memory (RAM)\nFast workspace for your apps. When full, Windows uses your much-slower disk as overflow. 85%+ = slowdown risk.',
+  'nav-dsk': 'Disk — Storage Activity\nHow fast data is moving to/from your drives. High MB/s is normal during updates. Queue above 1.0 = bottleneck.',
+  'nav-net': 'Network — Traffic\nData sent and received. Near-zero at idle is normal. Unexpected traffic may mean background syncing or updates.',
+  'nav-gpu': 'Graphics Card (GPU)\nHandles video, gaming, AI. Near 0% at desktop is normal. High at idle may mean a browser is over-rendering.',
+  'nav-ctx': 'Context Detection\nAEGIS watches your active apps to detect what you\'re doing and switch profiles automatically.',
+};
+var _tipEl=null,_tipTitle=null,_tipBody=null,_tipTimer=null;
+function initTip(){
+  _tipEl=document.getElementById('tip');
+  _tipTitle=document.getElementById('tip-title');
+  _tipBody=document.getElementById('tip-body');
+  document.addEventListener('mouseover',function(e){
+    var el=e.target;
+    // Walk up to find a data-tip or data-tip-raw element
+    while(el&&el!==document.body){
+      var key=el.getAttribute('data-tip');
+      var raw=el.getAttribute('data-tip-raw');
+      var title=el.getAttribute('data-tip-title')||'';
+      if(key||raw){
+        var body=raw||(key&&TIP_CONTENT[key])||'';
+        if(body){showTip(title,body,e);return}
+      }
+      el=el.parentElement;
     }
+    hideTip();
+  });
+  document.addEventListener('mousemove',function(e){moveTip(e)});
+  document.addEventListener('mouseout',function(e){
+    if(!e.relatedTarget||!e.relatedTarget.closest('[data-tip],[data-tip-raw]'))hideTip();
+  });
+}
+function showTip(title,body,e){
+  if(!_tipEl)return;
+  clearTimeout(_tipTimer);
+  _tipTimer=setTimeout(function(){
+    if(_tipTitle)_tipTitle.textContent=title||'';
+    if(_tipBody)_tipBody.textContent=body||'';
+    _tipEl.classList.add('show');
+    moveTip(e);
+  },320);
+}
+function moveTip(e){
+  if(!_tipEl||!_tipEl.classList.contains('show'))return;
+  var x=e.clientX+14,y=e.clientY-10;
+  var w=_tipEl.offsetWidth,h=_tipEl.offsetHeight;
+  if(x+w>window.innerWidth-8)x=e.clientX-w-10;
+  if(y+h>window.innerHeight-8)y=e.clientY-h-10;
+  _tipEl.style.left=x+'px';_tipEl.style.top=y+'px';
+}
+function hideTip(){
+  clearTimeout(_tipTimer);
+  if(_tipEl)_tipEl.classList.remove('show');
+}
+</script>
+<script>
+// ── Light mode toggle ─────────────────────────────────────────────────────
+function toggleTheme(){
+  var light=document.body.classList.toggle('light');
+  var btn=document.getElementById('theme-btn');
+  if(btn)btn.textContent=light?'\u263d DARK':'\u263c LIGHT';
+  try{localStorage.setItem('aegis_theme',light?'light':'dark')}catch(e){}
+}
+(function loadTheme(){
+  try{if(localStorage.getItem('aegis_theme')==='light'){
+    document.body.classList.add('light');
+    var btn=document.getElementById('theme-btn');if(btn)btn.textContent='\u263d DARK';
+  }}catch(e){}
+})();
+
+// ── Process management ────────────────────────────────────────────────────
+var _procAction=null; // {pid, name, action, priority}
+
+var PROC_IMPLICATIONS = {
+  kill: function(name,info){
+    var impl='This will immediately force-close '+name+'. ';
+    if(info&&info.crit)impl+='This is a system-critical process. Ending it may crash Windows or force a restart.';
+    else if(info&&info.semi)impl+='The process will stop. Windows can usually recover automatically.';
+    else if(name.toLowerCase().indexOf('chrome')>=0||name.toLowerCase().indexOf('edge')>=0||name.toLowerCase().indexOf('firefox')>=0)
+      impl+='Any unsaved browser tabs, forms, or work in that browser will be lost.';
+    else impl+='If the app had unsaved work, you\'ll lose it. The app won\'t get a chance to save or clean up.';
+    return impl;
+  },
+  suspend: function(name,info){
+    return 'This will freeze '+name+' completely — it stops running but stays in memory. '
+      +'CPU usage drops to zero immediately. Resume it when ready. '
+      +(info&&info.crit?'Warning: this is a system process — suspending it may cause instability.':'Most apps handle this fine, but games and streaming apps may glitch.');
+  },
+  priority: function(name,level){
+    var levels={
+      high:'High priority means Windows gives '+name+' more CPU time than almost everything else. Good for: video rendering, game performance, time-critical processing. Watch out: everything else on your PC will feel slower while this runs at high priority.',
+      above_normal:'Above Normal gives '+name+' a slight CPU advantage over regular apps. A good middle ground for apps that feel sluggish but don\'t need to dominate.',
+      normal:'Normal is the default for all apps. Resets any previous priority change on '+name+'.',
+      below_normal:'Below Normal means '+name+' only gets CPU time when other apps are idle. Good for: background tasks, long-running scripts you don\'t need urgently.',
+      idle:'Idle priority means '+name+' runs only when nothing else needs the CPU. It will feel very slow but won\'t compete with your work at all. Good for heavy background jobs.'
+    };
+    return levels[level]||'Changes how much CPU time this process gets relative to others.';
   }
+};
 
+function showProcModal(pid,name,action,priority){
+  hideTip();
+  closePriMenu();
+  _procAction={pid:parseInt(pid),name:name,action:action,priority:priority||null};
+  var info=getProcInfo(name);
+  var modal=document.getElementById('proc-modal');
+  var confirmBtn=document.getElementById('proc-modal-confirm');
+  st('proc-modal-name',name);
+  st('proc-modal-pid','PID '+pid);
+  st('proc-modal-desc',info?(info.desc):'Unknown process. No information available in the AEGIS process database.');
+  var impl='',warn='',actionLabel='',heading='';
+  if(action==='kill'){
+    actionLabel='END TASK';heading='What happens when you end this?';
+    impl=PROC_IMPLICATIONS.kill(name,info);
+    if(info&&info.crit)warn='<div class="pm2-crit">⚠ SYSTEM CRITICAL — do not end unless Windows says it\'s not responding</div>';
+    else if(info&&info.warn)warn='<div class="pm2-warn">⚠ '+name+' is a security or audio process. Ending it will disable that feature until you restart.</div>';
+    if(confirmBtn){confirmBtn.textContent='END TASK';confirmBtn.className='pb2 confirm-kill';}
+  } else if(action==='suspend'){
+    actionLabel='PAUSE PROCESS';heading='What happens when you pause this?';
+    impl=PROC_IMPLICATIONS.suspend(name,info);
+    if(info&&info.crit)warn='<div class="pm2-warn">⚠ Suspending a system process may cause instability.</div>';
+    if(confirmBtn){confirmBtn.textContent='PAUSE';confirmBtn.className='pb2 confirm-ok';}
+  } else if(action==='priority'){
+    actionLabel='SET PRIORITY → '+priority.toUpperCase().replace('_',' ');
+    heading='What does this do?';
+    impl=PROC_IMPLICATIONS.priority(name,priority);
+    if(priority==='high'&&info&&info.crit)warn='<div class="pm2-warn">This is already a system process — high priority may cause other system processes to starve.</div>';
+    if(confirmBtn){confirmBtn.textContent='APPLY';confirmBtn.className='pb2 confirm-ok';}
+  }
+  st('proc-modal-action-label','\u250c\u2500 '+actionLabel);
+  st('proc-modal-action-heading',heading);
+  st('proc-modal-impl',impl);
+  var warnEl=document.getElementById('proc-modal-warn');if(warnEl)warnEl.innerHTML=warn;
+  if(modal)modal.classList.add('open');
+}
+function closeProcModal(e){
+  if(e&&e.target!==document.getElementById('proc-modal'))return;
+  var modal=document.getElementById('proc-modal');if(modal)modal.classList.remove('open');
+  _procAction=null;
+}
+function execProcAction(){
+  if(!_procAction||!window._aegisInvoke)return;
+  var a=_procAction;
+  var modal=document.getElementById('proc-modal');if(modal)modal.classList.remove('open');
+  if(a.action==='kill')window._aegisInvoke('kill_process_cmd',{pid:a.pid}).catch(function(e){alert('Could not end '+a.name+': '+e)});
+  else if(a.action==='suspend')window._aegisInvoke('suspend_process',{pid:a.pid}).catch(function(e){alert('Could not pause '+a.name+': '+e)});
+  else if(a.action==='priority')window._aegisInvoke('set_process_priority',{pid:a.pid,priority:a.priority}).catch(function(e){alert('Could not set priority on '+a.name+': '+e)});
+  _procAction=null;
+}
+function openPriMenu(e,pid,name){
+  window._priPid=pid;window._priName=name;
+  var menu=document.getElementById('pri-menu');
+  if(!menu)return;
+  var x=e.clientX,y=e.clientY;
+  menu.style.left=x+'px';menu.style.top=y+'px';
+  menu.classList.add('open');
+  e.stopPropagation();
+  setTimeout(function(){document.addEventListener('click',closePriMenu,{once:true})},0);
+}
+function closePriMenu(){var m=document.getElementById('pri-menu');if(m)m.classList.remove('open')}
+</script>
+<script>
+// ── Tauri IPC ─────────────────────────────────────────────────────────────
+(function initTauri(){
+  function waitForTauri(cb,attempts){
+    attempts=attempts||0;
+    if(window.__TAURI__&&window.__TAURI__.event&&window.__TAURI__.event.listen){cb();}
+    else if(attempts<50){setTimeout(function(){waitForTauri(cb,attempts+1)},100);}
+    else{console.warn('AEGIS: Tauri not available after 5s');}
+  }
   waitForTauri(function(){
-    var listen = window.__TAURI__.event.listen;
-    var invoke = window.__TAURI__.core.invoke;
-    if(!listen){ console.error('AEGIS: listen not found on window.__TAURI__.event'); return; }
+    var listen=window.__TAURI__.event.listen;
+    var invoke=window.__TAURI__.core.invoke;
+    window._aegisInvoke=invoke;
 
-    // ── metrics event from Rust core (every 2s) ───────────────────────────────
-    listen('metrics', function(event){
-      var m = event.payload;
-      if(!SNAP) SNAP = {};
-      SNAP.cpu_percent        = m.cpu.percent;
-      SNAP.memory_percent     = m.memory.percent;
-      SNAP.memory_mb_used     = m.memory.used_mb;
-      SNAP.memory_mb_available = m.memory.available_mb;
-      SNAP.system_extended    = { uptime_sec: m.uptime_sec, dpc_rate:0, interrupt_rate:0, page_faults_sec:0, page_reads_sec:0 };
-      SNAP.process_tree       = m.processes.map(function(p){
-        return { pid:p.pid, parent_pid:p.parent_pid, name:p.name,
-                 cpu_user_ms: Math.round(p.cpu_percent * 100),
-                 memory_mb: p.memory_mb, thread_count:0 };
+    listen('metrics',function(event){
+      var m=event.payload;
+      if(!SNAP)SNAP={};
+      SNAP.cpu_percent=m.cpu.percent;
+      SNAP.memory_percent=m.memory.percent;
+      SNAP.memory_mb_used=m.memory.used_mb;
+      SNAP.memory_mb_available=m.memory.available_mb;
+      SNAP.system_extended={uptime_sec:m.uptime_sec,dpc_rate:0,interrupt_rate:0,page_faults_sec:0,page_reads_sec:0};
+      SNAP.process_tree=m.processes.map(function(p){
+        return{pid:p.pid,parent_pid:p.parent_pid,name:p.name,
+          cpu_user_ms:p.cpu_time_ms||0,memory_mb:(p.memory_kb||0)/1024};
       });
-      SNAP.disk_stats = m.disks && m.disks.length ? {
-        drives: m.disks.map(function(d){
-          return { letter:d.mount, label:d.name,
-                   size_gb:d.total_gb, free_gb:d.available_gb,
-                   read_bytes_sec:d.read_bytes_sec, write_bytes_sec:d.write_bytes_sec,
-                   queue_depth:0 };
-        }), physical_disks:[]
-      } : null;
-      SNAP.network_stats = m.networks && m.networks.length ? {
-        adapters: m.networks.map(function(n){
-          return { name:n.name, status:'Up', link_speed_mbps:0,
-                   bytes_sent_sec:n.transmitted_bytes_sec,
-                   bytes_recv_sec:n.received_bytes_sec,
-                   packets_sent_sec:0, packets_recv_sec:0 };
+      SNAP.disk_stats=m.disks&&m.disks.length?{
+        drives:m.disks.map(function(d){
+          return{letter:d.mount,label:d.name,size_gb:d.total_gb,free_gb:d.available_gb,
+            read_bytes_sec:d.read_bytes_sec,write_bytes_sec:d.write_bytes_sec,queue_depth:0};
+        }),physical_disks:[]
+      }:null;
+      SNAP.network_stats=m.networks&&m.networks.length?{
+        adapters:m.networks.map(function(n){
+          return{name:n.name,status:'Up',link_speed_mbps:0,
+            bytes_sent_sec:n.transmitted_bytes_sec,bytes_recv_sec:n.received_bytes_sec,
+            packets_sent_sec:0,packets_recv_sec:0};
         })
-      } : null;
-      SNAP.worker_status = 'native';
-      if(!SNAP.active_profile) SNAP.active_profile = 'idle';
-      if(!SNAP.context) SNAP.context = { current:'detecting\u2026', previous:'', confidence:0, switched_at:Date.now(), idle_since:null, active_overlays:[] };
+      }:null;
+      SNAP.worker_status='native';
+      if(!SNAP.active_profile)SNAP.active_profile='idle';
+      if(!SNAP.context)SNAP.context={current:'detecting\u2026',previous:'',confidence:0,switched_at:Date.now(),idle_since:null,active_overlays:[]};
       render(SNAP);
     });
 
-    // ── intelligence_update from sidecar (via Rust relay) ─────────────────────
-    listen('intelligence_update', function(event){
-      var d = event.payload;
-      if(!SNAP) return;
-      if(d.context){
-        SNAP.context = { current:d.context, previous:'', confidence:d.confidence||0,
-                         switched_at:Date.now(), idle_since:null, active_overlays:[] };
+    listen('intelligence_update',function(event){
+      var d=event.payload;if(!SNAP)return;
+      if(d.context){SNAP.context={current:d.context,previous:'',confidence:d.confidence||0,switched_at:Date.now(),idle_since:null,active_overlays:[]};}
+      if(d.cognitive_load!==undefined){
+        var sc=d.cognitive_load;
+        SNAP.cognitive_load={score:sc,tier:sc<40?'green':sc<70?'amber':'red',cpu_pressure:0,memory_pressure:0,disk_queue_pressure:0,dpc_pressure:0};
       }
-      if(d.cognitive_load !== undefined){
-        var sc = d.cognitive_load;
-        SNAP.cognitive_load = { score:sc, tier:sc<40?'green':sc<70?'amber':'red',
-                                 cpu_pressure:0, memory_pressure:0, disk_queue_pressure:0, dpc_pressure:0 };
-      }
-      // Update load indicator
-      var ld = SNAP.cognitive_load || { score:0, tier:'green' };
-      var n = document.getElementById('ln');
-      if(n){ n.textContent = ld.score.toFixed(0); n.className = 'load-num '+(ld.tier==='green'?'g':ld.tier==='amber'?'a':'r'); }
-      var cbf = document.getElementById('cbf');
-      if(cbf) cbf.style.width = (SNAP.context ? (SNAP.context.confidence||0)*100 : 0)+'%';
-      st('cpct', (SNAP.context ? Math.round((SNAP.context.confidence||0)*100) : 0)+'%');
+      var ld=SNAP.cognitive_load||{score:0,tier:'green'};
+      var n=document.getElementById('ln');
+      if(n){n.textContent=ld.score.toFixed(0);n.className='load-num '+(ld.tier==='green'?'g':ld.tier==='amber'?'a':'r');}
+      var cbf=document.getElementById('cbf');if(cbf)cbf.style.width=(SNAP.context?(SNAP.context.confidence||0)*100:0)+'%';
+      st('cpct',(SNAP.context?Math.round((SNAP.context.confidence||0)*100):0)+'%');
       render(SNAP);
     });
 
-    // ── profile_changed from Rust tray/command ────────────────────────────────
-    listen('profile_changed', function(event){
-      if(!SNAP) SNAP = {};
-      SNAP.active_profile = event.payload;
-      var pp = document.getElementById('pp-prof');
-      if(pp) pp.textContent = (event.payload||'--').toUpperCase();
-      st('fw', event.payload||'idle');
+    listen('profile_changed',function(event){
+      if(!SNAP)SNAP={};
+      SNAP.active_profile=event.payload;
+      var pp=document.getElementById('pp-prof');if(pp)pp.textContent=(event.payload||'--').toUpperCase();
+      st('fw',event.payload||'idle');
       render(SNAP);
     });
 
-    // ── sniper_action from sidecar ────────────────────────────────────────────
-    listen('sniper_action', function(event){
-      if(!SNAP) return;
-      if(!SNAP.sniper) SNAP.sniper = { recent_actions:[] };
+    listen('sniper_action',function(event){
+      if(!SNAP)return;
+      if(!SNAP.sniper)SNAP.sniper={recent_actions:[]};
       SNAP.sniper.recent_actions.unshift(event.payload);
-      if(SNAP.sniper.recent_actions.length > 20) SNAP.sniper.recent_actions.pop();
+      if(SNAP.sniper.recent_actions.length>20)SNAP.sniper.recent_actions.pop();
       renderAlog(SNAP);
     });
-
-    // Store invoke for profile switch
-    window._aegisInvoke = invoke;
     console.log('AEGIS: Tauri IPC wired');
   });
 })();
 
-// Profile switch via invoke
-window.doSwitch = function(){
-  var i = document.getElementById('pi'); if(!i||!i.value.trim()) return;
-  var name = i.value.trim();
+// ── Profile modal ─────────────────────────────────────────────────────────
+window.doSwitch=function(){
+  var i=document.getElementById('pi');if(!i||!i.value.trim())return;
+  var name=i.value.trim();
   if(window._aegisInvoke){
-    window._aegisInvoke('switch_profile', { name:name })
-      .then(function(){ window.closePM(); })
-      .catch(function(e){ var h=document.getElementById('ph'); if(h) h.textContent='\u26a0 '+e; });
+    window._aegisInvoke('switch_profile',{name:name}).then(function(){window.closePM();}).catch(function(e){var h=document.getElementById('ph');if(h)h.textContent='\u26a0 '+e;});
   }
 };
-
-window.sel = sel;
-window.openPM = function(){
+window.openPM=function(){
   var m=document.getElementById('piw'),i=document.getElementById('pi');
-  if(m) m.classList.add('open');
-  if(i){ var h=document.getElementById('ph');if(SNAP&&h)h.textContent='current: '+(SNAP.active_profile||'--');i.value='';setTimeout(function(){i.focus()},50); }
+  if(m)m.classList.add('open');
+  if(i){var h=document.getElementById('ph');if(SNAP&&h)h.textContent='current: '+(SNAP.active_profile||'--');i.value='';setTimeout(function(){i.focus()},50);}
 };
-window.closePM = function(e){
-  if(e&&e.target!==document.getElementById('piw')) return;
-  var m=document.getElementById('piw'); if(m) m.classList.remove('open');
+window.closePM=function(e){
+  if(e&&e.target!==document.getElementById('piw'))return;
+  var m=document.getElementById('piw');if(m)m.classList.remove('open');
 };
-window.piKey = function(e){ if(e.key==='Enter') window.doSwitch(); if(e.key==='Escape') window.closePM(); };
+window.piKey=function(e){if(e.key==='Enter')window.doSwitch();if(e.key==='Escape')window.closePM();};
 
-// Spinner
-setInterval(function(){ SPI=(SPI+1)%4; st('spin',SPIN[SPI]); }, 700);
-window.addEventListener('resize', rg);
-})();
+// ── Init ──────────────────────────────────────────────────────────────────
+initTip();
+setInterval(function(){SPI=(SPI+1)%4;st('spin',SPIN[SPI]);},700);
+window.addEventListener('resize',rg);
+// Expose globals needed by HTML onclick attributes
+window.sel=sel;
+window.toggleTheme=toggleTheme;
+window.showProcModal=showProcModal;
+window.closeProcModal=closeProcModal;
+window.execProcAction=execProcAction;
+window.openPriMenu=openPriMenu;
+window.showDetailHelp=showDetailHelp;
 </script>
 </body>
 </html>
