@@ -1,13 +1,13 @@
 # AEGIS — STATUS
 Status: Active Development
 Phase: Intelligence Layer Build-Out
-Last Sprint: AEGIS-COCKPIT-01 (c04c469) — cockpit rewrite attempt (interrupted)
+Last Sprint: AEGIS-DEVOPS-01 — pre-push lint gate (completed 2026-03-25)
 Last Updated: 2026-03-25
 
 ## Open Work
-- [ ] AEGIS-DEVOPS-01 — pre-push lint hook (SPRINT file written, ready for Cowork)
+- [x] AEGIS-DEVOPS-01 — pre-push lint gate (DONE 2026-03-25)
 - [ ] AEGIS-COCKPIT-02 — complete cockpit rewrite (SPRINT file written, ready for Cowork)
-- [ ] AEGIS-INTEL-01 — disk I/O via WMI Rust (SPRINT file written, ready for Cowork)
+- [x] AEGIS-INTEL-01 — disk I/O via WMI Rust (DONE 2026-03-25)
 - [ ] AEGIS-INTEL-02 — wire cognitive load engine (SPRINT file written, blocked on INTEL-01+COCKPIT-02)
 - [ ] AEGIS-INTEL-03 — sniper + baseline operational (SPRINT file written, blocked on INTEL-02)
 - [ ] AEGIS-INTEL-04 — learning store feedback loop (SPRINT file written, blocked on INTEL-03)

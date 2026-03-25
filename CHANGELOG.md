@@ -5,6 +5,21 @@ Format: [Sprint] Date — Summary
 
 ---
 
+## [AEGIS-INTEL-01] 2026-03-25 — Per-Drive Disk I/O via WMI
+
+### Added
+- `src-tauri/src/disk_io.rs`: new module — queries `Win32_PerfFormattedData_PerfDisk_LogicalDisk` via `wmi` crate
+- `get_disk_io()` returns `HashMap<String, (u64, u64)>` (drive letter → read/write bytes/sec); never panics, returns empty map on any WMI error
+- `wmi = "0.13"` added to `Cargo.toml` dependencies
+- `disk_io` module registered in `main.rs`
+- `metrics.rs` `collect_metrics()` calls `get_disk_io()` once per poll cycle and wires real values into `DiskMetrics.read_bytes_sec` / `write_bytes_sec` (replaces hardcoded 0s)
+- Multiple drives handled automatically via HashMap lookup by uppercase drive letter
+
+### Quality Gate
+- `cargo check`: 0 errors, 0 new warnings (3 pre-existing warnings in profiles.rs/sidecar.rs unaffected)
+
+---
+
 ## [AEGIS-TAURI-02-04] 2026-03-24 — Tray + Live Metrics + Sidecar + Cockpit
 
 ### Added

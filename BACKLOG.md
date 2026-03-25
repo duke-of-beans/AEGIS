@@ -85,7 +85,7 @@ Nothing in this list is optional. This IS the product.
 
 ### AEGIS-INTEL-01 — Disk I/O via WMI
 
-- [ ] **AEGIS-INTEL-01** — Per-drive I/O metrics via WMI
+- [x] **AEGIS-INTEL-01** — Per-drive I/O metrics via WMI (DONE 2026-03-25 — see CHANGELOG)
   The sysinfo crate does not expose per-disk read/write bytes per second on Windows
   without WMI. This sprint adds WMI queries from Rust using the `wmi` crate.
   Queries: Win32_PerfFormattedData_PerfDisk_LogicalDisk for DiskReadBytesPersec

@@ -24,6 +24,7 @@ chrono = { version = "0.4", features = ["serde"] }
 serde_yaml = "0.9"
 log = "0.4"
 env_logger = "0.11"
+wmi = "0.13"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58", features = [

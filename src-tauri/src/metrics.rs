@@ -90,18 +90,35 @@ fn collect_metrics(sys: &System, disks: &Disks, networks: &Networks) -> SystemMe
     let avail_mem = sys.available_memory() / 1024 / 1024;
     let mem_pct = if total_mem > 0 { (used_mem as f32 / total_mem as f32) * 100.0 } else { 0.0 };
 
+    // Fetch per-drive I/O from WMI once before the loop; empty map on failure (graceful degradation)
+    let io_map = crate::disk_io::get_disk_io();
+
     let disk_metrics: Vec<DiskMetrics> = disks.list().iter().map(|d| {
         let total = d.total_space();
         let avail = d.available_space();
         let used = total.saturating_sub(avail);
         let pct = if total > 0 { (used as f32 / total as f32) * 100.0 } else { 0.0 };
+
+        // Extract drive letter from mount point (e.g. "C:\\" -> "C")
+        let drive_letter = d.mount_point()
+            .to_string_lossy()
+            .chars()
+            .next()
+            .map(|c| c.to_ascii_uppercase().to_string())
+            .unwrap_or_default();
+
+        let (read_bytes_sec, write_bytes_sec) = io_map
+            .get(&drive_letter)
+            .copied()
+            .unwrap_or((0, 0));
+
         DiskMetrics {
             name: d.name().to_string_lossy().to_string(),
             mount: d.mount_point().to_string_lossy().to_string(),
             total_gb: total as f64 / 1_073_741_824.0,
             available_gb: avail as f64 / 1_073_741_824.0,
-            read_bytes_sec: 0, // requires WMI; placeholder — sysinfo doesn't expose per-disk IO
-            write_bytes_sec: 0,
+            read_bytes_sec,
+            write_bytes_sec,
             percent_used: pct,
         }
     }).collect();
