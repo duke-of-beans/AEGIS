@@ -33,7 +33,7 @@ workaround is start_process + Get-Content (documented in BACKLOG).
   profiles that had browser_suspension blocks). Settings UI Profiles tab now renders CDP Port
   input field per profile, loads from profile data, saves via POST. status.js empty-state
   strings no longer hardcode 9222 — use generic "--remote-debugging-port set" message.
-  lint: 0 errors. tsc: 0 errors. (TBD commit hash)
+  lint: 0 errors. tsc: 0 errors. (8cc0b9e)
 - [x] AEGIS-INTEL-06: catalog wiring — constructor bug fixed (appDataPath not dbPath),
   seedIfEmpty() fires on startup (200 clean entries, 2 dupes removed), recordObservation()
   wired into update_processes 2s poll, get_state returns catalog.total/unknown/suspicious +
