@@ -140,7 +140,7 @@ Nothing in this list is optional. This IS the product.
 
 ### AEGIS-INTEL-05 — Context Engine: Full Integration
 
-- [ ] **AEGIS-INTEL-05** — Context engine fully wired to all systems
+- [x] **AEGIS-INTEL-05** — Context engine fully wired to all systems (CLOSED 2026-03-25)
   Context engine is running but context changes don't influence sniper thresholds
   or produce meaningful cockpit output.
   This sprint:
@@ -193,7 +193,7 @@ Nothing in this list is optional. This IS the product.
 
 ## P2 — PROCESS MANAGEMENT: COMPLETE (AEGIS-PROCS-01)
 
-- [ ] **AEGIS-PROCS-01** — Process management fully operational with implications
+- [x] **AEGIS-PROCS-01** — Process management fully operational with implications (CLOSED 2026-03-25)
   Process action buttons exist in cockpit but don't work.
   This sprint makes them work AND explains every action before and after:
   · Pause (suspend): freezes process, shows "PAUSED" badge on row, resume button appears

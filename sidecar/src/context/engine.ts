@@ -1,5 +1,8 @@
-import { EventEmitter } from 'events'
+﻿import { EventEmitter } from 'events'
 import { spawn, ChildProcess } from 'child_process'
+import * as fs from 'fs'
+import * as path from 'path'
+import * as os from 'os'
 import { getLogger } from '../logger/index.js'
 
 // ============================================================
@@ -26,10 +29,17 @@ export interface ForegroundWindow {
 export interface ContextState {
   current: ContextName
   previous: ContextName
-  confidence: number     // 0.0 – 1.0
-  focus_weights: Record<string, number>  // process name → accumulated focus seconds
+  confidence: number     // 0.0 - 1.0
+  focus_weights: Record<string, number>  // process name -> accumulated focus seconds
   switched_at: number    // epoch ms
   idle_since: number | null
+}
+
+export interface ContextHistoryEntry {
+  from: ContextName
+  to: ContextName
+  confidence: number
+  at: number
 }
 
 // ============================================================
@@ -80,6 +90,8 @@ const CONTEXT_RULES: Array<{
 ]
 
 const IDLE_THRESHOLD_SEC = 600  // 10 minutes no foreground activity = idle
+const HISTORY_MAX = 50          // cap stored history entries
+const HISTORY_PATH = path.join(os.homedir(), 'AppData', 'Roaming', 'AEGIS', 'context_history.jsonl')
 
 // ============================================================
 // ContextEngine
@@ -93,6 +105,7 @@ export class ContextEngine extends EventEmitter {
   private isRunning = false
   private logger = getLogger()
   private lastActivityMs = Date.now()
+  private history: ContextHistoryEntry[] = []
 
   constructor() {
     super()
@@ -104,6 +117,7 @@ export class ContextEngine extends EventEmitter {
       switched_at: Date.now(),
       idle_since: null,
     }
+    this.loadHistoryFromDisk()
   }
 
   start(): void {
@@ -133,6 +147,10 @@ export class ContextEngine extends EventEmitter {
     return { ...this.state, focus_weights: { ...this.state.focus_weights } }
   }
 
+  getHistory(): ContextHistoryEntry[] {
+    return this.history.slice(0, 5)
+  }
+
   // Allow user/system to override context name (for named context learning)
   setUserContext(name: ContextName): void {
     this.transitionTo(name, 1.0)
@@ -140,6 +158,48 @@ export class ContextEngine extends EventEmitter {
   }
 
   // ── Private ──────────────────────────────────────────────
+
+  private loadHistoryFromDisk(): void {
+    try {
+      if (!fs.existsSync(HISTORY_PATH)) return
+      const raw = fs.readFileSync(HISTORY_PATH, 'utf8')
+      const lines = raw.split('\n').filter(l => l.trim().length > 0)
+      const parsed: ContextHistoryEntry[] = []
+      for (const line of lines) {
+        try {
+          const entry = JSON.parse(line) as ContextHistoryEntry
+          if (entry.from && entry.to && typeof entry.confidence === 'number' && typeof entry.at === 'number') {
+            parsed.push(entry)
+          }
+        } catch (_) { /* skip malformed lines */ }
+      }
+      // Take the last HISTORY_MAX entries
+      this.history = parsed.slice(-HISTORY_MAX).reverse()
+      this.logger.info('Context history loaded', { entries: this.history.length })
+    } catch (e: any) {
+      this.logger.warn('Failed to load context history', { err: e.message })
+    }
+  }
+
+  private appendHistoryToDisk(entry: ContextHistoryEntry): void {
+    try {
+      const dir = path.dirname(HISTORY_PATH)
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+      fs.appendFileSync(HISTORY_PATH, JSON.stringify(entry) + '\n', 'utf8')
+      // Trim file if it grows too large: read all, keep last HISTORY_MAX lines
+      try {
+        const raw = fs.readFileSync(HISTORY_PATH, 'utf8')
+        const lines = raw.split('\n').filter(l => l.trim().length > 0)
+        if (lines.length > HISTORY_MAX) {
+          const trimmed = lines.slice(-HISTORY_MAX).join('\n') + '\n'
+          fs.writeFileSync(HISTORY_PATH, trimmed, 'utf8')
+        }
+      } catch (_) { /* trim is best-effort */ }
+    } catch (e: any) {
+      this.logger.warn('Failed to persist context history', { err: e.message })
+      // Never crash — in-memory history is the source of truth
+    }
+  }
 
   private spawnPoller(): void {
     // PowerShell one-liner: poll foreground window process name + title every 2s
@@ -261,6 +321,18 @@ while($true) {
     this.state.confidence = confidence
     this.state.switched_at = Date.now()
     this.logger.info('Context transition', { from: previous, to: name, confidence })
+
+    // Record history entry
+    const entry: ContextHistoryEntry = {
+      from: previous,
+      to: name,
+      confidence,
+      at: Date.now(),
+    }
+    this.history.unshift(entry)
+    if (this.history.length > HISTORY_MAX) this.history.pop()
+    this.appendHistoryToDisk(entry)
+
     this.emit('context_changed', { from: previous, to: name, confidence })
   }
 

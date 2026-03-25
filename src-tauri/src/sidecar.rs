@@ -130,6 +130,10 @@ fn handle_sidecar_line<R: Runtime>(app: &AppHandle<R>, line: &str) {
                 "heartbeat" => {
                     log::debug!("Sidecar heartbeat");
                 }
+                "context_locked" | "context_lock_released" | "policies_updated" => {
+                    let _ = app.emit("intelligence_update", &json);
+                    log::debug!("Sidecar context event ({})", event_type);
+                }
                 _ => {
                     log::debug!("Sidecar msg ({}): {}", event_type, line);
                 }
@@ -153,21 +157,28 @@ fn handle_sniper_request<R: Runtime>(app: &AppHandle<R>, json: &serde_json::Valu
 
     log::info!("Sniper action requested: {} on PID {} ({})", action, pid, name);
 
-    match action.as_str() {
-        "throttle" => {
-            let _ = crate::commands::set_process_priority(pid, "idle".to_string());
-        }
-        "suspend" => {
-            let _ = crate::commands::suspend_process(pid);
-        }
-        "kill" => {
-            let _ = crate::commands::kill_process_cmd(pid);
-        }
-        _ => {}
-    }
+    let outcome_result: Result<String, String> = match action.as_str() {
+        "throttle" => crate::commands::set_process_priority(pid, "idle".to_string()),
+        "suspend"  => crate::commands::suspend_process(pid),
+        "kill"     => crate::commands::kill_process_cmd(pid),
+        _          => Ok("no-op".to_string()),
+    };
 
-    // Emit action to cockpit for display in action log (includes reason from sidecar)
-    let _ = app.emit("sniper_action", json);
+    let (outcome_str, error_str) = match &outcome_result {
+        Ok(_)  => ("success", String::new()),
+        Err(e) => {
+            log::warn!("Sniper action failed for PID {} ({}): {}", pid, action, e);
+            ("failed", e.clone())
+        }
+    };
+
+    // Emit action to cockpit — include outcome so action log can show ✓ / ✗
+    let mut payload = json.clone();
+    if let Some(obj) = payload.as_object_mut() {
+        obj.insert("outcome".to_string(), serde_json::Value::String(outcome_str.to_string()));
+        obj.insert("error".to_string(),   serde_json::Value::String(error_str));
+    }
+    let _ = app.emit("sniper_action", &payload);
 
     // Schedule a feedback_prompt notification 90 seconds later (non-blocking)
     if !action_id.is_empty() {
@@ -186,3 +197,4 @@ fn handle_sniper_request<R: Runtime>(app: &AppHandle<R>, json: &serde_json::Valu
         });
     }
 }
+

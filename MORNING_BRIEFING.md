@@ -1,39 +1,90 @@
-# MORNING BRIEFING — AEGIS — 2026-03-25
+﻿# MORNING_BRIEFING — AEGIS-INTEL-05
+Date: 2026-03-25
+Sprint: AEGIS-INTEL-05 — Context Engine: Full Integration
+Session type: Implementation
 
-## Sprint Closed: AEGIS-AMBIENT-01 — Profiles Demoted, Ambient Intelligence Primary
+---
 
-All acceptance criteria met. AEGIS is now ambient-first.
+## SHIPPED
 
-## What Was Done
+**PolicyManager wired to context_changed**
+- `policyManager` instantiated in `sidecar/src/main.ts` after ContextEngine
+- `applyContextOverlays()` called on every context transition
+- `policies_updated` event emitted to cockpit with overlay metadata
+- `pruneExpired()` called on 30s heartbeat
 
-**Tray menu** is completely restructured. The default state shows "● Ambient — auto-managing" as an informational item. Profiles are no longer top-level — they live inside a "Manual Override" submenu. When an override is active, the tray header changes to "OVERRIDE: [NAME]" and a "Release Override" item appears at the bottom of the submenu. The tooltip updates from "AEGIS — ambient" to "AEGIS — override: [name]" in real time. Menu rebuilds are done by storing the `TrayIcon<R>` in a managed `TrayState<R>` so async event handlers can call `set_menu` / `set_tooltip` without holding an app reference.
+**`get_policies` and `lock_context` RPC methods added**
+- `get_policies` returns base + overlays with full metadata
+- `lock_context` accepts context + duration_min, calls setUserContext(), pushes timed overlay, emits context_locked, auto-releases via setTimeout
 
-**Cockpit header pill** (`pp-intel`) now communicates override state directly. When ambient, it shows "AMBIENT" in dim color. When a profile is active, it shows "OVERRIDE: [NAME]" in amber. It's clickable: clicking when override is active opens a release-override confirmation modal. Clicking when ambient does nothing (the tooltip explains why).
+**Sniper context multipliers**
+- `getContextMultiplier()`: build=2.0x, deep_work=1.5x, idle=0.5x, meeting/gaming/media=0.7-0.8x
+- Applied to DEVIATION_ZSCORE_THRESHOLD in both ingest() and findRule()
+- Build context exemptions: node/npm/npx/cargo/rustc/tsc/msbuild/python/python3/gradle/mvn — never actioned, logged at debug
 
-**Right-panel override section** has been rebuilt. It now has a state dot (green = ambient, amber = override), a label that reads "ambient — auto-managing" or the profile name, a "release" button that only appears when an override is active, and a "change" button that's always available. The section still feels like an expert control, not a primary feature.
+**Context history persistence**
+- `ContextHistoryEntry[]` in ContextEngine (max 50, newest-first)
+- Persisted to %APPDATA%/AEGIS/context_history.jsonl on every transition
+- Loaded from disk on startup — survives restarts
+- getHistory() returns last 5 entries, exposed in get_state RPC
 
-**Per-process pin button** appears on hover in every process row alongside pause/priority/end. Clicking it opens a modal showing the current priority, a dropdown for the new priority, plain-English implication text for each level, and a notice that AEGIS will not auto-adjust the pinned process. Pins are stored in `localStorage['aegis_process_pins']` as `{ "process.exe": "priority" }`. They are client-side only — intentionally not persisted to the sidecar or any YAML file. On first metrics update after a page load, `applyPinsOnce()` re-applies all pins via `set_process_priority`.
+**Cockpit context panel: fully live**
+- Added: #ctx-time-in, #ctx-focus-drivers, #ctx-history, #ctx-lock-wrap, #ctx-overlays-info
+- updateContextPanel() handles all live updates from context_changed events
+- Time-in-context counter updates every 10s
+- Focus weight drivers: top 3 processes by accumulated focus seconds
+- Context history: last 5 transitions with relative time, opacity fades for old entries
 
-**Sidecar** now exposes `override_active` (boolean) in `get_state` responses, `apply_profile` responses, and heartbeat events. `apply_profile` normalizes empty string to 'idle' so the cockpit and sidecar agree on what "ambient" means.
+**Manual context lock**
+- openContextLock() modal: context selector + 30/60/120 min dropdown
+- submitContextLock() invokes sidecar_lock_context Tauri command
+- Countdown shown while locked; lock button hidden; restored on context_lock_released
+- sidecar_lock_context registered in main.rs invoke handler
 
-## Quality Gate
+**Sidecar.rs event routing**
+- context_locked, context_lock_released, policies_updated → forwarded via intelligence_update
+
+---
+
+## QUALITY GATES
+
 - `npm run lint`: ✅ 0 errors, 0 warnings
-- `cargo check`: ✅ 0 errors, 3 pre-existing warnings (profiles.rs dead field, sidecar.rs unused structs — not introduced this sprint)
+- `cargo check`: ✅ 0 errors, 3 pre-existing warnings (unchanged from prior sprints)
+- `tsc` compilation: ✅ 0 errors
+- Sidecar binary: ✅ rebuilt 2026-03-25 (61MB, node20-win-x64, exit code 0)
 
-## Architecture Decisions Made This Sprint
+---
 
-**Ambient mode is not a profile.** It is the absence of an override. There is no `ambient.yaml`. AEGIS in ambient mode runs the context engine, sniper, baseline, and cognitive load engine without applying any profile's CPU priority rules unless the sniper acts. This distinction matters: ambient ≠ idle profile. The idle profile still applies process priority rules. Ambient applies none.
+## DECISIONS MADE BY AGENT
 
-**Per-process pins are localStorage only.** The sidecar treats them as transient state. The cockpit re-applies them on first metrics update. This is intentional: pins are a UI preference. If the user closes and reopens the cockpit without restarting the sidecar, pins are restored. If the sidecar restarts, the cockpit re-applies them automatically within 2 seconds of first data.
+1. **Context multiplier applied in both directions** — multiplier raises the effective threshold for flagging (ingest) AND for rule-matching (findRule uses inverse division). This ensures consistency: a build-context process needs 2x the deviation to be flagged AND 2x to match a rule. Alternative was applying only to rules — rejected because that would still flag processes in the watch list at normal sensitivity.
 
-## Friction Notes
+2. **JS history injected from context_changed event, not polled** — get_state is not called on a timer in the cockpit; all live updates flow through intelligence_update events. History is updated whenever context_changed fires (which includes the context_history field from the heartbeat indirectly). Clean and reactive.
 
-- `TrayIconBuilder::with_id()` is a constructor variant, not a chained `.id()` method. Tauri 2 docs are sparse on this — had to read the crate source directly.
-- Desktop Commander `File::Copy` with overwrite works even when `WriteAllText` is blocked by a shared file lock (WebView2 holding index.html). This is the correct write pattern for files open in the running app.
-- PowerShell string interpolation eats `$()` patterns in JS-heavy strings. Workaround: write patch scripts to disk as `.ps1` files and execute them, or use `String.Replace()` instead of `-replace` to avoid regex `$` interpretation.
+3. **ctx-lock-modal created on demand** — not pre-rendered in HTML. Avoids cluttering the DOM for a feature the user may never use. Created once on first openContextLock() call, reused thereafter.
 
-## Next Sprint
+4. **policies_updated forwarded as intelligence_update (not a new event type)** — consistent with existing sidecar event routing pattern. Cockpit already listens on intelligence_update. Adding a new event would require a new listener — unnecessary.
 
-**AEGIS-INTEL-05** — Context engine full integration. Context changes currently don't influence sniper thresholds or produce meaningful cockpit output. This sprint wires context to sniper evaluation, adds context history to the cockpit, and exposes a manual context lock.
+---
 
-**AEGIS-PROCS-01** — Process management complete with implications. Process action buttons work from COCKPIT-02 but feedback UX can be improved. This sprint adds suspend badges, post-action confirmation, and critical process warnings.
+## UNEXPECTED FINDINGS
+
+- `Get-Content` returning empty results for .md files in this session — all file reads had to go via PowerShell `-Raw` flag. Pre-existing Desktop Commander quirk, not new.
+- BACKLOG.md had a file lock on first write attempt — race condition with another process. Resolved with WriteAllText on second attempt.
+- `js-yaml` module resolution warnings from pkg are pre-existing (same as all prior sprints) — not regressions.
+
+---
+
+## FRICTION LOG
+
+1. **LOG ONLY**: `_ctxSwitchedAt` starts at 0 in JS — "0m 0s in context" shows on cold load before first context_changed fires. Cosmetic. Resolves itself within 2s.
+2. **LOG ONLY**: `getContextMultiplier()` inverse-division pattern in `findRule()` is non-obvious but correct. Comment added in code.
+3. **LOG ONLY**: `context_history.jsonl` does a double-file read on every append (append + trim-check). Low frequency (minutes apart), acceptable.
+
+---
+
+## NEXT QUEUE
+
+1. **AEGIS-INTEL-06** — Process catalog live unknown queue (P1). Needs v4 spec rewrite before execution — CATALOG-01 spec is outdated. Do not execute without updated spec.
+2. **AEGIS-HELP-01** — Hover tooltip system (P2). No dependencies. Can run immediately. Every metric, control, and panel section needs tooltip coverage.
+3. **AEGIS-DEVOPS-02** — Full CI pipeline (P2). cargo tauri build in CI, sidecar pkg step, release artifact upload on tag.

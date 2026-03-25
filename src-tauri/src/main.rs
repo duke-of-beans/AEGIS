@@ -63,9 +63,12 @@ fn main() {
             commands::get_intelligence,
             commands::set_process_priority,
             commands::suspend_process,
+            commands::resume_process,
             commands::kill_process_cmd,
+            commands::get_process_info,
             commands::get_active_profile,
             commands::sidecar_feedback,
+            commands::sidecar_lock_context,
         ])
         .on_window_event(|window, event| {
             // Only intercept close on the cockpit — hide to tray instead of quit
@@ -79,3 +82,4 @@ fn main() {
         .run(tauri::generate_context!())
         .expect("AEGIS failed to start");
 }
+

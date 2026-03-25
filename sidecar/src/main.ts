@@ -24,6 +24,7 @@ let sniperEngine: any = null
 let catalogManager: any = null
 let loadEngine: any = null
 let learningStore: any = null
+let policyManager: any = null
 
 // Track which action_ids have received explicit feedback (to skip implicit approval)
 const feedbackReceived = new Set<string>()
@@ -43,12 +44,38 @@ async function initEngines(): Promise<void> {
       })
       // Keep sniper context in sync
       if (sniperEngine?.setContext) sniperEngine.setContext(evt.to)
+      // Apply policy overlays for new context
+      if (policyManager?.applyContextOverlays) {
+        try {
+          policyManager.applyContextOverlays(evt.to)
+          writeEvent({
+            type: 'policies_updated',
+            context: evt.to,
+            overlays: policyManager.getStack().overlays.map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              domain: p.domain,
+            })),
+            timestamp: new Date().toISOString(),
+          })
+        } catch (e: any) {
+          log('warn', 'applyContextOverlays failed', { err: e.message })
+        }
+      }
     })
 
     contextEngine.start()
     log('info', 'ContextEngine started')
   } catch (e: any) {
     log('warn', 'ContextEngine unavailable — running without context detection', { err: e.message })
+  }
+
+  try {
+    const { PolicyManager } = require('./context/policies')
+    policyManager = new PolicyManager()
+    log('info', 'PolicyManager started')
+  } catch (e: any) {
+    log('warn', 'PolicyManager unavailable', { err: e.message })
   }
 
   try {
@@ -193,6 +220,7 @@ function handleRequest(req: any): void {
         override_active: activeProfile !== 'idle' && activeProfile !== '',
         active_watches: sniperEngine ? (sniperEngine.getActiveWatchCount?.() ?? 0) : 0,
         focus_weights: ctx?.focus_weights ?? {},
+        context_history: contextEngine?.getHistory?.() ?? [],
       })
       break
     }
@@ -283,6 +311,62 @@ function handleRequest(req: any): void {
       break
     }
 
+    case 'get_policies': {
+      if (!policyManager) {
+        writeResponse(id, { base: [], overlays: [] })
+        break
+      }
+      const stack = policyManager.getStack()
+      writeResponse(id, {
+        base: stack.base.map((p: any) => ({
+          id: p.id, name: p.name, domain: p.domain
+        })),
+        overlays: stack.overlays.map((p: any) => ({
+          id: p.id, name: p.name, domain: p.domain,
+          trigger_context: p.trigger_context, expires_at: p.expires_at ?? null
+        })),
+      })
+      break
+    }
+
+    case 'lock_context': {
+      const { context, duration_min } = params ?? {}
+      if (!context || !duration_min) {
+        writeError(id, -32602, 'context and duration_min required')
+        break
+      }
+      const expiresAt = Date.now() + (duration_min * 60 * 1000)
+      // Override the context engine's detection for this duration
+      if (contextEngine?.setUserContext) contextEngine.setUserContext(context)
+      // Store the lock expiry as a timed overlay so cockpit can track it
+      if (policyManager?.pushOverlay) {
+        policyManager.pushOverlay({
+          id: 'manual-context-lock',
+          name: `Context lock: ${context} for ${duration_min}min`,
+          description: `User-locked context until ${new Date(expiresAt).toLocaleTimeString()}`,
+          domain: 'cpu',
+          created_at: new Date().toISOString(),
+          is_overlay: true,
+          trigger_context: context as any,
+          expires_at: expiresAt,
+        })
+      }
+      writeEvent({
+        type: 'context_locked',
+        context,
+        duration_min,
+        expires_at: expiresAt,
+        timestamp: new Date().toISOString(),
+      })
+      writeResponse(id, { ok: true, context, expires_at: expiresAt })
+      // Auto-release: re-enable context detection after expiry
+      setTimeout(() => {
+        if (policyManager?.popOverlay) policyManager.popOverlay('manual-context-lock')
+        writeEvent({ type: 'context_lock_released', timestamp: new Date().toISOString() })
+      }, duration_min * 60 * 1000)
+      break
+    }
+
     case 'shutdown':
       writeResponse(id, { ok: true })
       log('info', 'Shutdown requested')
@@ -332,6 +416,8 @@ setInterval(() => {
     active_profile: activeProfile,
     override_active: activeProfile !== 'idle' && activeProfile !== '',
   })
+  // Prune expired overlays on each heartbeat
+  try { if (policyManager?.pruneExpired) policyManager.pruneExpired() } catch (_) {}
 }, 30_000)
 
 // ── Boot ──────────────────────────────────────────────────────────────────────

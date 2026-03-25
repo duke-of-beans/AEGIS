@@ -1,5 +1,50 @@
 ﻿# AEGIS — CHANGELOG
 
+## [AEGIS-INTEL-05] — 2026-03-25
+
+### Context Engine: Full Integration
+
+- **PolicyManager instantiated** in `sidecar/src/main.ts` `initEngines()` — `policyManager` module-level variable; instantiated after ContextEngine; full PolicyManager from `context/policies.ts` (existing implementation, not rewritten)
+- **`applyContextOverlays()` wired to `context_changed`** — called on every context transition; emits `policies_updated` event to cockpit with overlay list (id, name, domain)
+- **`pruneExpired()` on heartbeat** — called every 30s setInterval to expire timed overlays (e.g. manual context locks)
+- **`get_policies` RPC** added to `handleRequest()` — returns `{base: [...], overlays: [...]}` with id/name/domain/trigger_context/expires_at
+- **`lock_context` RPC** added — accepts `context` + `duration_min`; calls `contextEngine.setUserContext()` to override detection; pushes `manual-context-lock` timed overlay; emits `context_locked` event; `setTimeout` auto-releases and emits `context_lock_released`
+- **`get_state` RPC updated** — now includes `context_history: contextEngine.getHistory() ?? []`
+- **Sniper context multipliers** (`sidecar/src/sniper/engine.ts`) — `getContextMultiplier()` returns: build=2.0, deep_work=1.5, meeting=0.7, gaming=0.8, media=0.8, idle=0.5, default=1.0; multiplier applied to `DEVIATION_ZSCORE_THRESHOLD` in `ingest()` and `findRule()`
+- **Build-context exemptions** — `shouldExempt()` checks process name against `['node','npm','npx','cargo','rustc','tsc','msbuild','python','python3','gradle','mvn']` in build context; exempt processes skip action + log at debug: `[exempt: build context] {name} deviation Xσ — no action taken`
+- **Context history persistence** (`sidecar/src/context/engine.ts`) — `history: ContextHistoryEntry[]` (max 50, newest-first); `transitionTo()` pushes to history + calls `appendHistoryToDisk()`; `loadHistoryFromDisk()` called in constructor; persisted to `%APPDATA%/AEGIS/context_history.jsonl` (JSON Lines); all disk ops wrapped in try/catch — never crashes engine
+- **`getHistory()` method** returns last 5 entries for RPC and cockpit consumption
+- **Cockpit context panel** (`ui/index.html`) — `#ctx-time-in`, `#ctx-focus-drivers`, `#ctx-history`, `#ctx-lock-wrap`, `#ctx-lock-btn`, `#ctx-lock-status`, `#ctx-overlays-info` elements added inside `#cpanel`; `updateContextPanel()` and `updateCtxHistoryFromState()` functions handle all live updates
+- **Context history display** — last 5 transitions rendered as compact timeline: `deep_work → build · 14m ago`; entries >1h shown at 0.4 opacity
+- **Time-in-context counter** — updates every 10s via `setInterval`; format: `Xm Ys in context`
+- **Focus drivers** — top 3 processes by accumulated focus weight shown as `node · 240s  code · 120s`
+- **Manual context lock modal** — `openContextLock()` creates modal on demand; context selector + duration dropdown (30/60/120 min); `submitContextLock()` invokes `sidecar_lock_context`; countdown shown in `#ctx-lock-status`; lock button hidden while lock active; restored on `context_lock_released`
+- **Overlay indicator** — `#ctx-overlays-info` shows "N overlays active" when `policies_updated` fires with overlays > 0
+- **`sidecar_lock_context` Tauri command** added to `commands.rs` — calls `send_to_sidecar("lock_context", {context, duration_min})`; registered in `main.rs` invoke handler
+- **`context_locked` / `context_lock_released` / `policies_updated`** events wired in `sidecar.rs` `handle_sidecar_line` — forwarded to cockpit via `app.emit("intelligence_update", &json)`
+
+### Quality Gate
+- `npm run lint`: ✅ 0 errors, 0 warnings
+- `cargo check`: ✅ 0 errors, 3 pre-existing warnings (same as all prior sprints)
+- Sidecar binary rebuilt: `src-tauri/binaries/aegis-sidecar-x86_64-pc-windows-msvc.exe` (61MB, node20-win-x64) ✅
+- `tsc` compilation: ✅ 0 errors
+## [AEGIS-PROCS-01] — 2026-03-25
+
+### Process Management: Complete with Implications
+
+- **suspend_process fixed** (`src-tauri/src/commands.rs`) — was a stub that opened a `PROCESS_SUSPEND_RESUME` handle and immediately closed it without doing anything. Replaced with thread enumeration via `CreateToolhelp32Snapshot` + `Thread32First/Next` + `SuspendThread`. Enumerates all threads owned by the target PID and suspends each one. Returns thread count in success message. Error if no threads found (process already exited).
+- **resume_process added** (`src-tauri/src/commands.rs`) — same thread enumeration pattern, calls `ResumeThread` instead of `SuspendThread`. Registered in `main.rs` invoke_handler.
+- **get_process_info added** (`src-tauri/src/commands.rs`) — returns `ProcessInfo` struct with `risk_label` (SAFE/CAUTION/DO_NOT_TOUCH/CRITICAL_SYSTEM), `blast_radius`, `safe_to_end`, `safe_to_suspend`, and plain-English `implication` for 30 named processes. Falls back to SAFE defaults for unknowns. Registered in `main.rs`.
+- **Cargo.toml** — `Win32_System_Diagnostics_ToolHelp` feature added to windows crate for `CreateToolhelp32Snapshot`, `Thread32First`, `Thread32Next`, `THREADENTRY32`.
+- **openPauseModal** (`ui/index.html`) — replaces old `showProcModal(..., 'suspend')`. Shows implication text, invokes `suspend_process`, adds amber `⏸ PAUSED` badge to process row, swaps pause button → resume button. Error shown inline.
+- **openResumeModal** — invokes `resume_process`, removes PAUSED badge, restores pause button. Error shown inline.
+- **pausedPids Set** — module-level `Set` tracks paused PIDs. `reapplyPausedBadges()` called from `render()` on every metrics update — badges and resume buttons survive full table re-renders.
+- **openPriorityModal** — replaces dropdown `openPriMenu`. Opens proc-modal with 5 radio options (High/Above Normal/Normal/Below Normal/Idle) each with plain-English implication text. Shows pin notice if process has an active localStorage pin. APPLY invokes `set_process_priority`, flashes row green on success.
+- **openEndModal** — calls `get_process_info` first, then branches on risk_label: CRITICAL_SYSTEM/DO_NOT_TOUCH shows red "⚠ Do not end" header + single dismiss button (no confirm path); CAUTION shows amber warning + 2-second CSS hold button (fires only on held completion, cancelled on mouseup/mouseleave); SAFE shows standard confirmation. Removes process row from DOM immediately on success. Toast notification on end.
+- **Action log** — `logManualAction()` adds entries with `[Manual]` prefix, timestamp, action name, ✓/✗ outcome icon. `renderAlog()` merges manual + sniper actions sorted newest-first, capped at 30.
+- **sidecar.rs** — `handle_sniper_request` now captures `Result` from each action command and includes `outcome` ("success"/"failed") and `error` fields in `sniper_action` event payload. Action log shows ✓/✗ for sniper actions too.
+- **npm run lint**: ✓ 0 errors. **cargo check**: ✓ 0 errors, 3 pre-existing warnings.
+
 ## [AEGIS-AMBIENT-01] — 2026-03-25
 
 ### Ambient-First UI: Profiles Demoted to Manual Override
