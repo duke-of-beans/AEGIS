@@ -1,93 +1,75 @@
 # AEGIS — STATUS
+# READ ARCHITECTURE.md BEFORE TOUCHING THIS PROJECT.
 
 **Status:** active
-**Phase:** v2.1.0 — AEGIS-POLISH-01 shipped
-**Last Sprint:** AEGIS-POLISH-01
+**Phase:** v4.0 — Tauri app shell built, tray.rs blocker, LEARN-01 next
+**Last Sprint:** AEGIS-COCKPIT-02 / INTEL-04 / AMBIENT-01 (Cowork batch)
 **Last Updated:** 2026-03-25
-**Completion:** 100%
 
-## Architectural Direction — Independent Daemon (March 23, 2026)
+## Architecture
 
-GregLite's browser-native pivot decouples AEGIS from the GregLite window lifecycle entirely.
-AEGIS is an independent daemon communicating with the GregLite sidecar via local HTTP/socket.
-The daemon pattern means AEGIS can serve multiple consumers (GregLite, GREGORE, standalone
-CLI queries, dashboard). pm2 lifecycle management already in place validates this direction.
+AEGIS is a **Tauri 2 desktop application** with a **Node.js sidecar**.
+See ARCHITECTURE.md for the definitive reference.
 
-## Current State
+## What's Built
 
-Intelligence stack fully operational end-to-end: catalog gate (200 seeded processes,
-unknown observation active, cockpit counts live) → baseline engine → sniper with context
-multipliers and build exemptions → policy overlays → learning feedback loop → auto mode.
-Full cockpit tooltip coverage. Brave tab panel with per-tab and bulk suspend/restore.
-Process management with risk-aware UX. Ambient mode default tray posture.
-Per-profile CDP port config live — each profile carries explicit cdp_port in browser_suspension.
+### Tauri App Shell (src-tauri/)
+- [x] TAURI-01: Tauri 2 scaffold + Rust metrics core (18f3812)
+- [x] TAURI-02-04: tray, live metrics, sidecar, cockpit WebView (d7967f5)
+- [x] TAURI-05: NSIS installer with ASCII art boot sequence (36772a2)
+- [x] Custom icon — concentric rings mark (7c6e7d8)
+- [x] COCKPIT-01: tabs, tooltips, process management, light mode (c04c469)
+- [x] COCKPIT-02: complete cockpit rewrite — all systems functional (0cc5e0c)
+- [x] AMBIENT-01: ambient-first tray, profiles demoted to override (0c63805)
+- [ ] **BLOCKER**: tray.rs — 9 compile errors (Tauri API mismatch)
 
-Known friction: Desktop Commander read_file returns empty for text files in Cowork —
-workaround is start_process + Get-Content (documented in BACKLOG).
+### Intelligence Sidecar (sidecar/)
+- [x] CATALOG-01: 210-process knowledge base, canActOn gate (1c4df3f)
+- [x] INTEL-01: per-drive disk I/O via WMI (4579e48)
+- [x] INTEL-02: cognitive load engine wired to cockpit (ae76492)
+- [x] INTEL-03: sniper engine with baseline fully operational (10fc32e)
+- [x] INTEL-04: learning store feedback loop operational (f75968c)
+- [x] INTEL-05: context engine full integration (bf59ef7)
+- [x] INTEL-06: catalog wiring — constructor fix, cockpit counts (7dca86f)
+- [x] PROCS-01: process management with implications (685dd89)
 
-## What's Complete
-
-- [x] AEGIS-CDP-01: per-profile CDP port config — profiles_dir bug fixed (was pointing to
-  deleted D:\Projects\AEGIS\profiles, now D:\Dev\aegis\profiles), log_dir fixed likewise.
-  cdp_port: 9222 added to browser_suspension in idle, wartime, build-mode profiles (only
-  profiles that had browser_suspension blocks). Settings UI Profiles tab now renders CDP Port
-  input field per profile, loads from profile data, saves via POST. status.js empty-state
-  strings no longer hardcode 9222 — use generic "--remote-debugging-port set" message.
-  lint: 0 errors. tsc: 0 errors. (8cc0b9e)
-- [x] AEGIS-INTEL-06: catalog wiring — constructor bug fixed (appDataPath not dbPath),
-  seedIfEmpty() fires on startup (200 clean entries, 2 dupes removed), recordObservation()
-  wired into update_processes 2s poll, get_state returns catalog.total/unknown/suspicious +
-  unresolved_processes + suspicious_processes arrays, cockpit panel with amber/red live
-  counts. Root lint fixed (@types/better-sqlite3 installed). Sidecar tsc fixed via .d.ts
-  shim. Stale catalog.db directory at %APPDATA%\AEGIS deleted and recreated as file.
-  (7dca86f → e3a5a06)
-- [x] AEGIS-HELP-01: CSS-only tooltip system, all 20+ cockpit elements (eed64b5)
-- [x] AEGIS-BRAVE-03: tab suspension UI, bulk ops, collapsible panel, toast feedback (815b5fb)
-- [x] AEGIS-PROCS-01: suspend/resume/end/priority with risk-aware UX (685dd89)
-- [x] AEGIS-INTEL-05: PolicyManager, context overlays, sniper context respect, cockpit
-  context panel, manual lock (bf59ef7 + 4a35f91)
-- [x] AEGIS-AMBIENT-01: ambient-first tray, per-process pin, override panel (0c63805)
-- [x] AEGIS-INTEL-04: LearningStore, feedback RPC, implicit approval, confidence panel (f75968c)
-- [x] AEGIS-INTEL-03: BaselineEngine + SniperEngine wired, update_processes RPC (10fc32e)
-- [x] AEGIS-ELEV-01: elevation gate (2026-03-22)
-- [x] AEGIS-PM2-01: pm2 ecosystem config, bounce.bat, startup resurrect
-- [x] ESLint gate: tab-manager.ts, cdp-client.ts, menu.ts, lifecycle.ts, index.ts
-- [x] BRAVE-02: status window tab panel, Brave launch helper, per-profile suspension config
-- [x] BRAVE-01: Brave tab manager — CDP client, tab tracking, suspension engine
-- [x] v2.0.0: installer built, installed to D:\Dev\aegis\
-- [x] Startup tasks removed
+### Cockpit UI (ui/)
+- [x] Task Manager-style layout: CPU/RAM/Disk/Net/GPU panels
+- [x] Sniper animation canvas
+- [x] Context detection panel with confidence
+- [x] Action log with color-coded entries
+- [x] Process management with risk-aware UX (pause/priority/end/pin)
+- [x] Light/dark theme toggle
+- [x] Cognitive load score display
+- [x] Catalog panel (known/unknown/suspicious counts)
+- [x] Profile override panel (manual, demoted from primary)
 
 ## Open Work
 
-- [ ] **[P3]** Composable policy migration — replace static profile switching with
-  PolicyManager-driven resource allocation. Profiles remain as manual override fallback.
-- [ ] **[P3]** pkg bundling fix — GREGORE PS profile intercepts npx/node; need PATH
-  workaround or dedicated build script for AEGIS.exe generation.
-- [ ] **[P3]** NSIS installer rebuild — makensis not on PATH. Install NSIS or build
-  installer on a clean machine.
+- [ ] **[BLOCKER]** Fix tray.rs — 9 Tauri API compile errors
+- [ ] **[P1]** AEGIS-LEARN-01: Learning loop + cognitive load score (sidecar)
+- [ ] **[P1]** AEGIS-MCP-02: Rich MCP publisher (sidecar)
+- [ ] **[P2]** AEGIS-UI-01: Command surface redesign (cockpit polish)
+- [ ] **[P3]** Full Tauri build + installer test
 
 ## Blockers
 
-None.
+- tray.rs: 9 compile errors from Tauri API mismatch (.id("tray"), closure
+  type inference). Must be resolved before cargo tauri build succeeds.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `src/tray/lifecycle.ts` | Main process orchestration, pm2 health check |
-| `src/status/server.ts` | Status HTTP server, GET /profiles, POST /profiles/:name, GET /history |
-| `src/status/collector.ts` | 2s poll loop, history ring buffer, pm2 health |
-| `src/config/types.ts` | All TypeScript types (SystemSnapshot, Pm2Health, HistoryPoint) |
-| `src/catalog/manager.ts` | CatalogManager — lookup, canActOn, recordObservation |
-| `src/context/engine.ts` | ContextEngine — foreground window tracking |
-| `src/context/policies.ts` | PolicyManager — composable overlays |
-| `src/sniper/engine.ts` | SniperEngine — baseline + deviation detection |
-| `src/learning/store.ts` | LearningStore — feedback loop, confidence scoring |
-| `assets/status.hta` | Main cockpit (history panel, pm2 indicator) |
-| `assets/settings.hta` | Settings window (read-only profiles tab) |
-| `assets/status.js` | Shared JS — polling, rendering, history chart |
-| `assets/status.css` | CSS-only tooltip system, history panel styles |
-| `src/browser/tab-manager.ts` | Brave tab tracking, suspension engine |
-| `src/browser/cdp-client.ts` | WebSocket CDP client |
-| `D:\Meta\ecosystem.config.cjs` | pm2 process config |
-| `D:\Meta\bounce.bat` | pm2 restart dashboard |
+| ARCHITECTURE.md | **READ THIS FIRST** — definitive architecture reference |
+| src-tauri/src/commands.rs | All Tauri IPC commands (569 lines) |
+| src-tauri/src/metrics.rs | 2s poll loop, CPU/RAM/process data |
+| src-tauri/src/sidecar.rs | Sidecar lifecycle management |
+| src-tauri/src/tray.rs | System tray (BLOCKED — 9 errors) |
+| sidecar/src/main.ts | Intelligence sidecar entry point |
+| sidecar/src/catalog/ | Process knowledge base |
+| sidecar/src/context/ | Context detection + composable policies |
+| sidecar/src/sniper/ | Baseline engine + deviation rules |
+| sidecar/src/learning/ | Feedback loop + cognitive load |
+| ui/index.html | Cockpit UI (422 lines, Task Manager layout) |
+| profiles/*.yaml | 6 profiles (manual override only) |

@@ -1,8 +1,33 @@
-node_modules/
+# ══════════════════════════════════════════════════════════════
+# AEGIS is a TAURI APP. See ARCHITECTURE.md.
+# These ignores prevent v2 Node.js daemon artifacts from returning.
+# ══════════════════════════════════════════════════════════════
+
+# === V2 ARTIFACTS — THESE DO NOT BELONG IN THIS REPO ===
+# If you see these directories, read ARCHITECTURE.md immediately.
+src/
+assets/
+scripts/
+installer/
 dist/
 release/
+build-release.mjs
+AEGIS-silent.vbs
+AEGIS.cmd
+AEGIS-Setup-*.exe
+VERSION
+.npmrc
+_*.py
+_*.txt
+_*.cjs
+git-*.txt
+lint-*.txt
+tsc-*.txt
+
+# === STANDARD IGNORES ===
+node_modules/
 *.exe
-!installer/
+!src-tauri/binaries/*.exe
 *.log
 .env
 state.json
@@ -10,12 +35,12 @@ state.json
 Thumbs.db
 *.js.map
 
-# Agent scratch files — never commit
-_*.py
-_*.txt
-git-*.txt
-lint-*.txt
-tsc-*.txt
+# === SIDECAR BUILD OUTPUT ===
+sidecar/dist/
+
+# === RUST BUILD OUTPUT ===
+src-tauri/target/
+
+# === TRANSIENT ===
 commit-msg.txt
-conflicts.txt
-conflicts-err.txt
+MORNING_BRIEFING.md
