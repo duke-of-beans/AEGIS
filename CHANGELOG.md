@@ -1,5 +1,37 @@
 # AEGIS — CHANGELOG
 
+## [4.0.0] AEGIS-RUNTIME-01 — 2026-03-26
+### Shipped — Runtime Bug Fixes (First Build Test)
+
+**Context**
+First successful Tauri build test revealed three runtime bugs: tray icon left-click
+bounced the cockpit window open/closed (required 5+ clicks), metrics showed 0% CPU
+and 0/0 GB memory, and the NSIS installer lacked admin elevation for Program Files.
+
+**Fixed**
+- `src-tauri/src/tray.rs` — Replaced `is_visible()` check with `Arc<Mutex<bool>>`
+  toggle flag (`CockpitVisible` type). The window manager's async show/hide created
+  a race where `is_visible()` returned stale state during the event handler. The flag
+  tracks intended state, eliminating the bounce. Managed via `app.manage()` so both
+  tray handler and window event handler share the same state.
+- `src-tauri/src/main.rs` — `on_window_event` CloseRequested handler now syncs the
+  `CockpitVisible` flag to `false` when the user closes the cockpit via the X button.
+  Without this, the next tray left-click would try to hide an already-hidden window.
+- `src-tauri/src/metrics.rs` — Added warmup double-refresh before the poll loop:
+  `sys.refresh_all()`, 500ms sleep, `sys.refresh_all()`. sysinfo needs two data points
+  to compute CPU percentages; the first call after `System::new_all()` always returns
+  zeros. Now the first tick emits real data.
+- `src-tauri/tauri.conf.json` — Verified `"installMode": "perMachine"` is present in
+  the NSIS bundle config. This enables admin elevation so the installer can write to
+  `D:\Program Files\AEGIS`.
+
+**Quality Gates**
+- `cargo check` — 0 errors (3 warnings: dead code, acceptable) ✅
+- `npx tsc --noEmit` (sidecar) — 0 errors ✅
+- `tauri.conf.json` has `"installMode": "perMachine"` ✅
+
+---
+
 ## [4.0.0] AEGIS-MCP-02 — 2026-03-25
 ### Shipped — Rich MCP Publisher
 

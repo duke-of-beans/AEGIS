@@ -1,6 +1,6 @@
 # AEGIS — BACKLOG
 # READ ARCHITECTURE.md BEFORE TOUCHING THIS PROJECT.
-Last Updated: 2026-03-25
+Last Updated: 2026-03-26
 
 ## COMPLETED
 
@@ -23,13 +23,11 @@ Last Updated: 2026-03-25
 
 ## P1 — Runtime Fixes (from first Tauri build test)
 
-- [ ] AEGIS-RUNTIME-01: Three runtime bugs from first successful build test
-  1. Tray click toggle race — window bounces open/closed, needs 5+ clicks.
-     Fix: replace is_visible() with Arc<Mutex<bool>> toggle flag.
-  2. Metrics showing 0%/-- — sysinfo needs warmup refresh before poll loop.
-     Fix: double refresh_all() with 500ms delay before entering loop.
-  3. Installer perMachine — tauri.conf.json already changed, verify + rebuild.
-  Sprint prompt: AEGIS_SPRINT_RUNTIME-01.md (written, ready for Cowork)
+- [x] ~~AEGIS-RUNTIME-01: Three runtime bugs from first successful build test~~ (shipped 2026-03-26)
+  1. Tray click toggle race — replaced is_visible() with Arc<Mutex<bool>> toggle flag in tray.rs.
+     main.rs on_window_event syncs flag on CloseRequested.
+  2. Metrics warmup — double refresh_all() with 500ms delay before poll loop in metrics.rs.
+  3. Installer perMachine — verified "installMode": "perMachine" in tauri.conf.json.
 
 ## P2 — Polish
 

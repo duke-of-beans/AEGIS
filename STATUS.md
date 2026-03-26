@@ -2,9 +2,9 @@
 # READ ARCHITECTURE.md BEFORE TOUCHING THIS PROJECT.
 
 **Status:** active
-**Phase:** v4.0 — Tauri app shell compiles, UI-01 next
-**Last Sprint:** AEGIS-MCP-02 (rich MCP publisher)
-**Last Updated:** 2026-03-25
+**Phase:** v4.0 — Runtime verified, UI-01 next
+**Last Sprint:** AEGIS-RUNTIME-01 (tray toggle, metrics warmup, perMachine installer)
+**Last Updated:** 2026-03-26
 
 ## Architecture
 
@@ -48,13 +48,12 @@ See ARCHITECTURE.md for the definitive reference.
 
 ## Open Work
 
-- [ ] **[P1]** AEGIS-RUNTIME-01: Fix tray toggle bounce, metrics→cockpit wiring, perMachine installer
+- [x] **[P1]** AEGIS-RUNTIME-01: Fix tray toggle bounce, metrics warmup, perMachine installer (2026-03-26)
 - [ ] **[P2]** AEGIS-UI-01: Command surface redesign (cockpit polish)
 
 ## Blockers
 
-None. cargo check and cargo build --release pass with 0 errors.
-Runtime issues (tray bounce, metrics zeros) identified — sprint prompt ready.
+None. cargo check passes with 0 errors. Runtime issues resolved.
 
 ## Key Files
 

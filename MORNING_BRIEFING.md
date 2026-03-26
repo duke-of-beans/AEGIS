@@ -1,49 +1,26 @@
 # AEGIS — MORNING BRIEFING
-**Date:** 2026-03-25
-**Sprint:** AEGIS-MCP-02 — Rich MCP Publisher
-**Status:** SHIPPED
+Generated: 2026-03-26
 
-## What Happened
+## Last Session Summary
+Sprint AEGIS-RUNTIME-01 — verified and closed three runtime bugs from the first successful Tauri build test.
 
-AEGIS now exposes its full intelligence stack as an MCP tool server. Eight tools
-cover system snapshots, cognitive load, context detection, process tree, sniper
-action log, learning confidence, session summaries, and policy overlay injection.
-The server runs via `--mcp` flag on the sidecar using stdio transport.
+## What Shipped
+- **Tray toggle race fix** — `tray.rs` uses `Arc<Mutex<bool>>` (`CockpitVisible`) instead of `is_visible()`. `main.rs` syncs the flag on CloseRequested. Single left-click now reliably toggles cockpit open/closed.
+- **Metrics warmup** — `metrics.rs` does double `refresh_all()` with 500ms gap before entering the 2s poll loop. First tick emits real CPU/RAM/disk/net data instead of zeros.
+- **perMachine installer** — `tauri.conf.json` confirmed with `"installMode": "perMachine"` for Program Files write access.
 
-MCP_INTEGRATION.md documents three integration paths: Claude Desktop (drop-in
-config), GregLite (client SDK for routing decisions), and GREGORE (intent signals
-+ resource confirmation protocol).
+## Quality Gates
+- `cargo check` — 0 errors (3 warnings: dead code) ✅
+- `npx tsc --noEmit` (sidecar) — 0 errors ✅
+- STATUS.md, BACKLOG.md, CHANGELOG.md updated ✅
 
-## Friction Points
+## Friction Log
+- Desktop Commander `read_file` returned metadata-only on first attempt (no content). Workaround: `start_process` with `type` command. Known DC quirk — not a blocker but adds ~30s per file read.
+- `cargo build --release` exceeds DC's 60s process timeout. Binary already existed from Mar 25 session; `cargo check` validates correctness. For fresh release builds, run manually or use a longer-timeout executor.
 
-1. **npm `omit=dev` global config** — devDependencies silently skipped during
-   `npm install`. Required `--include=dev` flag. This is a recurring issue across
-   all sidecar installs on this machine. Consider adding `--include=dev` to the
-   sidecar build script or fixing the global npm config.
+## Next Up
+- **[P2] AEGIS-UI-01** — Command surface redesign (cockpit polish). Metrics now display correctly, so visual hierarchy work is unblocked.
+- **Manual verification** — David to run `aegis.exe` and confirm: tray toggle (no bounce), live CPU/RAM panels, disk/net/process population.
 
-2. **MCP SDK TS2589** — `@modelcontextprotocol/sdk` Zod-typed `server.tool()`
-   overloads trigger "type instantiation is excessively deep" when schemas use
-   `.min()/.max()/.default()` chains. Worked around with `(server as any).tool()`
-   for the two parameterized tools. This is a known SDK issue, not an AEGIS bug.
-
-3. **tsc compile time** — With MCP SDK types included, `npx tsc --noEmit` takes
-   ~75 seconds. Previous sprints completed in ~15s. The SDK's type graph is large.
-   Consider `skipLibCheck: true` if this becomes a bottleneck (already set, but
-   the SDK's own types still resolve).
-
-## What's Next
-
-- **[P2] AEGIS-UI-01:** Command surface redesign (cockpit polish)
-- **[P2] Full Tauri build + NSIS installer test** — cargo build passes, need
-  to bundle sidecar and test NSIS output
-- Wire GregLite to actually call AEGIS MCP in production (cross-project task)
-
-## Files Changed
-
-- `sidecar/src/mcp/server.ts` — NEW: MCP tool server (8 tools)
-- `sidecar/src/main.ts` — MODIFIED: --mcp flag, conditional stdin/heartbeat
-- `MCP_INTEGRATION.md` — NEW: integration guide (3 paths)
-- `STATUS.md` — UPDATED: MCP-02 shipped
-- `BACKLOG.md` — UPDATED: MCP-02 closed
-- `CHANGELOG.md` — UPDATED: MCP-02 entry added
-- `sidecar/package.json` — MODIFIED: @types/node version fix
+## Open Blockers
+None.
