@@ -2,8 +2,8 @@
 # READ ARCHITECTURE.md BEFORE TOUCHING THIS PROJECT.
 
 **Status:** active
-**Phase:** v4.0 — Tauri app shell built, tray.rs blocker, LEARN-01 next
-**Last Sprint:** AEGIS-COCKPIT-02 / INTEL-04 / AMBIENT-01 (Cowork batch)
+**Phase:** v4.0 — Tauri app shell compiles, LEARN-01 next
+**Last Sprint:** AEGIS-TRAY-FIX (tray.rs blocker resolved)
 **Last Updated:** 2026-03-25
 
 ## Architecture
@@ -21,7 +21,7 @@ See ARCHITECTURE.md for the definitive reference.
 - [x] COCKPIT-01: tabs, tooltips, process management, light mode (c04c469)
 - [x] COCKPIT-02: complete cockpit rewrite — all systems functional (0cc5e0c)
 - [x] AMBIENT-01: ambient-first tray, profiles demoted to override (0c63805)
-- [ ] **BLOCKER**: tray.rs — 9 compile errors (Tauri API mismatch)
+- [x] tray.rs compiles cleanly (TRAY-FIX resolved — was missing binaries/ dir + @types/node)
 
 ### Intelligence Sidecar (sidecar/)
 - [x] CATALOG-01: 210-process knowledge base, canActOn gate (1c4df3f)
@@ -46,16 +46,14 @@ See ARCHITECTURE.md for the definitive reference.
 
 ## Open Work
 
-- [ ] **[BLOCKER]** Fix tray.rs — 9 Tauri API compile errors
 - [ ] **[P1]** AEGIS-LEARN-01: Learning loop + cognitive load score (sidecar)
 - [ ] **[P1]** AEGIS-MCP-02: Rich MCP publisher (sidecar)
 - [ ] **[P2]** AEGIS-UI-01: Command surface redesign (cockpit polish)
-- [ ] **[P3]** Full Tauri build + installer test
+- [ ] **[P2]** Full Tauri build + installer test (cargo build passes, need NSIS)
 
 ## Blockers
 
-- tray.rs: 9 compile errors from Tauri API mismatch (.id("tray"), closure
-  type inference). Must be resolved before cargo tauri build succeeds.
+None. cargo check and cargo build --release pass with 0 errors.
 
 ## Key Files
 
@@ -65,7 +63,7 @@ See ARCHITECTURE.md for the definitive reference.
 | src-tauri/src/commands.rs | All Tauri IPC commands (569 lines) |
 | src-tauri/src/metrics.rs | 2s poll loop, CPU/RAM/process data |
 | src-tauri/src/sidecar.rs | Sidecar lifecycle management |
-| src-tauri/src/tray.rs | System tray (BLOCKED — 9 errors) |
+| src-tauri/src/tray.rs | System tray (compiles cleanly) |
 | sidecar/src/main.ts | Intelligence sidecar entry point |
 | sidecar/src/catalog/ | Process knowledge base |
 | sidecar/src/context/ | Context detection + composable policies |

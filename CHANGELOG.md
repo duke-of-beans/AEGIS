@@ -1,5 +1,30 @@
 # AEGIS — CHANGELOG
 
+## [4.0.0] AEGIS-TRAY-FIX — 2026-03-25
+### Shipped — Tray.rs Compile Blocker Resolved
+
+**Root Cause**
+The "9 tray.rs compile errors" were never in tray.rs itself. The Tauri 2 API
+calls were already correct. The actual blockers were:
+1. Missing `src-tauri/binaries/` directory — Tauri build script requires the
+   sidecar binary stub (`aegis-sidecar-x86_64-pc-windows-msvc.exe`) to exist
+   at build time. Without it, cargo check fails before reaching Rust compilation.
+2. `@types/node` not installing in sidecar — npm global config had `omit=dev`,
+   silently skipping all devDependencies including `@types/node`.
+
+**Fixed**
+- Created `src-tauri/binaries/` directory with sidecar stub binary placeholder.
+- Added `"types": ["node"]` to `sidecar/tsconfig.json` compilerOptions.
+- Resolved npm `omit=dev` by using `--include=dev` for sidecar installs.
+
+**Quality Gates**
+- `cargo check` — 0 errors (3 warnings: dead code, acceptable) ✅
+- `cargo build --release` — compiles to `target/release/aegis.exe` ✅
+- `npx tsc --noEmit` (sidecar) — 0 errors ✅
+- tray.rs — no API mismatch errors ✅
+
+---
+
 ## [2.1.0] AEGIS-POLISH-01 — 2026-03-25
 ### Shipped — P3 Polish, Cleanup, and Release Build
 

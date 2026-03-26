@@ -2,13 +2,12 @@
 # READ ARCHITECTURE.md BEFORE TOUCHING THIS PROJECT.
 Last Updated: 2026-03-25
 
-## BLOCKER — Must Fix First
+## COMPLETED
 
-- [ ] Fix tray.rs — 9 Tauri API compile errors blocking cargo tauri build
-  Errors: .id("tray") method, closure type inference, Tauri 2 API mismatch.
-  These were identified in the Cowork sprint batch (DEVOPS-01 through AMBIENT-01)
-  but never resolved. This is the ONLY thing preventing a working Tauri build.
-  Sprint: AEGIS-TRAY-FIX
+- [x] ~~Fix tray.rs~~ — TRAY-FIX complete (2026-03-25). Root cause: missing
+  `src-tauri/binaries/` directory (sidecar stub) and `@types/node` not installing
+  due to npm `omit=dev` global config. tray.rs API was already correct for Tauri 2.
+  cargo check: 0 errors. cargo build --release: compiles. npx tsc --noEmit: 0 errors.
 
 ## P1 — Intelligence Completion
 
@@ -29,7 +28,8 @@ Last Updated: 2026-03-25
 - [ ] AEGIS-UI-01: Command surface redesign (cockpit polish)
   Depends on: AEGIS-MONITOR-01 (shipped)
 
-## P3 — Release
+## P2 — Release
 
-- [ ] Full cargo tauri build + installer test
-  Depends on: tray.rs fix
+- [ ] Full cargo tauri build + NSIS installer test
+  Depends on: tray.rs fix ✅ (resolved)
+  Remaining: bundle sidecar (npm run build-and-bundle), run cargo tauri build, test NSIS
