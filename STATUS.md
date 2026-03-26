@@ -2,8 +2,8 @@
 # READ ARCHITECTURE.md BEFORE TOUCHING THIS PROJECT.
 
 **Status:** active
-**Phase:** v4.0 — Runtime verified, UI-01 next
-**Last Sprint:** AEGIS-RUNTIME-01 (tray toggle, metrics warmup, perMachine installer)
+**Phase:** v4.0 — Runtime verified, DEBUG-01 shipped, UI-01 next
+**Last Sprint:** AEGIS-DEBUG-01 (tray debounce, metrics emit_to, UI scaling)
 **Last Updated:** 2026-03-26
 
 ## Architecture
@@ -49,11 +49,12 @@ See ARCHITECTURE.md for the definitive reference.
 ## Open Work
 
 - [x] **[P1]** AEGIS-RUNTIME-01: Fix tray toggle bounce, metrics warmup, perMachine installer (2026-03-26)
+- [x] **[P1]** AEGIS-DEBUG-01: Fix tray debounce (double-fire), metrics emit_to cockpit, UI scaling 16px + tooltip 300ms (2026-03-26)
 - [ ] **[P2]** AEGIS-UI-01: Command surface redesign (cockpit polish)
 
 ## Blockers
 
-None. cargo check passes with 0 errors. Runtime issues resolved.
+None. cargo check passes with 0 errors. All runtime bugs resolved. Fresh binary built 2026-03-26.
 
 ## Key Files
 

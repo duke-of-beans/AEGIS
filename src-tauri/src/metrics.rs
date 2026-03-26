@@ -3,7 +3,7 @@
 
 use serde::Serialize;
 use sysinfo::{Disks, Networks, System, ProcessStatus};
-use tauri::{AppHandle, Emitter, Runtime};
+use tauri::{AppHandle, Emitter, Manager, Runtime};
 use std::time::Duration;
 use tokio::time;
 
@@ -105,6 +105,16 @@ pub async fn start_polling<R: Runtime>(app: AppHandle<R>) {
         }));
 
         let _ = app.emit("metrics", &metrics);
+
+        // Also emit directly to the cockpit window — ensures delivery even if
+        // the window was hidden when the global event fired.
+        if let Some(window) = app.get_webview_window("cockpit") {
+            let _ = window.emit("metrics", &metrics);
+        }
+
+        log::info!("metrics: cpu={:.1}% mem={}/{} MB procs={}",
+            metrics.cpu.percent, metrics.memory.used_mb,
+            metrics.memory.total_mb, metrics.processes.len());
     }
 }
 

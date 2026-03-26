@@ -78,8 +78,8 @@ fn main() {
                     api.prevent_close();
                     // Sync tray toggle flag so next left-click opens correctly
                     if let Some(vis) = window.app_handle().try_state::<tray::CockpitVisible>() {
-                        let mut flag = vis.inner().lock().unwrap();
-                        *flag = false;
+                        let mut state = vis.inner().lock().unwrap();
+                        state.visible = false;
                     }
                 }
             }

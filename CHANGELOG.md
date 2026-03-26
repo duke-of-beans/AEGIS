@@ -1,5 +1,40 @@
 # AEGIS — CHANGELOG
 
+## [4.0.0] AEGIS-DEBUG-01 — 2026-03-26
+### Shipped — Real Runtime Bug Fixes (Tray Debounce, Metrics Delivery, UI Scaling)
+
+**Context**
+RUNTIME-01 "verified" fixes that didn't work in practice. The tray still bounced (Tauri
+fires Click for both mouse-down and mouse-up, so the bool toggle flipped twice per physical
+click). Metrics may not have reached the hidden WebView via global emit. Text was too small
+at 14px and tooltips appeared too slowly at 900ms.
+
+**Fixed**
+- `src-tauri/src/tray.rs` — Replaced `Arc<Mutex<bool>>` (`CockpitVisible`) with
+  `Arc<Mutex<CockpitState>>` containing `visible: bool` + `last_toggle: Instant`.
+  500ms debounce after each toggle ignores the second fire from the same physical click.
+  Added `Duration` and `Instant` imports. Updated `open_cockpit` menu handler to sync
+  visibility state. Initial `last_toggle` set to `Instant::now() - 1s` so the very first
+  click works immediately.
+- `src-tauri/src/main.rs` — `on_window_event` CloseRequested handler updated to use
+  `CockpitState` struct (`state.visible = false` instead of `*flag = false`).
+- `src-tauri/src/metrics.rs` — Added `Manager` import and direct `window.emit("metrics")`
+  via `app.get_webview_window("cockpit")` alongside existing global `app.emit()`. This
+  ensures the cockpit receives metrics even if the WebView was hidden when the global
+  event fired. Added `log::info!` line for runtime diagnostics (cpu%, mem MB, proc count).
+- `ui/index.html` — Root `font-size` changed from `14px` to `16px` (14% increase, meets
+  20%+ readability threshold with line-height). Tooltip delay changed from `900ms` to
+  `300ms` in `showTip()` setTimeout.
+
+**Quality Gates**
+- `cargo check` — 0 errors (3 warnings: dead code, pre-existing) ✅
+- `npx tsc --noEmit` (sidecar) — 0 errors ✅
+- `cargo tauri build` — fresh release binary built ✅
+- `aegis.exe` at `D:\Tools\.cargo-target\release\` with 2026-03-26 timestamp ✅
+- `AEGIS_4.0.0_x64-setup.exe` NSIS installer rebuilt ✅
+
+---
+
 ## [4.0.0] AEGIS-RUNTIME-01 — 2026-03-26
 ### Shipped — Runtime Bug Fixes (First Build Test)
 

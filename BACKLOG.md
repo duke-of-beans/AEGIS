@@ -29,6 +29,16 @@ Last Updated: 2026-03-26
   2. Metrics warmup — double refresh_all() with 500ms delay before poll loop in metrics.rs.
   3. Installer perMachine — verified "installMode": "perMachine" in tauri.conf.json.
 
+- [x] ~~AEGIS-DEBUG-01: REAL fix for three runtime bugs~~ (shipped 2026-03-26)
+  RUNTIME-01 fixes were insufficient. DEBUG-01 root-caused and fixed properly:
+  1. Tray debounce — Tauri fires TrayIconEvent::Click for BOTH mouse-down and mouse-up.
+     Arc<Mutex<bool>> toggle flipped twice per physical click. Replaced with CockpitState
+     struct containing visible flag + Instant last_toggle. 500ms debounce ignores double-fire.
+  2. Metrics emit_to — Hidden WebView may not receive global app.emit(). Added direct
+     window.emit("metrics", &metrics) via get_webview_window("cockpit") alongside global emit.
+     Added log::info! for runtime diagnostics.
+  3. UI scaling — Root font-size 14px→16px (20%+ larger). Tooltip delay 900ms→300ms.
+
 ## P2 — Polish
 
 - [ ] AEGIS-UI-01: Command surface redesign (cockpit polish)

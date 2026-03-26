@@ -5,6 +5,7 @@
 // Tray icon stored in AppState-adjacent Arc so event handlers can rebuild menu.
 
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder},
     tray::{TrayIcon, TrayIconBuilder, TrayIconEvent},
@@ -15,13 +16,20 @@ use crate::profiles;
 /// Shared override name — empty string = ambient mode.
 pub type OverrideState = Arc<Mutex<String>>;
 
-/// Tracks intended cockpit visibility to avoid race with async show/hide.
-pub type CockpitVisible = Arc<Mutex<bool>>;
+/// Tracks cockpit visibility + last toggle time for debounce.
+pub struct CockpitState {
+    pub visible: bool,
+    pub last_toggle: Instant,
+}
+pub type CockpitVisible = Arc<Mutex<CockpitState>>;
 
 pub fn setup_tray<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std::error::Error>> {
     let profile_names = profiles::list_profiles();
     let override_state: OverrideState = Arc::new(Mutex::new(String::new()));
-    let cockpit_visible: CockpitVisible = Arc::new(Mutex::new(false));
+    let cockpit_visible: CockpitVisible = Arc::new(Mutex::new(CockpitState {
+        visible: false,
+        last_toggle: Instant::now() - Duration::from_secs(1), // allow immediate first click
+    }));
 
     let menu = build_menu(app, &profile_names, "")?;
 
@@ -41,14 +49,18 @@ pub fn setup_tray<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std::error
                 {
                     let app = tray.app_handle();
                     if let Some(window) = app.get_webview_window("cockpit") {
-                        let mut vis = cockpit_visible.lock().unwrap();
-                        if *vis {
+                        let mut state = cockpit_visible.lock().unwrap();
+                        if state.last_toggle.elapsed() < Duration::from_millis(500) {
+                            return; // debounce — ignore double-fire
+                        }
+                        state.last_toggle = Instant::now();
+                        if state.visible {
                             let _ = window.hide();
-                            *vis = false;
+                            state.visible = false;
                         } else {
                             let _ = window.show();
                             let _ = window.set_focus();
-                            *vis = true;
+                            state.visible = true;
                         }
                     }
                 }
@@ -63,6 +75,12 @@ pub fn setup_tray<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std::error
                         if let Some(window) = app.get_webview_window("cockpit") {
                             let _ = window.show();
                             let _ = window.set_focus();
+                            // Sync visibility state
+                            if let Some(vis) = app.try_state::<CockpitVisible>() {
+                                let mut s = vis.lock().unwrap();
+                                s.visible = true;
+                                s.last_toggle = Instant::now();
+                            }
                         }
                     }
                     "quit" => {
