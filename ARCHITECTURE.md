@@ -55,12 +55,18 @@ It is NOT:
 cd D:\Dev\aegis
 
 # Build the sidecar (Node.js intelligence engine):
-cd sidecar && npm install && npm run build-and-bundle
+cd sidecar && npm install --include=dev && npm run build-and-bundle
 # This produces: src-tauri/binaries/aegis-sidecar-x86_64-pc-windows-msvc.exe
 
 # Build the Tauri app (Rust shell + bundled sidecar + WebView cockpit):
 cargo tauri build
-# This produces: src-tauri/target/release/bundle/nsis/AEGIS-Setup-X.Y.Z.exe
+# This produces the binary and installer at:
+#   BINARY: D:\Tools\.cargo-target\release\aegis.exe
+#   INSTALLER: D:\Tools\.cargo-target\release\bundle\nsis\AEGIS_4.0.0_x64-setup.exe
+#
+# NOTE: Cargo target is redirected via CARGO_TARGET_DIR env var.
+# The binary does NOT land at src-tauri/target/release/ — it lands at D:\Tools\.cargo-target\release/.
+# If you run the wrong path, you are running a STALE binary.
 ```
 
 There is NO separate build-release.mjs. There is NO pkg bundling. There is NO
@@ -109,9 +115,25 @@ Do not revisit, do not "simplify back to Node.js", do not add Express servers.
 
 ## KNOWN ISSUES (from first Tauri build test, 2026-03-25)
 
-1. Tray click toggle race — window bounces. Sprint RUNTIME-01 queued.
-2. Metrics show 0% — sysinfo needs warmup refresh. Sprint RUNTIME-01 queued.
-3. Installer was currentUser — changed to perMachine, needs rebuild.
+1. Tray click toggle race — window bounces. Code fix committed (Arc<Mutex<bool>> flag).
+   Requires rebuild to take effect.
+2. Metrics show 0% — sysinfo needs warmup refresh. Code fix committed (double refresh_all).
+   Requires rebuild to take effect.
+3. Installer was currentUser — changed to perMachine in tauri.conf.json.
+
+## CANONICAL PATHS
+
+| What | Path |
+|------|------|
+| Source repo | D:\Dev\aegis |
+| Built binary | D:\Tools\.cargo-target\release\aegis.exe |
+| Built installer | D:\Tools\.cargo-target\release\bundle\nsis\AEGIS_4.0.0_x64-setup.exe |
+| Install target | D:\Program Files\AEGIS (perMachine, never C:\) |
+| Runtime config | %APPDATA%\AEGIS\ |
+
+THERE IS ONLY ONE AEGIS CODEBASE: D:\Dev\aegis.
+D:\Projects\AEGIS was a stale clone — it was deleted.
+Do not create copies. Do not clone to other locations.
 
 ## FILE LOCATIONS
 
