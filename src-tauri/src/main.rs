@@ -12,7 +12,7 @@ mod sidecar;
 mod tray;
 
 use std::sync::{Arc, Mutex};
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 
 pub struct AppState {
     pub active_profile: Arc<Mutex<String>>,
@@ -76,6 +76,11 @@ fn main() {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     let _ = window.hide();
                     api.prevent_close();
+                    // Sync tray toggle flag so next left-click opens correctly
+                    if let Some(vis) = window.app_handle().try_state::<tray::CockpitVisible>() {
+                        let mut flag = vis.inner().lock().unwrap();
+                        *flag = false;
+                    }
                 }
             }
         })

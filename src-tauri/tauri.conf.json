@@ -49,7 +49,7 @@
       "nsis": {
         "displayLanguageSelector": false,
         "languages": ["English"],
-        "installMode": "currentUser",
+        "installMode": "perMachine",
         "installerHooks": "./windows/hooks.nsi"
       }
     }

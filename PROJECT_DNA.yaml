@@ -32,16 +32,16 @@ architecture:
 
 current_state:
   version: "4.0.0"
-  phase: "tray.rs blocker → BUILD-01 → LEARN-01 → MCP-02"
-  health: "Sidecar TypeScript clean. Rust blocked on tray.rs (9 errors)."
-  last_sprint: "AEGIS-COCKPIT-02 / INTEL-04 / AMBIENT-01 (Cowork batch)"
+  phase: "RUNTIME-01 → UI-01"
+  health: "All code compiles. Tauri build succeeds. Runtime bugs identified."
+  last_sprint: "AEGIS-MCP-02 (ecd5c38)"
 
 five_intelligences:
   catalog: "SHIPPED — 210-process knowledge base, canActOn gate"
   baseline: "SHIPPED — Welford online variance, per-process per-context fingerprints"
   context: "SHIPPED — WinEvent foreground tracking, composable policies + overlays"
   sniper: "SHIPPED — 3 rules, blast radius multipliers, graduated actions"
-  learning: "PARTIAL — store.ts + load.ts exist, need outcome recording + confidence"
+  learning: "SHIPPED — outcome recording, sacred context weighting, confidence score, auto mode unlock"
 
 safety_tiers:
   tier_1: "Silent — logged, always reversible"
@@ -70,19 +70,11 @@ key_decisions:
     rationale: "Prevent architectural confusion that caused the POLISH-01 disaster"
 
 sprint_queue:
-  - id: AEGIS-TRAY-FIX
-    title: "Fix tray.rs Compile Errors"
-    priority: BLOCKER
-    depends_on: null
-  - id: AEGIS-BUILD-01
-    title: "Full Tauri Build + Install Test"
-    priority: P0
-    depends_on: AEGIS-TRAY-FIX
-  - id: AEGIS-LEARN-01
-    title: "Learning Loop + Cognitive Load Score"
+  - id: AEGIS-RUNTIME-01
+    title: "Fix Runtime Issues (tray bounce, metrics zeros, perMachine installer)"
     priority: P1
-    depends_on: AEGIS-BUILD-01
-  - id: AEGIS-MCP-02
-    title: "Rich MCP Publisher"
+    depends_on: null
+  - id: AEGIS-UI-01
+    title: "Command Surface Redesign"
     priority: P2
-    depends_on: AEGIS-LEARN-01
+    depends_on: AEGIS-RUNTIME-01

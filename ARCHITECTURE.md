@@ -107,11 +107,11 @@ Do not revisit, do not "simplify back to Node.js", do not add Express servers.
 6. The sidecar is a pkg-bundled Node.js binary managed by Tauri
    (decided in TAURI-02 sprint)
 
-## KNOWN BLOCKER
+## KNOWN ISSUES (from first Tauri build test, 2026-03-25)
 
-`tray.rs` has 9 compile errors (Tauri API mismatch, .id("tray"), closure type
-inference). These must be fixed before `cargo tauri build` succeeds. This is
-the ONLY thing blocking a working Tauri build. Everything else compiles.
+1. Tray click toggle race — window bounces. Sprint RUNTIME-01 queued.
+2. Metrics show 0% — sysinfo needs warmup refresh. Sprint RUNTIME-01 queued.
+3. Installer was currentUser — changed to perMachine, needs rebuild.
 
 ## FILE LOCATIONS
 

@@ -66,6 +66,13 @@ pub async fn start_polling<R: Runtime>(app: AppHandle<R>) {
     let mut sys = System::new_all();
     let mut disks = Disks::new_with_refreshed_list();
     let mut networks = Networks::new_with_refreshed_list();
+
+    // Warmup: sysinfo needs two refresh cycles to compute CPU percentages.
+    // Without this, the first tick returns 0% CPU.
+    sys.refresh_all();
+    time::sleep(Duration::from_millis(500)).await;
+    sys.refresh_all();
+
     let mut interval = time::interval(Duration::from_secs(2));
 
     loop {

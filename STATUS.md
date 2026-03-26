@@ -48,14 +48,13 @@ See ARCHITECTURE.md for the definitive reference.
 
 ## Open Work
 
-- [x] ~~**[P1]** AEGIS-LEARN-01: Learning loop + cognitive load score~~ (shipped 2026-03-25)
-- [x] ~~**[P1]** AEGIS-MCP-02: Rich MCP publisher (sidecar)~~ (shipped 2026-03-25)
+- [ ] **[P1]** AEGIS-RUNTIME-01: Fix tray toggle bounce, metrics→cockpit wiring, perMachine installer
 - [ ] **[P2]** AEGIS-UI-01: Command surface redesign (cockpit polish)
-- [ ] **[P2]** Full Tauri build + installer test (cargo build passes, need NSIS)
 
 ## Blockers
 
 None. cargo check and cargo build --release pass with 0 errors.
+Runtime issues (tray bounce, metrics zeros) identified — sprint prompt ready.
 
 ## Key Files
 

@@ -21,13 +21,18 @@ Last Updated: 2026-03-25
   Stdio transport, --mcp flag. MCP_INTEGRATION.md with 3 integration paths
   (Claude Desktop, GregLite, GREGORE).
 
+## P1 — Runtime Fixes (from first Tauri build test)
+
+- [ ] AEGIS-RUNTIME-01: Three runtime bugs from first successful build test
+  1. Tray click toggle race — window bounces open/closed, needs 5+ clicks.
+     Fix: replace is_visible() with Arc<Mutex<bool>> toggle flag.
+  2. Metrics showing 0%/-- — sysinfo needs warmup refresh before poll loop.
+     Fix: double refresh_all() with 500ms delay before entering loop.
+  3. Installer perMachine — tauri.conf.json already changed, verify + rebuild.
+  Sprint prompt: AEGIS_SPRINT_RUNTIME-01.md (written, ready for Cowork)
+
 ## P2 — Polish
 
 - [ ] AEGIS-UI-01: Command surface redesign (cockpit polish)
-  Depends on: AEGIS-MONITOR-01 (shipped)
-
-## P2 — Release
-
-- [ ] Full cargo tauri build + NSIS installer test
-  Depends on: tray.rs fix ✅ (resolved)
-  Remaining: bundle sidecar (npm run build-and-bundle), run cargo tauri build, test NSIS
+  UX clarity — too many panels, no visual hierarchy for actionable vs informational.
+  Depends on: RUNTIME-01 (metrics must display before polish makes sense)

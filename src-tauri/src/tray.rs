@@ -15,9 +15,13 @@ use crate::profiles;
 /// Shared override name — empty string = ambient mode.
 pub type OverrideState = Arc<Mutex<String>>;
 
+/// Tracks intended cockpit visibility to avoid race with async show/hide.
+pub type CockpitVisible = Arc<Mutex<bool>>;
+
 pub fn setup_tray<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std::error::Error>> {
     let profile_names = profiles::list_profiles();
     let override_state: OverrideState = Arc::new(Mutex::new(String::new()));
+    let cockpit_visible: CockpitVisible = Arc::new(Mutex::new(false));
 
     let menu = build_menu(app, &profile_names, "")?;
 
@@ -28,6 +32,7 @@ pub fn setup_tray<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std::error
         .tooltip("AEGIS — ambient")
         .on_tray_icon_event({
             let _override_state = override_state.clone();
+            let cockpit_visible = cockpit_visible.clone();
             move |tray, event| {
                 if let TrayIconEvent::Click {
                     button: tauri::tray::MouseButton::Left,
@@ -36,11 +41,14 @@ pub fn setup_tray<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std::error
                 {
                     let app = tray.app_handle();
                     if let Some(window) = app.get_webview_window("cockpit") {
-                        if window.is_visible().unwrap_or(false) {
+                        let mut vis = cockpit_visible.lock().unwrap();
+                        if *vis {
                             let _ = window.hide();
+                            *vis = false;
                         } else {
                             let _ = window.show();
                             let _ = window.set_focus();
+                            *vis = true;
                         }
                     }
                 }
@@ -103,6 +111,7 @@ pub fn setup_tray<R: Runtime>(app: &mut App<R>) -> Result<(), Box<dyn std::error
     // Keep tray alive for the process lifetime
     app.manage(TrayState(Arc::new(Mutex::new(Some(tray)))));
     app.manage(override_state);
+    app.manage(cockpit_visible);
 
     Ok(())
 }
