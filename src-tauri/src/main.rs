@@ -32,6 +32,24 @@ fn main() {
             // Build tray
             tray::setup_tray(app)?;
 
+            // ── FIX: Briefly show cockpit so WebView JS context initializes ──
+            // Tauri 2 does not deliver emit() events to a WebView that has
+            // never been shown. Show it, let JS register listeners, then hide.
+            if let Some(window) = app.get_webview_window("cockpit") {
+                let _ = window.show();
+                let w = window.clone();
+                let app_handle_vis = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+                    let _ = w.hide();
+                    // Sync CockpitVisible flag so tray toggle still works
+                    if let Some(vis) = app_handle_vis.try_state::<tray::CockpitVisible>() {
+                        let mut state = vis.lock().unwrap();
+                        state.visible = false;
+                    }
+                });
+            }
+
             // Start metrics polling — emits "metrics" events to cockpit every 2s
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -69,6 +87,7 @@ fn main() {
             commands::get_active_profile,
             commands::sidecar_feedback,
             commands::sidecar_lock_context,
+            commands::get_latest_metrics,
         ])
         .on_window_event(|window, event| {
             // Only intercept close on the cockpit — hide to tray instead of quit

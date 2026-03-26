@@ -39,6 +39,17 @@ Last Updated: 2026-03-26
      Added log::info! for runtime diagnostics.
   3. UI scaling — Root font-size 14px→16px (20%+ larger). Tooltip delay 900ms→300ms.
 
+- [x] ~~AEGIS-EVENTS-01: Fix WebView event delivery~~ (shipped 2026-03-26)
+  ROOT CAUSE: Tauri 2 does not deliver emit() events to a WebView that starts
+  with `visible: false` — the JS context never initializes, so listeners never register.
+  FIX 1: Show cockpit briefly on startup (300ms) then hide — JS context initializes.
+  FIX 1B: Added static metrics cache + `get_latest_metrics` IPC command as fallback.
+  FIX 1C: Extracted `handleMetricsPayload()` function, initial `invoke('get_latest_metrics')`.
+  FIX 2: Sidecar `pkg` assets now include `better-sqlite3` native `.node` addon.
+  FIX 3: WMI disk I/O `Win32_PerfFormattedData_PerfDisk_LogicalDisk` — class was correct
+  but error spammed 30x/min. Added `AtomicBool` one-shot disable on first failure.
+  FIX 4: Light mode `toggleTheme()` — added diagnostic logging, resilient `localStorage` try/catch.
+
 ## P2 — Polish
 
 - [ ] AEGIS-UI-01: Command surface redesign (cockpit polish)

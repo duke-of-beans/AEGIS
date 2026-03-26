@@ -6,7 +6,11 @@
 // Returned HashMap value: (read_bytes_sec, write_bytes_sec)
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use serde::Deserialize;
+
+/// Once WMI fails, stop retrying to avoid log spam (30x/min).
+static WMI_DISABLED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Deserialize)]
 #[allow(non_snake_case)]
@@ -19,10 +23,15 @@ struct DiskPerfData {
 /// Query WMI for per-drive I/O rates.
 /// Returns an empty map on any error — caller treats missing entries as 0.
 pub fn get_disk_io() -> HashMap<String, (u64, u64)> {
+    // If WMI previously failed, return empty immediately — no log spam
+    if WMI_DISABLED.load(Ordering::Relaxed) {
+        return HashMap::new();
+    }
     match query_wmi() {
         Ok(map) => map,
         Err(e) => {
-            log::warn!("[disk_io] WMI query failed: {}", e);
+            log::warn!("[disk_io] WMI query failed: {} — disabling disk I/O polling", e);
+            WMI_DISABLED.store(true, Ordering::Relaxed);
             HashMap::new()
         }
     }

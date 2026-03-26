@@ -567,3 +567,8 @@ pub async fn sidecar_lock_context(
     }));
     Ok(format!("Context locked to {} for {}min", context, duration_min))
 }
+
+#[tauri::command]
+pub fn get_latest_metrics() -> Option<crate::metrics::SystemMetrics> {
+    crate::metrics::get_cached_snapshot()
+}

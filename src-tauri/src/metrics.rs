@@ -4,8 +4,21 @@
 use serde::Serialize;
 use sysinfo::{Disks, Networks, System, ProcessStatus};
 use tauri::{AppHandle, Emitter, Manager, Runtime};
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use tokio::time;
+
+// ── Cached latest snapshot for get_latest_metrics command ──
+static LATEST: OnceLock<Mutex<Option<SystemMetrics>>> = OnceLock::new();
+
+fn cache() -> &'static Mutex<Option<SystemMetrics>> {
+    LATEST.get_or_init(|| Mutex::new(None))
+}
+
+/// Returns the most recent metrics snapshot, or None if polling hasn't started yet.
+pub fn get_cached_snapshot() -> Option<SystemMetrics> {
+    cache().lock().unwrap().clone()
+}
 
 #[derive(Serialize, Clone, Debug)]
 pub struct CpuMetrics {
@@ -83,6 +96,9 @@ pub async fn start_polling<R: Runtime>(app: AppHandle<R>) {
         networks.refresh(true);
 
         let metrics = collect_metrics(&sys, &disks, &networks);
+
+        // Cache snapshot for get_latest_metrics IPC command
+        *cache().lock().unwrap() = Some(metrics.clone());
 
         // Push CPU + memory to sidecar for cognitive load computation.
         // Best-effort — if sidecar is not running, send_to_sidecar is a no-op.

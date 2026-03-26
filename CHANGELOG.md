@@ -1,5 +1,44 @@
 # AEGIS — CHANGELOG
 
+## [4.0.0] AEGIS-EVENTS-01 — 2026-03-26
+### Shipped — WebView Event Delivery Fix (Live Metrics in Cockpit)
+
+**Root Cause**
+Tauri 2 does not deliver `emit()` events to a WebView whose window starts with
+`"visible": false` in `tauri.conf.json`. The JS context never initializes, so
+`listen('metrics', ...)` never registers. Rust metrics polling worked (console
+showed `cpu=36.7% mem=10125/16176 MB` every 2s) but the cockpit showed 0%.
+
+**Fixed**
+- `src-tauri/src/main.rs` — Show cockpit briefly on startup (300ms) then hide.
+  This forces WebView JS context to initialize and register event listeners.
+  CockpitVisible flag synced to `false` after auto-hide so tray toggle works.
+  Registered `get_latest_metrics` in invoke_handler.
+- `src-tauri/src/metrics.rs` — Added static `LATEST: OnceLock<Mutex<Option<SystemMetrics>>>`
+  cache updated each poll cycle. `get_cached_snapshot()` public API for IPC fallback.
+- `src-tauri/src/commands.rs` — Added `get_latest_metrics` Tauri command returning
+  cached snapshot. Ensures cockpit gets data even if early events were missed.
+- `ui/index.html` — Extracted inline metrics handler to named `handleMetricsPayload()`
+  function. `listen('metrics')` now calls it. Added `invoke('get_latest_metrics')`
+  on IPC connect as fallback for missed early events.
+- `ui/index.html` — `toggleTheme()` now has diagnostic `console.log()` and resilient
+  `localStorage` try/catch with warning on failure.
+- `src-tauri/src/disk_io.rs` — WMI class `Win32_PerfFormattedData_PerfDisk_LogicalDisk`
+  was correct but error spammed 30x/min when WMI service fails. Added `AtomicBool`
+  one-shot disable: first failure logs a warning and disables further attempts.
+- `sidecar/package.json` — pkg `assets` now includes `node_modules/better-sqlite3/build/
+  Release/better_sqlite3.node` and `*.node` glob. Should fix CatalogManager/LearningStore/
+  SniperEngine "unavailable" errors from missing native addon inside pkg snapshot.
+
+**Quality Gates**
+- `cargo check` — 0 errors (3 warnings: dead code, pre-existing) ✅
+- `npx tsc --noEmit` (sidecar) — 0 errors ✅
+- `cargo tauri build` — fresh release binary built ✅
+- `aegis.exe` at `D:\Tools.cargo-target\release\` with 2026-03-26 timestamp ✅
+- `AEGIS_4.0.0_x64-setup.exe` NSIS installer rebuilt ✅
+
+---
+
 ## [4.0.0] AEGIS-DEBUG-01 — 2026-03-26
 ### Shipped — Real Runtime Bug Fixes (Tray Debounce, Metrics Delivery, UI Scaling)
 
