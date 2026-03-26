@@ -1,9 +1,11 @@
 identity:
   name: AEGIS
   display_name: "AEGIS — Cognitive Resource OS"
-  version: "3.0.0-planning"
-  path: D:\Projects\AEGIS
+  version: "4.0.0"
+  path: D:\Dev\aegis
   github: https://github.com/duke-of-beans/AEGIS
+  architecture: "Tauri 2 desktop app + Node.js sidecar + WebView cockpit"
+  architecture_doc: D:\Dev\aegis\ARCHITECTURE.md
   purpose: >
     Windows cognitive resource OS. Monitors every hardware and software resource,
     builds behavioral fingerprints for every process, detects context, and
@@ -15,134 +17,72 @@ identity:
     Reasoning builds trust in a way conclusions do not.
   tagline: "What doesn't need to run, doesn't run. What needs resources, gets them."
 
-current_state:
-  version: "2.1.0"
-  phase: "v3.0 planning — sprint queue building"
-  health: "TypeScript clean. Zero errors. ca936bc."
-  last_sprint: AEGIS-BRAVE-03
-  completion_v2: 92%
-  completion_v3: 0%
-  v3_prerequisite: AEGIS-CATALOG-01
-  repo_path: D:\Projects\AEGIS
-
 architecture:
-  runtime: "Node.js daemon via pm2. Independent of GregLite."
-  worker: "PowerShell 7 child process (scripts/aegis-worker.ps1) via stdio IPC"
-  status_server: "Express on configurable port (default 7172)"
-  command_surface: "HTML/JS served by status server — cockpit, not dashboard"
-  mcp_server: "Stdio MCP (--mcp flag) + HTTP MCP (planned v3)"
-  storage:
-    config: "%APPDATA%\\AEGIS\\aegis-config.yaml"
-    state: "%APPDATA%\\AEGIS\\state.json"
-    catalog: "%APPDATA%\\AEGIS\\catalog.db (SQLite — v3)"
-    baselines: "%APPDATA%\\AEGIS\\baselines.db (SQLite — v3)"
-    sessions: "%APPDATA%\\AEGIS\\sessions.db (SQLite — v3)"
+  app_shell: "src-tauri/ — Tauri 2 Rust binary (metrics, process control, tray, IPC)"
+  sidecar: "sidecar/ — Node.js intelligence engine (catalog, context, sniper, learning)"
+  cockpit: "ui/index.html — Task Manager-style WebView rendered by Tauri"
+  build: "cargo tauri build (produces NSIS installer)"
+  NOT:
+    - "Node.js daemon"
+    - "Browser page"
+    - "HTA application"
+    - "systray2"
+    - "pkg-bundled executable"
+    - "Express server"
+
+current_state:
+  version: "4.0.0"
+  phase: "tray.rs blocker → BUILD-01 → LEARN-01 → MCP-02"
+  health: "Sidecar TypeScript clean. Rust blocked on tray.rs (9 errors)."
+  last_sprint: "AEGIS-COCKPIT-02 / INTEL-04 / AMBIENT-01 (Cowork batch)"
 
 five_intelligences:
-  catalog: "Process knowledge base — trust scoring, blast radius, unknown detection"
-  baseline: "Per-process behavioral fingerprinting — deviation not absolutes"
-  context: "WinEvent hook foreground tracking — named contexts, composable policies"
-  sniper: "Rules engine — graduated throttle/suspend/kill with TESSRYX blast radius"
-  learning: "SQLite outcome store — weighted feedback, confidence score, weight tuning"
+  catalog: "SHIPPED — 210-process knowledge base, canActOn gate"
+  baseline: "SHIPPED — Welford online variance, per-process per-context fingerprints"
+  context: "SHIPPED — WinEvent foreground tracking, composable policies + overlays"
+  sniper: "SHIPPED — 3 rules, blast radius multipliers, graduated actions"
+  learning: "PARTIAL — store.ts + load.ts exist, need outcome recording + confidence"
 
 safety_tiers:
-  tier_1: "Silent — logged, always reversible (priority, trim, QoS, power plan)"
-  tier_2: "Toast with 10s undo — service, startup, suspend, TRIM/defrag"
-  tier_3: "Always confirm red — kill, adapter disable, firewall block, page file"
-  tier_4: "Settings-locked admin — boot config, driver, hardware irreversible"
-
-operating_modes:
-  manual: "User picks policy stacks. Nothing automatic."
-  suggest: "Context detected. Toast with reasoning. User approves or dismisses."
-  auto: "Full autonomy. Confidence-gated. Action log shows every decision with reasoning."
-  preflight: "Manual button. Audit vs best historical sessions. Propose + confirm."
-
-boundaries:
-  does:
-    - Monitor all major hardware and software resources in a unified surface
-    - Build behavioral baselines per process per context
-    - Detect context from foreground window events
-    - Apply composable policy stacks automatically or on suggestion
-    - Run a sniper rules engine with blast radius awareness
-    - Learn from weighted outcome feedback
-    - Publish a rich MCP server for GREGORE and GregLite integration
-    - Serve a command surface — every metric adjacent to its action
-  does_not:
-    - Replace antivirus or act as a security scanner
-    - Touch processes it does not understand
-    - Act without earning trust progressively
-    - Ship Auto mode before confidence is earned
-
-interfaces:
-  - product: TESSRYX
-    relationship: "Blast radius calculation before Tier 3 actions."
-  - product: GREGORE
-    relationship: "Receives intent signal. Pre-configures machine before sprint start."
-  - product: GregLite
-    relationship: "Queries AEGIS via MCP for machine state and resource pressure."
-  - product: DAI/Thalamic
-    relationship: "AEGIS nodes on client deployments feed anonymized behavioral corpus."
-  - product: HIRM
-    relationship: "Baseline deviation = threshold system. C_critical = cognitive load score."
+  tier_1: "Silent — logged, always reversible"
+  tier_2: "Toast with 10s undo"
+  tier_3: "Always confirm red"
+  tier_4: "Settings-locked admin"
 
 key_decisions:
+  - date: "2026-03-06"
+    decision: "AEGIS is a Tauri 2 desktop app"
+    rationale: "Native tray, native window, Rust metrics, no browser dependency"
+  - date: "2026-03-23"
+    decision: "Independent daemon via pm2 — NOT coupled to GregLite"
+    rationale: "AEGIS monitors the system, not a window"
   - date: "2026-03-24"
     decision: "Profiles replaced with composable policies + overlays"
     rationale: "Static profiles cannot handle overlapping contexts"
   - date: "2026-03-24"
-    decision: "Process catalog ships first. It is the prerequisite for everything."
+    decision: "Catalog ships first — prerequisite for all intelligence"
     rationale: "Sniper cannot shoot without target identification"
-  - date: "2026-03-24"
-    decision: "Catalog = factual knowledge only. Behavioral baselines observed fresh."
-    rationale: "Pre-seeded baselines would bias learning"
   - date: "2026-03-24"
     decision: "Statistics as action layer. Classifier as labeling layer only."
     rationale: "Explainability. You can audit a stddev deviation."
-  - date: "2026-03-24"
-    decision: "Action log is the centerpiece of the command surface."
-    rationale: "Reasoning builds trust in a way conclusions do not."
-  - date: "2026-03-24"
-    decision: "Cognitive load score ships with equal weights, weights are learned."
-    rationale: "Cannot know correct weights before observing feedback correlation."
-  - date: "2026-03-24"
-    decision: "SQLite for all persistent intelligence storage."
-    rationale: "Schema-first. Queryable. Exportable. Correct data volume."
-  - date: "2026-03-23"
-    decision: "AEGIS is an independent daemon. pm2 lifecycle. Not coupled to GregLite."
-    rationale: "AEGIS monitors the system, not a window."
+  - date: "2026-03-25"
+    decision: "v2 Node.js daemon code DELETED. src-tauri + sidecar + ui only."
+    rationale: "Prevent architectural confusion that caused the POLISH-01 disaster"
 
 sprint_queue:
-  - id: AEGIS-CATALOG-01
-    title: "Process Knowledge Base"
-    priority: P0
-    prompt: SPRINT_AEGIS-CATALOG-01.md
+  - id: AEGIS-TRAY-FIX
+    title: "Fix tray.rs Compile Errors"
+    priority: BLOCKER
     depends_on: null
-  - id: AEGIS-MONITOR-01
-    title: "Extended Monitoring Surface"
+  - id: AEGIS-BUILD-01
+    title: "Full Tauri Build + Install Test"
     priority: P0
-    prompt: SPRINT_AEGIS-MONITOR-01.md
-    depends_on: null
-  - id: AEGIS-UI-01
-    title: "Command Surface Redesign"
-    priority: P1
-    depends_on: AEGIS-MONITOR-01
-  - id: AEGIS-CONTEXT-01
-    title: "Context Detection Engine"
-    priority: P1
-    depends_on: AEGIS-CATALOG-01
-  - id: AEGIS-SNIPER-01
-    title: "Sniper Rules Engine"
-    priority: P1
-    depends_on: [AEGIS-CATALOG-01, AEGIS-CONTEXT-01]
+    depends_on: AEGIS-TRAY-FIX
   - id: AEGIS-LEARN-01
     title: "Learning Loop + Cognitive Load Score"
-    priority: P2
-    depends_on: [AEGIS-SNIPER-01, AEGIS-CONTEXT-01]
+    priority: P1
+    depends_on: AEGIS-BUILD-01
   - id: AEGIS-MCP-02
     title: "Rich MCP Publisher"
     priority: P2
-    depends_on: [AEGIS-LEARN-01, AEGIS-SNIPER-01]
-  - id: AEGIS-INSTALLER-01
-    title: "v3.0.0 Installer"
-    priority: P3
-    depends_on: AEGIS-MCP-02
+    depends_on: AEGIS-LEARN-01
