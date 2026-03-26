@@ -410,7 +410,7 @@ export async function startup(configPath?: string): Promise<void> {
       },
     })
 
-    const iconPath = join(__dirname, '../../assets/icon.ico')
+    const iconPath = join(__dirname, '../../assets/icons/idle.ico')
     if (existsSync(iconPath)) {
       globalTrayManager.init(
         iconPath,
@@ -419,6 +419,8 @@ export async function startup(configPath?: string): Promise<void> {
         config.profile_order,
         0
       )
+    } else {
+      logger.error('Tray icon not found — tray will not appear', { iconPath })
     }
 
     if (isMcpMode) {

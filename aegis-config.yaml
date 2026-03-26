@@ -1,4 +1,4 @@
-version: "2.0"
+version: "2.1"
 default_profile: idle
 profile_order:
   - idle
@@ -8,7 +8,7 @@ profile_order:
   - wartime
   - presentation
 
-profiles_dir: "D:\\Dev\\aegis\\profiles"
+profiles_dir: "%APPDATA%\\AEGIS\\profiles"
 
 status_window:
   enabled: true
@@ -45,7 +45,7 @@ worker:
 
 logging:
   level: info
-  log_dir: "D:\\Dev\\aegis\\logs"
+  log_dir: "%APPDATA%\\AEGIS\\logs"
   rotate: daily
   max_files: 30
 

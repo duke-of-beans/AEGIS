@@ -1,6 +1,12 @@
 import { readFileSync } from 'fs'
-import SysTray from 'systray2'
+import { createRequire } from 'module'
 import { getLogger } from '../logger/index.js'
+
+// systray2 is a CJS module with a .default export — ESM default import fails at runtime.
+// Use createRequire to get the actual constructor.
+const require = createRequire(import.meta.url)
+const systrayModule = require('systray2') as { default: typeof import('systray2').default }
+const SysTray = systrayModule.default
 import { buildMenu } from './menu.js'
 import type { BrowserMenuStats } from './menu.js'
 import type { Menu, ClickAction } from 'systray2'
@@ -23,7 +29,7 @@ export interface TrayDependencies {
 }
 
 export class TrayManager {
-  private systray: SysTray | null = null
+  private systray: InstanceType<typeof SysTray> | null = null
   private currentMenu: Menu | null = null
   private deps: TrayDependencies
   private logger = getLogger()
@@ -58,7 +64,7 @@ export class TrayManager {
       copyDir: true,
     })
 
-    this.systray.onClick((action) => {
+    this.systray.onClick((action: ClickAction) => {
       this.handleMenuAction(action)
     })
 
