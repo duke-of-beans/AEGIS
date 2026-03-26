@@ -8,6 +8,9 @@ import * as os from 'os'
 
 const VERSION = '4.0.0'
 
+// MCP server (launched via --mcp flag)
+import type { McpEngines } from './mcp/server.js'
+
 // ── Logger setup ─────────────────────────────────────────────────────────────
 // Lightweight logger — write JSON lines to stderr (Rust reads it) and file
 const logPath = path.join(os.homedir(), 'AppData', 'Roaming', 'AEGIS', 'sidecar.log')
@@ -436,56 +439,84 @@ function cleanup(): void {
 }
 
 // ── Stdin reader ──────────────────────────────────────────────────────────────
-const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity })
+// Stdin reader + heartbeat only in normal sidecar mode (MCP mode uses StdioServerTransport)
+const isMcpMode = process.argv.includes('--mcp')
 
-rl.on('line', (line: string) => {
-  const trimmed = line.trim()
-  if (!trimmed) return
-  try {
-    const req = JSON.parse(trimmed)
-    handleRequest(req)
-  } catch (e: any) {
-    writeError(null, -32700, `Parse error: ${e.message}`)
-  }
-})
+if (!isMcpMode) {
+  const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity })
 
-rl.on('close', () => {
-  log('info', 'stdin closed — exiting')
-  cleanup()
-  process.exit(0)
-})
-
-// ── Heartbeat ─────────────────────────────────────────────────────────────────
-setInterval(() => {
-  const ctx = contextEngine ? contextEngine.getState() : null
-  writeEvent({
-    type: 'heartbeat',
-    timestamp: new Date().toISOString(),
-    pid: process.pid,
-    context: ctx?.current ?? 'unknown',
-    cognitive_load: cognitiveLoad,
-    active_profile: activeProfile,
-    override_active: activeProfile !== 'idle' && activeProfile !== '',
+  rl.on('line', (line: string) => {
+    const trimmed = line.trim()
+    if (!trimmed) return
+    try {
+      const req = JSON.parse(trimmed)
+      handleRequest(req)
+    } catch (e: any) {
+      writeError(null, -32700, `Parse error: ${e.message}`)
+    }
   })
-  // Prune expired overlays on each heartbeat
-  try { if (policyManager?.pruneExpired) policyManager.pruneExpired() } catch (_) {}
-}, 30_000)
+
+  rl.on('close', () => {
+    log('info', 'stdin closed — exiting')
+    cleanup()
+    process.exit(0)
+  })
+
+  // ── Heartbeat ───────────────────────────────────────────────────────────────
+  setInterval(() => {
+    const ctx = contextEngine ? contextEngine.getState() : null
+    writeEvent({
+      type: 'heartbeat',
+      timestamp: new Date().toISOString(),
+      pid: process.pid,
+      context: ctx?.current ?? 'unknown',
+      cognitive_load: cognitiveLoad,
+      active_profile: activeProfile,
+      override_active: activeProfile !== 'idle' && activeProfile !== '',
+    })
+    // Prune expired overlays on each heartbeat
+    try { if (policyManager?.pruneExpired) policyManager.pruneExpired() } catch (_) {}
+  }, 30_000)
+}
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 log('info', 'AEGIS sidecar starting', { version: VERSION, pid: process.pid })
 
-// Announce startup immediately
-writeEvent({
-  type: 'started',
-  version: VERSION,
-  pid: process.pid,
-  timestamp: new Date().toISOString(),
-})
+// ── MCP mode: if --mcp flag is present, start MCP stdio server ───────
+if (isMcpMode) {
+  log('info', 'MCP mode detected — starting MCP tool server')
+  initEngines().then(async () => {
+    const engines: McpEngines = {
+      contextEngine,
+      sniperEngine,
+      catalogManager,
+      loadEngine,
+      learningStore,
+      policyManager,
+    }
+    const { startMcpServer } = require('./mcp/server')
+    await startMcpServer(engines)
+    log('info', 'MCP server connected and ready')
+  }).catch((e) => {
+    log('error', 'MCP startup failed', { err: e.message })
+    process.exit(1)
+  })
+} else {
+  // ── Normal sidecar mode: JSON-RPC over stdin/stdout for Tauri ──────
 
-// Init engines async — don't block stdin
-initEngines().catch((e) => {
-  log('error', 'Engine init failed', { err: e.message })
-})
+  // Announce startup immediately
+  writeEvent({
+    type: 'started',
+    version: VERSION,
+    pid: process.pid,
+    timestamp: new Date().toISOString(),
+  })
+
+  // Init engines async — don't block stdin
+  initEngines().catch((e) => {
+    log('error', 'Engine init failed', { err: e.message })
+  })
+}
 
 // Graceful shutdown
 process.on('SIGTERM', () => { cleanup(); process.exit(0) })

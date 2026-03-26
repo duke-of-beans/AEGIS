@@ -15,11 +15,11 @@ Last Updated: 2026-03-25
   Sacred context weighting (10x), confidence relay to cockpit, periodic emission,
   getConfidenceScore() + recordActionOutcome() convenience APIs, computeLoad() with tiers.
 
-- [ ] AEGIS-MCP-02: Rich MCP publisher
-  Tools: get_cognitive_load, get_context, get_process_tree, get_snapshot,
-  apply_policy_overlay, get_runaways, get_action_log, get_session_summary.
-  GREGORE + GregLite integration protocols.
-  Depends on: AEGIS-LEARN-01
+- [x] ~~AEGIS-MCP-02: Rich MCP publisher~~ (shipped 2026-03-25)
+  8 tools: get_system_snapshot, get_cognitive_load, get_context, get_process_tree,
+  get_action_log, get_confidence, get_session_summary, apply_policy_overlay.
+  Stdio transport, --mcp flag. MCP_INTEGRATION.md with 3 integration paths
+  (Claude Desktop, GregLite, GREGORE).
 
 ## P2 — Polish
 

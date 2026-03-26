@@ -5,7 +5,7 @@
 
 # === V2 ARTIFACTS — THESE DO NOT BELONG IN THIS REPO ===
 # If you see these directories, read ARCHITECTURE.md immediately.
-src/
+/src/
 assets/
 scripts/
 installer/
@@ -43,4 +43,4 @@ src-tauri/target/
 
 # === TRANSIENT ===
 commit-msg.txt
-MORNING_BRIEFING.md
+# MORNING_BRIEFING.md is tracked — included in commits per session-close spec

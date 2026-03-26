@@ -1,5 +1,41 @@
 # AEGIS — CHANGELOG
 
+## [4.0.0] AEGIS-MCP-02 — 2026-03-25
+### Shipped — Rich MCP Publisher
+
+**Context**
+AEGIS intelligence is now queryable by any MCP client. Claude Desktop, GregLite, and
+GREGORE can ask AEGIS about machine state, cognitive load, context, sniper activity,
+and learning confidence — then make informed decisions about resource-intensive operations.
+
+**Added**
+- `sidecar/src/mcp/server.ts` — MCP tool server with 8 tools:
+  `get_system_snapshot`, `get_cognitive_load`, `get_context`, `get_process_tree`,
+  `get_action_log`, `get_confidence`, `get_session_summary`, `apply_policy_overlay`.
+  Uses `@modelcontextprotocol/sdk` McpServer + StdioServerTransport. All engines
+  (context, sniper, catalog, learning, cognitive load, policy) are injected at startup.
+- `sidecar/src/main.ts` — `--mcp` flag detection. When present, starts MCP stdio server
+  instead of normal Tauri JSON-RPC stdin loop. Engines initialize identically in both modes.
+  Stdin reader and heartbeat are conditional on non-MCP mode.
+- `MCP_INTEGRATION.md` — Integration guide with 3 paths: Claude Desktop (config JSON),
+  GregLite (client SDK spawn), GREGORE (intent signals + resource confirmation protocol).
+- `apply_policy_overlay` tool — MCP clients can push temporary policy overlays with
+  name, duration, domain, and description. Overlays auto-expire. Enables GREGORE to
+  announce intent ("reserving CPU for deployment") without overriding AEGIS authority.
+
+**Technical Notes**
+- MCP SDK Zod schema generics trigger TS2589 (deep type instantiation). Tools 5 and 8
+  use `(server as any).tool()` cast to bypass. Runtime behavior is identical.
+- Stdio transport: stdout is MCP protocol, stderr is engine logs. Clean channel separation.
+
+**Quality Gates**
+- `npx tsc --noEmit` (sidecar) — 0 errors ✅
+- MCP server starts via `node dist/main.js --mcp` — all 8 tools registered ✅
+- All engines initialize in MCP mode (context, sniper, baseline, catalog, learning, policy) ✅
+- `MCP_INTEGRATION.md` exists with Claude Desktop, GregLite, GREGORE paths ✅
+
+---
+
 ## [4.0.0] AEGIS-LEARN-01 — 2026-03-25
 ### Shipped — Learning Loop + Cognitive Load Score
 
