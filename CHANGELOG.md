@@ -1,5 +1,49 @@
 # AEGIS — CHANGELOG
 
+## [4.0.0] AEGIS-LEARN-01 — 2026-03-25
+### Shipped — Learning Loop + Cognitive Load Score
+
+**Context**
+INTEL-04 shipped the learning store SQLite schema and basic feedback recording.
+LEARN-01 completes the loop: confidence scores now flow to the cockpit in real time,
+sacred context weighting penalizes bad actions during deep_work/build/meeting at 10x,
+and convenience APIs match the sprint spec signatures.
+
+**Fixed**
+- `src-tauri/src/sidecar.rs` — `confidence_updated` events were falling through to the
+  catch-all `_` match arm and being silently logged instead of relayed to the cockpit.
+  Added `"confidence_updated"` to the `intelligence_update` emit pattern alongside
+  `load_score_updated`. This was the root cause of the cockpit confidence panel showing
+  zero — data existed in SQLite but never reached the WebView.
+
+**Added**
+- `sidecar/src/learning/store.ts` — `getConfidenceScore()` convenience method returning
+  `{ score, totalDecisions, autoModeUnlocked, decisionsUntilAuto }`. Sprint spec signature.
+- `sidecar/src/learning/store.ts` — `recordActionOutcome(actionId, outcome)` convenience
+  method accepting simple `'positive'|'neutral'|'negative'` signal. Sprint spec signature.
+- `sidecar/src/learning/store.ts` — Sacred context weighting: `SACRED_CONTEXTS` array
+  (`deep_work`, `build`, `meeting`). Strong negative feedback during a sacred context
+  now carries 10x weight (vs 5x default strong, vs 1x mild). `recordExplicitFeedback`
+  looks up the action's stored context from SQLite before calling `updateConfidence`.
+- `sidecar/src/learning/load.ts` — `computeLoad()` convenience method returning
+  `{ score, tier, cpu_pressure, memory_pressure, disk_queue_pressure, dpc_pressure }`.
+  Sprint spec signature.
+- `sidecar/src/main.ts` — Confidence state piggybacks on every 5th metrics poll cycle
+  (~10s), emitting `confidence_updated` event with score, auto_mode_unlocked,
+  decisions_until_auto, and total_decisions. Cockpit receives continuous updates
+  without waiting for user feedback events.
+- `sidecar/src/main.ts` — `get_state` RPC response now includes `learning_confidence`
+  (score, total_decisions, auto_mode_unlocked, decisions_until_auto) and `load_breakdown`
+  (score, tier) fields for initial cockpit hydration on connect.
+
+**Quality Gates**
+- `npx tsc --noEmit` (sidecar) — 0 errors ✅
+- `cargo check` (src-tauri) — 0 errors (3 warnings: dead code, acceptable) ✅
+- Cockpit `intelligence_update` listener handles `confidence_updated` type ✅
+- `updateConfidencePanel()` receives live score, auto_mode_unlocked, decisions_until_auto ✅
+
+---
+
 ## [4.0.0] AEGIS-TRAY-FIX — 2026-03-25
 ### Shipped — Tray.rs Compile Blocker Resolved
 

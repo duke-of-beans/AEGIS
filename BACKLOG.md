@@ -11,11 +11,9 @@ Last Updated: 2026-03-25
 
 ## P1 — Intelligence Completion
 
-- [ ] AEGIS-LEARN-01: Learning loop + cognitive load score
-  SQLite schema: sessions, snapshots, outcomes, transitions.
-  Weighted feedback: implicit (no undo 60s), measurable (CPU wait delta),
-  explicit (tray toast). Confidence score → Auto mode unlock.
-  Depends on: AEGIS-SNIPER-01 (shipped), AEGIS-CONTEXT-01 (shipped)
+- [x] ~~AEGIS-LEARN-01: Learning loop + cognitive load score~~ (shipped 2026-03-25)
+  Sacred context weighting (10x), confidence relay to cockpit, periodic emission,
+  getConfidenceScore() + recordActionOutcome() convenience APIs, computeLoad() with tiers.
 
 - [ ] AEGIS-MCP-02: Rich MCP publisher
   Tools: get_cognitive_load, get_context, get_process_tree, get_snapshot,

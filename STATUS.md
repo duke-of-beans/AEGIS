@@ -2,8 +2,8 @@
 # READ ARCHITECTURE.md BEFORE TOUCHING THIS PROJECT.
 
 **Status:** active
-**Phase:** v4.0 — Tauri app shell compiles, LEARN-01 next
-**Last Sprint:** AEGIS-TRAY-FIX (tray.rs blocker resolved)
+**Phase:** v4.0 — Tauri app shell compiles, MCP-02 next
+**Last Sprint:** AEGIS-LEARN-01 (learning loop + cognitive load)
 **Last Updated:** 2026-03-25
 
 ## Architecture
@@ -29,6 +29,7 @@ See ARCHITECTURE.md for the definitive reference.
 - [x] INTEL-02: cognitive load engine wired to cockpit (ae76492)
 - [x] INTEL-03: sniper engine with baseline fully operational (10fc32e)
 - [x] INTEL-04: learning store feedback loop operational (f75968c)
+- [x] LEARN-01: learning loop complete — sacred context weighting, confidence relay, periodic emission
 - [x] INTEL-05: context engine full integration (bf59ef7)
 - [x] INTEL-06: catalog wiring — constructor fix, cockpit counts (7dca86f)
 - [x] PROCS-01: process management with implications (685dd89)
@@ -46,7 +47,7 @@ See ARCHITECTURE.md for the definitive reference.
 
 ## Open Work
 
-- [ ] **[P1]** AEGIS-LEARN-01: Learning loop + cognitive load score (sidecar)
+- [x] ~~**[P1]** AEGIS-LEARN-01: Learning loop + cognitive load score~~ (shipped 2026-03-25)
 - [ ] **[P1]** AEGIS-MCP-02: Rich MCP publisher (sidecar)
 - [ ] **[P2]** AEGIS-UI-01: Command surface redesign (cockpit polish)
 - [ ] **[P2]** Full Tauri build + installer test (cargo build passes, need NSIS)

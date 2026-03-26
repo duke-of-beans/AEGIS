@@ -188,6 +188,7 @@ async function initEngines(): Promise<void> {
 // ── State ─────────────────────────────────────────────────────────────────────
 let activeProfile = 'idle'
 let cognitiveLoad = 0
+let metricsCount = 0
 
 // ── Stdout event writer ───────────────────────────────────────────────────────
 function writeEvent(payload: Record<string, unknown>): void {
@@ -239,6 +240,19 @@ function handleRequest(req: any): void {
           path: u.path,
           network_connections: u.network_connections,
         })) ?? [],
+        learning_confidence: learningStore ? (() => {
+          const state = learningStore.getConfidenceState()
+          return {
+            score: Math.round(state.confidence_score * 100),
+            total_decisions: state.total_decisions,
+            auto_mode_unlocked: state.auto_mode_unlocked,
+            decisions_until_auto: state.decisions_until_auto,
+          }
+        })() : null,
+        load_breakdown: loadEngine ? {
+          score: loadEngine.getScore(),
+          tier: loadEngine.getScore() < 40 ? 'green' : loadEngine.getScore() < 70 ? 'amber' : 'red',
+        } : null,
       })
       break
     }
@@ -269,6 +283,20 @@ function handleRequest(req: any): void {
           tier: score < 40 ? 'green' : score < 70 ? 'amber' : 'red',
           timestamp: new Date().toISOString(),
         })
+        // Piggyback confidence state on every 5th metrics cycle (~10s)
+        // so cockpit always has a recent reading
+        if (learningStore && (metricsCount % 5 === 0)) {
+          const state = learningStore.getConfidenceState()
+          writeEvent({
+            type: 'confidence_updated',
+            score: Math.round(state.confidence_score * 100),
+            auto_mode_unlocked: state.auto_mode_unlocked,
+            decisions_until_auto: state.decisions_until_auto,
+            total_decisions: state.total_decisions,
+            timestamp: new Date().toISOString(),
+          })
+        }
+        metricsCount++
         writeResponse(id, { ok: true, score })
       } else {
         writeResponse(id, { ok: true, score: 0 })

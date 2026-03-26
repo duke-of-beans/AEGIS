@@ -77,6 +77,9 @@ export interface ConfidenceState {
 const CONFIDENCE_THRESHOLD = 0.75
 const MIN_DECISIONS_FOR_AUTO = 30
 
+// Sacred contexts — strong negative feedback here is worth 10x a mild positive elsewhere
+const SACRED_CONTEXTS: string[] = ['deep_work', 'build', 'meeting']
+
 // ============================================================
 // LearningStore
 // ============================================================
@@ -261,8 +264,23 @@ export class LearningStore {
         feedback_at = datetime('now')
       WHERE id = ?
     `).run(signal, intensity, actionId)
-    this.updateConfidence(signal, intensity)
-    this.logger.info('Explicit feedback recorded', { actionId, signal, intensity })
+    // Look up the action's context to apply sacred context weighting
+    const actionRow = this.db.prepare(
+      'SELECT context FROM action_outcomes WHERE id = ?'
+    ).get(actionId) as { context: string } | undefined
+    const context = actionRow?.context ?? 'unknown'
+    this.updateConfidence(signal, intensity, context)
+    this.logger.info('Explicit feedback recorded', { actionId, signal, intensity, context })
+  }
+
+  // Convenience method: record a simple outcome for an action (used by external callers)
+  recordActionOutcome(actionId: string, outcome: FeedbackSignal): void {
+    if (outcome === 'positive' || outcome === 'neutral') {
+      this.updateActionOutcome(actionId, 0, 0, null)
+    } else {
+      // Negative outcome via simple API treated as mild explicit rejection
+      this.recordExplicitFeedback(actionId, 'negative', 'mild')
+    }
   }
 
   // ── Cognitive load samples ─────────────────────────────
@@ -294,6 +312,17 @@ export class LearningStore {
 
   // ── Confidence state ───────────────────────────────────
 
+  // Convenience method matching sprint spec signature
+  getConfidenceScore(): { score: number; totalDecisions: number; autoModeUnlocked: boolean; decisionsUntilAuto: number | null } {
+    const state = this.getConfidenceState()
+    return {
+      score: Math.round(state.confidence_score * 100),
+      totalDecisions: state.total_decisions,
+      autoModeUnlocked: state.auto_mode_unlocked,
+      decisionsUntilAuto: state.decisions_until_auto,
+    }
+  }
+
   getConfidenceState(): ConfidenceState {
     const row = this.db.prepare('SELECT * FROM confidence_state WHERE id = 1')
       .get() as ConfidenceRow
@@ -311,11 +340,15 @@ export class LearningStore {
     }
   }
 
-  private updateConfidence(signal: FeedbackSignal, intensity: FeedbackIntensity): void {
+  private updateConfidence(signal: FeedbackSignal, intensity: FeedbackIntensity, context?: string): void {
     const row = this.db.prepare('SELECT * FROM confidence_state WHERE id = 1')
       .get() as ConfidenceRow
 
-    const weight = intensity === 'strong' ? 5 : 1
+    // Sacred context weighting: strong negative during sacred context = 10x a mild positive
+    const isSacred = context !== undefined && SACRED_CONTEXTS.includes(context)
+    const weight = (signal === 'negative' && intensity === 'strong' && isSacred)
+      ? 10
+      : (intensity === 'strong' ? 5 : 1)
     let approvals = row.approvals
     let rejections = row.rejections
     let strongRejections = row.strong_rejections

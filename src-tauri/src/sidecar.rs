@@ -120,7 +120,7 @@ fn handle_sidecar_line<R: Runtime>(app: &AppHandle<R>, line: &str) {
                     let _ = app.emit("intelligence_update", &json);
                     log::debug!("Context changed: {}", json);
                 }
-                "load_score_updated" => {
+                "load_score_updated" | "confidence_updated" => {
                     let _ = app.emit("intelligence_update", &json);
                 }
                 "sniper_action_requested" => {

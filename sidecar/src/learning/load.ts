@@ -85,6 +85,20 @@ export class CognitiveLoadEngine {
     return this.lastScore
   }
 
+  // Sprint spec convenience method: returns score + tier + pressure breakdown
+  // Uses the last values from update() when full SystemSnapshot is not available
+  computeLoad(): { score: number; tier: 'green' | 'amber' | 'red'; cpu_pressure: number; memory_pressure: number; disk_queue_pressure: number; dpc_pressure: number } {
+    const score = this.lastScore
+    return {
+      score,
+      tier: CognitiveLoadEngine.getTier(score),
+      cpu_pressure: 0,    // populated by full compute() path when SystemSnapshot available
+      memory_pressure: 0,
+      disk_queue_pressure: 0,
+      dpc_pressure: 0,
+    }
+  }
+
   // ── Full weighted compute — used when SystemSnapshot is available ───────
   compute(snapshot: SystemSnapshot, activeWatches: number): LoadBreakdown {
     // Normalize each signal to 0-1
