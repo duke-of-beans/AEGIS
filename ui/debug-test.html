@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<body style="background:#06080f;color:#00e5ff;font-family:monospace;padding:20px">
+<h1>AEGIS DEBUG</h1>
+<div id="status">Checking __TAURI__...</div>
+<div id="events" style="margin-top:20px"></div>
+<script>
+var statusEl = document.getElementById('status');
+var eventsEl = document.getElementById('events');
+var count = 0;
+
+// Check for Tauri
+function checkTauri() {
+    if (window.__TAURI__ && window.__TAURI__.core) {
+        statusEl.textContent = 'TAURI FOUND: core.invoke = ' + typeof window.__TAURI__.core.invoke;
+        
+        // Try listening for metrics
+        window.__TAURI__.event.listen('metrics', function(event) {
+            count++;
+            var m = event.payload;
+            eventsEl.innerHTML = '<div>EVENT #' + count + ': cpu=' + (m.cpu ? m.cpu.percent : '?') + '% mem=' + (m.memory ? m.memory.used_mb : '?') + 'MB procs=' + (m.processes ? m.processes.length : '?') + '</div>' + eventsEl.innerHTML;
+        });
+        
+        // Also try invoke
+        window.__TAURI__.core.invoke('get_latest_metrics').then(function(m) {
+            eventsEl.innerHTML = '<div style="color:#4ade80">INVOKE OK: ' + JSON.stringify(m).substring(0, 200) + '</div>' + eventsEl.innerHTML;
+        }).catch(function(e) {
+            eventsEl.innerHTML = '<div style="color:#ff4757">INVOKE FAIL: ' + e + '</div>' + eventsEl.innerHTML;
+        });
+        
+    } else if (window.__TAURI__) {
+        statusEl.textContent = 'TAURI PARTIAL: ' + JSON.stringify(Object.keys(window.__TAURI__));
+    } else {
+        statusEl.textContent = 'NO __TAURI__ FOUND';
+    }
+}
+
+// Try immediately and after delays
+checkTauri();
+setTimeout(checkTauri, 500);
+setTimeout(checkTauri, 1000);
+setTimeout(checkTauri, 2000);
+</script>
+</body>
+</html>
