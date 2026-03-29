@@ -1,16 +1,18 @@
 // disk_io.rs — Per-drive disk I/O via WMI
 // Queries Win32_PerfFormattedData_PerfDisk_LogicalDisk for read/write bytes per second.
-// Works without elevation. Returns empty map on any WMI error — never panics.
+// Works without elevation.
 //
-// Returned HashMap key: uppercase drive letter without colon (e.g. "C", "D")
-// Returned HashMap value: (read_bytes_sec, write_bytes_sec)
+// KEY FIX: WMI/COM requires a dedicated thread with proper apartment state.
+// Calling from async tokio tasks causes COM init failures.
+// We run the query in a std::thread and cache the result behind a Mutex.
+// The metrics poller calls get_disk_io() which returns the cached value instantly.
+// A background thread refreshes the cache every 2 seconds.
+// On failure we keep the last good value — no permanent disable.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Mutex, OnceLock};
+use std::time::Duration;
 use serde::Deserialize;
-
-/// Once WMI fails, stop retrying to avoid log spam (30x/min).
-static WMI_DISABLED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Deserialize)]
 #[allow(non_snake_case)]
@@ -20,21 +22,34 @@ struct DiskPerfData {
     DiskWriteBytesPersec: u64,
 }
 
-/// Query WMI for per-drive I/O rates.
-/// Returns an empty map on any error — caller treats missing entries as 0.
-pub fn get_disk_io() -> HashMap<String, (u64, u64)> {
-    // If WMI previously failed, return empty immediately — no log spam
-    if WMI_DISABLED.load(Ordering::Relaxed) {
-        return HashMap::new();
-    }
-    match query_wmi() {
-        Ok(map) => map,
-        Err(e) => {
-            log::warn!("[disk_io] WMI query failed: {} — disabling disk I/O polling", e);
-            WMI_DISABLED.store(true, Ordering::Relaxed);
-            HashMap::new()
+static IO_CACHE: OnceLock<Mutex<HashMap<String, (u64, u64)>>> = OnceLock::new();
+
+fn cache() -> &'static Mutex<HashMap<String, (u64, u64)>> {
+    IO_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Start a background thread that refreshes disk I/O every 2 seconds.
+/// Call once at startup from main.rs.
+pub fn start_disk_io_thread() {
+    std::thread::spawn(|| {
+        loop {
+            match query_wmi() {
+                Ok(map) => {
+                    *cache().lock().unwrap() = map;
+                }
+                Err(e) => {
+                    log::debug!("[disk_io] WMI query failed: {}", e);
+                    // Keep last good value — don't wipe the cache on failure
+                }
+            }
+            std::thread::sleep(Duration::from_secs(2));
         }
-    }
+    });
+}
+
+/// Return the latest cached I/O map. Always instant — never blocks on WMI.
+pub fn get_disk_io() -> HashMap<String, (u64, u64)> {
+    cache().lock().unwrap().clone()
 }
 
 fn query_wmi() -> Result<HashMap<String, (u64, u64)>, Box<dyn std::error::Error>> {
@@ -55,12 +70,19 @@ fn query_wmi() -> Result<HashMap<String, (u64, u64)>, Box<dyn std::error::Error>
         }
 
         // Normalise: "C:" -> "C", "c:" -> "C", bare "C" -> "C"
-        let drive_letter = name
-            .trim_end_matches(':')
-            .to_uppercase();
+        let drive_letter = name.trim_end_matches(':').to_uppercase();
 
-        if drive_letter.len() == 1 && drive_letter.chars().next().map(|c| c.is_ascii_alphabetic()).unwrap_or(false) {
-            map.insert(drive_letter, (entry.DiskReadBytesPersec, entry.DiskWriteBytesPersec));
+        if drive_letter.len() == 1
+            && drive_letter
+                .chars()
+                .next()
+                .map(|c| c.is_ascii_alphabetic())
+                .unwrap_or(false)
+        {
+            map.insert(
+                drive_letter,
+                (entry.DiskReadBytesPersec, entry.DiskWriteBytesPersec),
+            );
         }
     }
 

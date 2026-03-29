@@ -50,6 +50,9 @@ fn main() {
                 });
             }
 
+            // Start disk I/O background thread (WMI needs a dedicated non-async thread)
+            disk_io::start_disk_io_thread();
+
             // Start metrics polling — emits "metrics" events to cockpit every 2s
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
