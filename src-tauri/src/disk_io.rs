@@ -1,20 +1,19 @@
 // disk_io.rs — Per-drive disk I/O via WMI
-// Queries Win32_PerfFormattedData_PerfDisk_LogicalDisk for read/write bytes per second.
-// Works without elevation.
+// Uses Win32_PerfFormattedData_PerfDisk_PhysicalDisk (not LogicalDisk).
+// LogicalDisk counters are disabled by default on many Windows machines and return zeros.
+// PhysicalDisk counters are always active.
 //
-// KEY FIX: WMI/COM requires a dedicated thread with proper apartment state.
-// Calling from async tokio tasks causes COM init failures.
-// We run the query in a std::thread and cache the result behind a Mutex.
-// The metrics poller calls get_disk_io() which returns the cached value instantly.
-// A background thread refreshes the cache every 2 seconds.
-// On failure we keep the last good value — no permanent disable.
+// PhysicalDisk Name format: "0 C:" or "0 C: D:" (multi-partition)
+// We extract all drive letters from the name string.
+//
+// Runs on a dedicated std::thread — WMI/COM requires non-async thread apartment.
 
 use std::collections::HashMap;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{OnceLock, Mutex};
 use std::time::Duration;
 use serde::Deserialize;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 #[allow(non_snake_case)]
 struct DiskPerfData {
     Name: String,
@@ -29,17 +28,18 @@ fn cache() -> &'static Mutex<HashMap<String, (u64, u64)>> {
 }
 
 /// Start a background thread that refreshes disk I/O every 2 seconds.
-/// Call once at startup from main.rs.
+/// Call once at startup from main.rs before the async runtime starts.
 pub fn start_disk_io_thread() {
     std::thread::spawn(|| {
         loop {
             match query_wmi() {
                 Ok(map) => {
-                    *cache().lock().unwrap() = map;
+                    if !map.is_empty() {
+                        *cache().lock().unwrap() = map;
+                    }
                 }
                 Err(e) => {
-                    log::debug!("[disk_io] WMI query failed: {}", e);
-                    // Keep last good value — don't wipe the cache on failure
+                    log::debug!("[disk_io] WMI PhysicalDisk query failed: {}", e);
                 }
             }
             std::thread::sleep(Duration::from_secs(2));
@@ -58,31 +58,31 @@ fn query_wmi() -> Result<HashMap<String, (u64, u64)>, Box<dyn std::error::Error>
     let com_lib = COMLibrary::without_security()?;
     let wmi_con = WMIConnection::new(com_lib)?;
 
-    let results: Vec<DiskPerfData> = wmi_con.query()?;
+    // PhysicalDisk — always active, unlike LogicalDisk which needs manual enabling
+    let results: Vec<DiskPerfData> = wmi_con.raw_query(
+        "SELECT Name, DiskReadBytesPersec, DiskWriteBytesPersec FROM Win32_PerfFormattedData_PerfDisk_PhysicalDisk"
+    )?;
 
     let mut map = HashMap::new();
+
     for entry in results {
         let name = entry.Name.trim().to_string();
-
-        // Skip aggregate "_Total" and non-drive-letter entries
-        if name == "_Total" || name.contains("HarddiskVolume") || name.is_empty() {
+        if name == "_Total" || name.is_empty() {
             continue;
         }
 
-        // Normalise: "C:" -> "C", "c:" -> "C", bare "C" -> "C"
-        let drive_letter = name.trim_end_matches(':').to_uppercase();
-
-        if drive_letter.len() == 1
-            && drive_letter
-                .chars()
-                .next()
-                .map(|c| c.is_ascii_alphabetic())
-                .unwrap_or(false)
-        {
-            map.insert(
-                drive_letter,
-                (entry.DiskReadBytesPersec, entry.DiskWriteBytesPersec),
-            );
+        // Name format: "0 D:" or "0 C: D:" (multiple partitions on one physical disk)
+        // Extract all drive letters and map each to the same I/O values.
+        for part in name.split_whitespace() {
+            let letter = part.trim_end_matches(':').to_uppercase();
+            if letter.len() == 1
+                && letter.chars().next().map(|c| c.is_ascii_alphabetic()).unwrap_or(false)
+            {
+                map.insert(
+                    letter,
+                    (entry.DiskReadBytesPersec, entry.DiskWriteBytesPersec),
+                );
+            }
         }
     }
 
