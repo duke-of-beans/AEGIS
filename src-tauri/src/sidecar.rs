@@ -128,7 +128,9 @@ fn handle_sidecar_line<R: Runtime>(app: &AppHandle<R>, line: &str) {
                     handle_sniper_request(app, &json);
                 }
                 "heartbeat" => {
-                    log::debug!("Sidecar heartbeat");
+                    // Forward heartbeat data to cockpit as intelligence_update
+                    let _ = app.emit("intelligence_update", &json);
+                    log::debug!("Sidecar heartbeat forwarded");
                 }
                 "context_locked" | "context_lock_released" | "policies_updated" => {
                     let _ = app.emit("intelligence_update", &json);

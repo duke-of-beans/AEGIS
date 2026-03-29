@@ -3,201 +3,225 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AEGIS</title>
+<title>AEGIS — Cognitive Resource OS</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 :root {
-  --bg:#06080f; --bg2:#0d1120; --bg3:#111827; --bg4:#0a0f1e;
-  --accent:#00e5ff; --accent-dim:#0088aa; --accent-glow:rgba(0,229,255,.15);
-  --amber:#ffbb00; --amber-dim:#aa7700; --red:#ff4757; --green:#4ade80;
-  --green-dim:#22c55e; --purple:#a78bfa; --orange:#fb923c;
-  --white:#dce6f0; --mid:#7a8fa8; --dim:#445566; --dimmer:#1a2235;
-  --border:#1c2840; --border2:#243050;
-  --font:'JetBrains Mono',Consolas,monospace;
+  --bg:    #0c0c0c;
+  --bg2:   #141414;
+  --bg3:   #1a1a1a;
+  --bg4:   #111111;
+  --border:#2a2a2a;
+  --border2:#333333;
+  --white: #e2e2e2;
+  --mid:   #888888;
+  --dim:   #555555;
+  --dimmer:#222222;
+  /* Data colors — one per resource type, no glow */
+  --cpu:   #3b9ddd;
+  --mem:   #9b72cb;
+  --disk:  #4db6ac;
+  --net:   #7cb342;
+  --load:  #e8a838;
+  --red:   #e05252;
+  --green: #5dbb6e;
+  --amber: #e8a838;
+  --font-ui:'Segoe UI',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',Consolas,monospace;
 }
 [data-theme="light"] {
-  --bg:#f0f4f8; --bg2:#e2eaf4; --bg3:#d8e4f0; --bg4:#eaf0f8;
-  --accent:#0077aa; --accent-dim:#005588; --accent-glow:rgba(0,119,170,.12);
-  --white:#0d1120; --mid:#445566; --dim:#7a8fa8; --dimmer:#c5d5e8;
-  --border:#b0c8e0; --border2:#9ab8d4;
+  --bg:#f5f5f5; --bg2:#ebebeb; --bg3:#e0e0e0; --bg4:#f0f0f0;
+  --border:#cccccc; --border2:#bbbbbb;
+  --white:#1a1a1a; --mid:#555555; --dim:#888888; --dimmer:#d5d5d5;
 }
-* { box-sizing:border-box; margin:0; padding:0; }
-html,body { height:100vh; overflow:hidden; background:var(--bg); color:var(--white);
-  font-family:var(--font); font-size:13px; line-height:1.4; }
-button { font-family:var(--font); cursor:pointer; }
-#app { display:flex; flex-direction:column; height:100vh; }
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100vh;overflow:hidden;background:var(--bg);color:var(--white);font-family:var(--font-ui);font-size:13px;line-height:1.4;}
+button,input{font-family:var(--font-ui);}
+code,pre,.mono{font-family:var(--font-mono);}
+#app{display:flex;flex-direction:column;height:100vh;}
 
 /* ── HEADER ── */
-#hdr {
-  flex-shrink:0; height:48px; display:flex; align-items:center;
-  background:var(--bg2); border-bottom:2px solid var(--border); padding:0 14px; gap:12px;
-}
-.hdr-brand { display:flex; flex-direction:column; gap:0; }
-.hdr-title { color:var(--accent); font-size:15px; font-weight:700; letter-spacing:.1em; }
-.hdr-sub { color:var(--dim); font-size:9px; letter-spacing:.18em; text-transform:uppercase; }
-.hdr-pill {
-  font-size:10px; padding:2px 9px; border:1px solid var(--border); color:var(--mid);
-  letter-spacing:.05em; text-transform:uppercase; cursor:default;
-}
-.hdr-pill.active { border-color:var(--accent-dim); color:var(--accent); background:var(--accent-glow); }
-.hdr-pill.warn { border-color:var(--amber-dim); color:var(--amber); }
-.hdr-pill.err { border-color:var(--red); color:var(--red); }
-.hdr-spacer { flex:1; }
-#hdr-load { font-size:10px; color:var(--mid); }
-#btn-theme {
-  background:none; border:1px solid var(--border); color:var(--mid);
-  padding:3px 10px; font-size:10px; letter-spacing:.06em;
-}
-#btn-theme:hover { border-color:var(--accent-dim); color:var(--accent); }
+#hdr{flex-shrink:0;height:42px;display:flex;align-items:center;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 12px;gap:8px;}
+.hdr-brand{display:flex;align-items:baseline;gap:7px;}
+.hdr-title{color:var(--white);font-size:14px;font-weight:600;letter-spacing:.02em;}
+.hdr-sub{color:var(--dim);font-size:10px;letter-spacing:.08em;text-transform:uppercase;}
+.hdr-spacer{flex:1;}
+#hdr-status{font-size:11px;color:var(--mid);mono;font-family:var(--font-mono);}
+#btn-theme{background:none;border:1px solid var(--border);color:var(--mid);padding:2px 8px;font-size:10px;cursor:pointer;letter-spacing:.04em;}
+#btn-theme:hover{color:var(--white);border-color:var(--border2);}
 
-/* ── LAYOUT ── */
-#main { flex:1; display:grid; grid-template-columns:160px 1fr 240px; overflow:hidden; }
-#nav { border-right:1px solid var(--border); overflow-y:auto; background:var(--bg2); }
-#center { display:flex; flex-direction:column; overflow:hidden; }
-#rpanel { border-left:1px solid var(--border); overflow-y:auto; background:var(--bg2); padding:10px 12px; }
+/* ── TOOLTIP ── */
+#tip{position:fixed;z-index:9999;background:#1e1e1e;border:1px solid #3a3a3a;color:#ddd;font-size:11px;font-family:var(--font-ui);padding:5px 9px;max-width:210px;line-height:1.5;pointer-events:none;opacity:0;transition:opacity .1s;}
+#tip.show{opacity:1;}
 
-/* ── NAV CARDS ── */
-.nc {
-  padding:10px 12px; border-bottom:1px solid var(--border); cursor:pointer;
-  transition:background .1s; user-select:none; position:relative;
-}
-.nc:hover { background:rgba(255,255,255,.03); }
-.nc.active { background:var(--accent-glow); border-left:2px solid var(--accent); }
-.nc-label { font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); font-weight:500; }
-.nc-val { font-size:22px; font-weight:700; color:var(--white); margin-top:1px; line-height:1; }
-.nc-sub { font-size:10px; color:var(--dim); margin-top:2px; }
-.nc-spark { width:100%; height:24px; display:block; margin-top:6px; }
+/* ── TOAST ── */
+#toast-container{position:fixed;bottom:30px;right:12px;z-index:8888;display:flex;flex-direction:column;gap:6px;pointer-events:none;}
+.toast{background:var(--bg3);border:1px solid var(--border2);border-left:3px solid var(--amber);padding:8px 12px;font-size:11px;max-width:280px;opacity:0;transform:translateX(10px);transition:all .2s;}
+.toast.show{opacity:1;transform:translateX(0);}
+.toast.action{border-left-color:var(--cpu);}
+.toast.warn{border-left-color:var(--red);}
+.toast-title{font-weight:600;color:var(--white);margin-bottom:2px;}
+.toast-body{color:var(--mid);}
 
-/* ── TABS ── */
-#tabs {
-  flex-shrink:0; display:flex; border-bottom:1px solid var(--border);
-  background:var(--bg2); padding:0 16px; gap:0;
-}
-.tab {
-  padding:8px 16px; font-size:10px; letter-spacing:.1em; text-transform:uppercase;
-  color:var(--dim); cursor:pointer; border-bottom:2px solid transparent;
-  transition:all .15s; background:none; border-top:none; border-left:none; border-right:none;
-  font-family:var(--font);
-}
-.tab:hover { color:var(--mid); }
-.tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+/* ── MAIN LAYOUT ── */
+#main{flex:1;display:grid;grid-template-columns:180px 1fr 220px;overflow:hidden;}
 
-/* ── CONTENT PANELS ── */
-.panel { flex:1; overflow-y:auto; display:none; }
-.panel.active { display:flex; flex-direction:column; }
+/* ── LEFT NAV ── */
+#nav{border-right:1px solid var(--border);overflow-y:auto;background:var(--bg2);}
+.nav-section{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding:10px 12px 4px;font-weight:600;}
+.nav-item{padding:8px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;user-select:none;display:flex;flex-direction:column;gap:2px;}
+.nav-item:hover{background:rgba(255,255,255,.03);}
+.nav-item.active{background:rgba(255,255,255,.05);border-left:2px solid var(--cpu);padding-left:10px;}
+.nav-item.active.mem-nav{border-left-color:var(--mem);}
+.nav-item.active.disk-nav{border-left-color:var(--disk);}
+.nav-item.active.net-nav{border-left-color:var(--net);}
+.nav-item.active.intel-nav{border-left-color:var(--amber);}
+.ni-top{display:flex;justify-content:space-between;align-items:baseline;}
+.ni-label{font-size:10px;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;}
+.ni-val{font-size:13px;font-weight:600;color:var(--white);font-family:var(--font-mono);}
+.ni-sub{font-size:10px;color:var(--dim);}
+.ni-spark{width:100%;height:18px;display:block;margin-top:4px;}
 
-/* ── PERFORMANCE GRAPHS ── */
-#perf-grid {
-  display:grid; grid-template-columns:1fr 1fr; gap:1px;
-  background:var(--border); flex:1;
-}
-.perf-cell { background:var(--bg4); padding:12px 14px; display:flex; flex-direction:column; gap:6px; }
-.perf-hdr { display:flex; justify-content:space-between; align-items:baseline; }
-.perf-name { font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); }
-.perf-val { font-size:20px; font-weight:700; }
-.perf-val.cpu-col { color:var(--accent); }
-.perf-val.mem-col { color:var(--amber); }
-.perf-val.disk-col { color:var(--green); }
-.perf-val.net-col { color:var(--purple); }
-.perf-canvas { width:100%; flex:1; min-height:80px; display:block; }
-.perf-meta { display:flex; gap:16px; flex-wrap:wrap; }
-.perf-kv { font-size:10px; }
-.perf-kv-label { color:var(--dim); }
-.perf-kv-val { color:var(--white); }
+/* ── CENTER PANEL ── */
+#center{display:flex;flex-direction:column;overflow:hidden;}
+.panel{flex:1;overflow-y:auto;display:none;flex-direction:column;}
+.panel.active{display:flex;}
 
-/* ── PROCESS TABLE ── */
-#proc-panel { flex:1; overflow:hidden; display:none; flex-direction:column; }
-#proc-panel.active { display:flex; }
-#proc-search-bar { padding:8px 14px; border-bottom:1px solid var(--border); display:flex; gap:8px; align-items:center; }
-#proc-search { background:var(--dimmer); border:1px solid var(--border); color:var(--white);
-  font-family:var(--font); font-size:11px; padding:4px 10px; flex:1; outline:none; }
-#proc-search:focus { border-color:var(--accent-dim); }
-#proc-table-wrap { flex:1; overflow-y:auto; }
-table { width:100%; border-collapse:collapse; }
-thead tr { background:var(--bg2); position:sticky; top:0; z-index:10; }
-th {
-  padding:7px 10px; text-align:left; font-size:9px; letter-spacing:.1em;
-  text-transform:uppercase; color:var(--dim); font-weight:500; white-space:nowrap;
-  border-bottom:1px solid var(--border); cursor:pointer; user-select:none;
-}
-th:hover { color:var(--mid); }
-th.sort-asc::after { content:" ↑"; color:var(--accent); }
-th.sort-desc::after { content:" ↓"; color:var(--accent); }
-td { padding:4px 10px; border-bottom:1px solid var(--border); font-size:11px; vertical-align:middle; }
-tr:hover td { background:rgba(0,229,255,.04); }
-.td-name { max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.td-bar-cell { width:80px; }
-.bar-wrap { height:5px; background:var(--dimmer); border-radius:2px; }
-.bar { height:100%; border-radius:2px; transition:width .4s; }
-.bar.cpu { background:var(--accent); }
-.bar.mem { background:var(--amber); }
-.td-num { text-align:right; font-variant-numeric:tabular-nums; color:var(--mid); }
-.td-num.hot { color:var(--accent); font-weight:500; }
-.td-actions { white-space:nowrap; }
-.act-btn {
-  background:none; border:1px solid var(--border2); color:var(--dim);
-  font-size:9px; padding:2px 7px; letter-spacing:.06em; font-family:var(--font);
-  margin-right:3px;
-}
-.act-btn:hover { border-color:var(--accent-dim); color:var(--accent); }
-.act-btn.danger:hover { border-color:var(--red); color:var(--red); }
+/* Detail header */
+.detail-hdr{flex-shrink:0;padding:14px 18px 10px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:baseline;}
+.detail-title{font-size:13px;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;}
+.detail-val{font-size:28px;font-weight:300;font-family:var(--font-mono);}
+.detail-val.cpu-col{color:var(--cpu);}
+.detail-val.mem-col{color:var(--mem);}
+.detail-val.disk-col{color:var(--disk);}
+.detail-val.net-col{color:var(--net);}
 
-/* ── INTELLIGENCE PANEL ── */
-.intel-section { padding:12px 16px; border-bottom:1px solid var(--border); }
-.intel-title { font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); margin-bottom:8px; }
-.load-score { font-size:36px; font-weight:700; }
-.load-tier { font-size:10px; color:var(--mid); letter-spacing:.08em; text-transform:uppercase; }
-.conf-bar-wrap { height:6px; background:var(--dimmer); border-radius:3px; margin:6px 0; }
-.conf-bar { height:100%; border-radius:3px; background:var(--green); transition:width .5s; }
-.action-log { display:flex; flex-direction:column; gap:4px; max-height:200px; overflow-y:auto; }
-.al-row { display:flex; gap:8px; font-size:10px; padding:4px 0; border-bottom:1px solid var(--border); }
-.al-ts { color:var(--dim); flex-shrink:0; }
-.al-action { color:var(--amber); flex-shrink:0; text-transform:uppercase; font-size:9px; }
-.al-action.kill { color:var(--red); }
-.al-action.throttle { color:var(--accent); }
-.al-name { flex:1; color:var(--white); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.al-outcome { color:var(--green); flex-shrink:0; }
-.al-outcome.fail { color:var(--red); }
-.catalog-row { display:flex; justify-content:space-between; font-size:11px; padding:3px 0; }
-.cat-known { color:var(--green); }
-.cat-unknown { color:var(--amber); }
-.cat-suspicious { color:var(--red); }
-.no-data { color:var(--dim); font-size:10px; font-style:italic; }
+/* Big graph */
+.graph-wrap{flex-shrink:0;padding:12px 18px;border-bottom:1px solid var(--border);}
+.graph-canvas{width:100%;height:130px;display:block;}
+.graph-time{display:flex;justify-content:space-between;font-size:9px;color:var(--dim);margin-top:3px;font-family:var(--font-mono);}
 
-/* ── RIGHT PANEL ── */
-.rp-sec { font-size:9px; letter-spacing:.12em; text-transform:uppercase;
-  color:var(--dim); margin:12px 0 5px; }
-.rp-row { display:flex; justify-content:space-between; font-size:11px; margin-bottom:3px; }
-.rp-label { color:var(--dim); }
-.rp-val { color:var(--white); font-weight:500; }
-.dot { width:7px; height:7px; border-radius:50%; display:inline-block; margin-right:5px; }
-.dot.green { background:var(--green); }
-.dot.amber { background:var(--amber); }
-.dot.red { background:var(--red); }
-.dot.dim { background:var(--dim); }
+/* Stat grid */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:1px;background:var(--border);border-top:1px solid var(--border);}
+.stat-cell{background:var(--bg);padding:10px 14px;}
+.stat-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin-bottom:3px;}
+.stat-val{font-size:18px;font-weight:500;font-family:var(--font-mono);color:var(--white);}
+.stat-sub{font-size:10px;color:var(--dim);margin-top:2px;}
 
-/* ── FOOTER ── */
-#ftr { flex-shrink:0; height:22px; display:flex; align-items:center; gap:14px;
-  padding:0 14px; border-top:1px solid var(--border); background:var(--bg2);
-  font-size:9px; color:var(--dim); letter-spacing:.05em; }
-#ftr-dot { color:var(--green); }
-#ftr-time { margin-left:auto; }
+/* Overview grid */
+#panel-overview .ov-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);flex:1;}
+.ov-cell{background:var(--bg4);padding:14px 16px;display:flex;flex-direction:column;gap:4px;}
+.ov-hdr{display:flex;justify-content:space-between;align-items:baseline;}
+.ov-label{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);}
+.ov-val{font-size:22px;font-weight:400;font-family:var(--font-mono);}
+.ov-val.cpu-col{color:var(--cpu);}
+.ov-val.mem-col{color:var(--mem);}
+.ov-val.disk-col{color:var(--disk);}
+.ov-val.net-col{color:var(--net);}
+.ov-canvas{width:100%;flex:1;min-height:90px;display:block;}
+.ov-meta{display:flex;gap:14px;flex-wrap:wrap;}
+.ov-kv{font-size:10px;color:var(--dim);}
+.ov-kv span{color:var(--mid);}
+
+/* Process panel */
+#proc-bar{flex-shrink:0;padding:6px 12px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;}
+#proc-search{background:var(--dimmer);border:1px solid var(--border);color:var(--white);font-family:var(--font-ui);font-size:11px;padding:3px 9px;flex:1;outline:none;}
+#proc-search:focus{border-color:#444;}
+#proc-count{font-size:10px;color:var(--dim);}
+#proc-wrap{flex:1;overflow-y:auto;}
+table{width:100%;border-collapse:collapse;}
+thead tr{background:var(--bg2);position:sticky;top:0;z-index:10;}
+th{padding:6px 10px;text-align:left;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);font-weight:500;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap;}
+th:hover{color:var(--mid);}
+th.sort-asc::after{content:" ↑";color:var(--cpu);}
+th.sort-desc::after{content:" ↓";color:var(--cpu);}
+td{padding:3px 10px;border-bottom:1px solid #1a1a1a;font-size:11px;vertical-align:middle;}
+tr:hover td{background:rgba(255,255,255,.025);}
+.td-name{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-mono);}
+.bar-cell{width:60px;}
+.bw{height:4px;background:var(--dimmer);border-radius:1px;}
+.bf{height:100%;border-radius:1px;}
+.bf.cpu-b{background:var(--cpu);}
+.bf.mem-b{background:var(--mem);}
+.td-n{text-align:right;font-family:var(--font-mono);color:var(--mid);}
+.td-n.hot{color:var(--cpu);}
+.td-actions{white-space:nowrap;}
+.ab{background:none;border:1px solid var(--border);color:var(--dim);font-size:9px;padding:2px 6px;cursor:pointer;margin-right:2px;}
+.ab:hover{border-color:#555;color:var(--white);}
+.ab.danger:hover{border-color:var(--red);color:var(--red);}
+
+/* RIGHT PANEL */
+#rpanel{border-left:1px solid var(--border);overflow-y:auto;background:var(--bg2);}
+.rp-block{padding:11px 13px;border-bottom:1px solid var(--border);}
+.rp-head{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:8px;font-weight:600;}
+
+/* Context block */
+.ctx-name{font-size:15px;font-weight:600;color:var(--white);margin-bottom:2px;text-transform:capitalize;}
+.ctx-sub{font-size:10px;color:var(--mid);}
+.conf-track{height:3px;background:var(--dimmer);border-radius:2px;margin:7px 0 3px;}
+.conf-fill{height:100%;border-radius:2px;background:var(--green);transition:width .5s;}
+
+/* Status statement */
+.aegis-status{font-size:12px;color:var(--white);font-weight:500;line-height:1.4;margin-bottom:4px;}
+.aegis-status.nominal{color:var(--green);}
+.aegis-status.managing{color:var(--amber);}
+.aegis-status.critical{color:var(--red);}
+.aegis-detail{font-size:10px;color:var(--dim);}
+
+/* Load */
+.load-num{font-size:28px;font-weight:400;font-family:var(--font-mono);color:var(--amber);line-height:1;}
+.load-tier{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin-top:2px;}
+
+/* Catalog */
+.cat-row{display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid #1c1c1c;}
+.c-k{color:var(--green);}
+.c-u{color:var(--amber);}
+.c-s{color:var(--red);}
+
+/* Action log */
+.al-list{display:flex;flex-direction:column;gap:2px;max-height:140px;overflow-y:auto;}
+.al-row{font-size:10px;padding:3px 0;border-bottom:1px solid #1c1c1c;display:grid;grid-template-columns:auto 1fr auto;gap:5px;align-items:baseline;}
+.al-ts{color:var(--dim);font-family:var(--font-mono);font-size:9px;}
+.al-name{color:var(--mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.al-out{font-size:9px;text-transform:uppercase;}
+.al-out.ok{color:var(--green);}
+.al-out.fail{color:var(--red);}
+.no-data{color:var(--dim);font-size:10px;font-style:italic;}
+
+/* System rows */
+.s-row{display:flex;justify-content:space-between;font-size:11px;padding:2px 0;}
+.s-lbl{color:var(--dim);}
+.s-val{font-family:var(--font-mono);color:var(--mid);}
+
+/* Status dots */
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:4px;flex-shrink:0;}
+.dot.g{background:var(--green);}
+.dot.a{background:var(--amber);}
+.dot.r{background:var(--red);}
+.dot.d{background:var(--dim);}
+.status-line{display:flex;align-items:center;font-size:11px;color:var(--mid);margin-bottom:3px;}
+
+/* FOOTER */
+#ftr{flex-shrink:0;height:20px;display:flex;align-items:center;gap:12px;padding:0 12px;border-top:1px solid var(--border);background:var(--bg2);font-size:9px;color:var(--dim);font-family:var(--font-mono);}
+#ftr-aegis{color:var(--dim);}
+#ftr-time{margin-left:auto;}
 </style>
 </head>
 <body>
 <div id="app">
 
+<div id="tip"></div>
+<div id="toast-container"></div>
+
 <!-- HEADER -->
 <div id="hdr">
   <div class="hdr-brand">
-    <div class="hdr-title">|AEGIS|</div>
-    <div class="hdr-sub">cognitive resource os</div>
+    <span class="hdr-title">AEGIS</span>
+    <span class="hdr-sub">Cognitive Resource OS</span>
   </div>
-  <span class="hdr-pill active" id="pill-native">NATIVE</span>
-  <span class="hdr-pill" id="pill-ctx">CTX: --</span>
   <span class="hdr-spacer"></span>
-  <span id="hdr-load" style="font-size:10px;color:var(--dim)">cpu=--% | events=0</span>
-  <button id="btn-theme" onclick="toggleTheme()">THEME</button>
+  <span id="hdr-status" class="mono">cpu=--% · mem=--% · events=0</span>
+  <button id="btn-theme">DARK</button>
 </div>
 
 <!-- MAIN -->
@@ -205,652 +229,738 @@ tr:hover td { background:rgba(0,229,255,.04); }
 
   <!-- NAV -->
   <div id="nav">
-    <div class="nc active" id="nc-perf" onclick="setTab('perf')">
-      <div class="nc-label">Performance</div>
-      <div class="nc-val" id="nav-cpu-val">--%</div>
-      <div class="nc-sub" id="nav-cpu-sub">cpu idle</div>
-      <canvas class="nc-spark" id="spark-cpu"></canvas>
+    <div class="nav-section">Resources</div>
+    <div class="nav-item active" data-panel="overview">
+      <div class="ni-top"><span class="ni-label">Overview</span></div>
+      <div class="ni-sub" id="nav-ov-sub">All systems</div>
     </div>
-    <div class="nc" id="nc-proc" onclick="setTab('proc')">
-      <div class="nc-label">Processes</div>
-      <div class="nc-val" id="nav-proc-val">--</div>
-      <div class="nc-sub">running</div>
+    <div class="nav-item" data-panel="cpu"
+      data-tip="CPU utilization over time. High sustained usage means programs are competing for processing power.">
+      <div class="ni-top"><span class="ni-label">CPU</span><span class="ni-val cpu-col" id="nav-cpu-val">--%</span></div>
+      <div class="ni-sub" id="nav-cpu-sub">—</div>
+      <canvas class="ni-spark" id="spark-cpu" height="18"></canvas>
     </div>
-    <div class="nc" id="nc-intel" onclick="setTab('intel')">
-      <div class="nc-label">Intelligence</div>
-      <div class="nc-val" id="nav-load-val">--</div>
-      <div class="nc-sub" id="nav-load-sub">cognitive load</div>
+    <div class="nav-item mem-nav" data-panel="mem"
+      data-tip="RAM in use. When this gets high, Windows starts swapping to disk which slows everything down.">
+      <div class="ni-top"><span class="ni-label">Memory</span><span class="ni-val mem-col" id="nav-mem-val">--%</span></div>
+      <div class="ni-sub" id="nav-mem-sub">—</div>
+      <canvas class="ni-spark" id="spark-mem" height="18"></canvas>
     </div>
-    <div class="nc" id="nc-disk" onclick="setTab('disk')">
-      <div class="nc-label">Disk</div>
-      <div class="nc-val" id="nav-disk-val">--</div>
-      <div class="nc-sub">drives</div>
-    </div>
-    <div class="nc" id="nc-net" onclick="setTab('net')">
-      <div class="nc-label">Network</div>
-      <div class="nc-val" id="nav-net-val">--</div>
-      <div class="nc-sub">adapters</div>
+    <div id="nav-disks"></div>
+    <div id="nav-nets"></div>
+    <div class="nav-section">Intelligence</div>
+    <div class="nav-item intel-nav" data-panel="proc"
+      data-tip="Every running process, sortable by CPU or memory usage. AEGIS monitors all of these.">
+      <div class="ni-top"><span class="ni-label">Processes</span><span class="ni-val" id="nav-proc-val">--</span></div>
+      <div class="ni-sub" id="nav-proc-sub">running</div>
     </div>
   </div>
 
   <!-- CENTER -->
   <div id="center">
-    <div id="tabs">
-      <button class="tab active" id="tab-perf" onclick="setTab('perf')">Performance</button>
-      <button class="tab" id="tab-proc" onclick="setTab('proc')">Processes</button>
-      <button class="tab" id="tab-intel" onclick="setTab('intel')">Intelligence</button>
-      <button class="tab" id="tab-disk" onclick="setTab('disk')">Disk</button>
-      <button class="tab" id="tab-net" onclick="setTab('net')">Network</button>
-    </div>
 
-    <!-- PERFORMANCE PANEL -->
-    <div class="panel active" id="panel-perf">
-      <div id="perf-grid">
-        <div class="perf-cell">
-          <div class="perf-hdr">
-            <span class="perf-name">CPU Utilization</span>
-            <span class="perf-val cpu-col" id="pg-cpu">--%</span>
-          </div>
-          <canvas class="perf-canvas" id="gc-cpu" height="80"></canvas>
-          <div class="perf-meta">
-            <span class="perf-kv"><span class="perf-kv-label">Cores: </span><span class="perf-kv-val" id="pm-cores">--</span></span>
-            <span class="perf-kv"><span class="perf-kv-label">Freq: </span><span class="perf-kv-val" id="pm-freq">--</span> MHz</span>
-            <span class="perf-kv"><span class="perf-kv-label">Processes: </span><span class="perf-kv-val" id="pm-procs">--</span></span>
+    <!-- OVERVIEW -->
+    <div class="panel active" id="panel-overview">
+      <div class="ov-grid">
+        <div class="ov-cell">
+          <div class="ov-hdr"><span class="ov-label">CPU</span><span class="ov-val cpu-col" id="ov-cpu">--%</span></div>
+          <canvas class="ov-canvas" id="gc-cpu"></canvas>
+          <div class="ov-meta">
+            <div class="ov-kv">Cores: <span id="ov-cores">--</span></div>
+            <div class="ov-kv">Freq: <span id="ov-freq">--</span> MHz</div>
+            <div class="ov-kv">Procs: <span id="ov-procs">--</span></div>
           </div>
         </div>
-        <div class="perf-cell">
-          <div class="perf-hdr">
-            <span class="perf-name">Memory</span>
-            <span class="perf-val mem-col" id="pg-mem">--%</span>
-          </div>
-          <canvas class="perf-canvas" id="gc-mem" height="80"></canvas>
-          <div class="perf-meta">
-            <span class="perf-kv"><span class="perf-kv-label">Used: </span><span class="perf-kv-val" id="pm-mem-used">-- GB</span></span>
-            <span class="perf-kv"><span class="perf-kv-label">Total: </span><span class="perf-kv-val" id="pm-mem-total">-- GB</span></span>
-            <span class="perf-kv"><span class="perf-kv-label">Free: </span><span class="perf-kv-val" id="pm-mem-free">-- GB</span></span>
+        <div class="ov-cell">
+          <div class="ov-hdr"><span class="ov-label">Memory</span><span class="ov-val mem-col" id="ov-mem">--%</span></div>
+          <canvas class="ov-canvas" id="gc-mem"></canvas>
+          <div class="ov-meta">
+            <div class="ov-kv">Used: <span id="ov-mem-used">--</span></div>
+            <div class="ov-kv">Free: <span id="ov-mem-free">--</span></div>
+            <div class="ov-kv">Total: <span id="ov-mem-total">--</span></div>
           </div>
         </div>
-        <div class="perf-cell">
-          <div class="perf-hdr">
-            <span class="perf-name">Disk D: (HDD RAID)</span>
-            <span class="perf-val disk-col" id="pg-disk">--%</span>
-          </div>
-          <canvas class="perf-canvas" id="gc-disk" height="80"></canvas>
-          <div class="perf-meta">
-            <span class="perf-kv"><span class="perf-kv-label">Drives: </span><span class="perf-kv-val" id="pm-drives">--</span></span>
-            <span class="perf-kv"><span class="perf-kv-label">Free: </span><span class="perf-kv-val" id="pm-disk-free">-- GB</span></span>
+        <div class="ov-cell">
+          <div class="ov-hdr"><span class="ov-label">Disk</span><span class="ov-val disk-col" id="ov-disk">--</span></div>
+          <canvas class="ov-canvas" id="gc-disk"></canvas>
+          <div class="ov-meta">
+            <div class="ov-kv">Drives: <span id="ov-drives">--</span></div>
+            <div class="ov-kv">Free: <span id="ov-disk-free">--</span></div>
           </div>
         </div>
-        <div class="perf-cell">
-          <div class="perf-hdr">
-            <span class="perf-name">Network</span>
-            <span class="perf-val net-col" id="pg-net">-- KB/s</span>
-          </div>
-          <canvas class="perf-canvas" id="gc-net" height="80"></canvas>
-          <div class="perf-meta">
-            <span class="perf-kv"><span class="perf-kv-label">Recv: </span><span class="perf-kv-val" id="pm-net-rx">--</span></span>
-            <span class="perf-kv"><span class="perf-kv-label">Sent: </span><span class="perf-kv-val" id="pm-net-tx">--</span></span>
+        <div class="ov-cell">
+          <div class="ov-hdr"><span class="ov-label">Network</span><span class="ov-val net-col" id="ov-net">--</span></div>
+          <canvas class="ov-canvas" id="gc-net"></canvas>
+          <div class="ov-meta">
+            <div class="ov-kv">↓ <span id="ov-rx">--</span></div>
+            <div class="ov-kv">↑ <span id="ov-tx">--</span></div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- PROCESS PANEL -->
-    <div class="panel" id="panel-proc" style="display:none;flex-direction:column;">
-      <div id="proc-search-bar">
-        <input id="proc-search" type="text" placeholder="Filter processes..." oninput="filterProcs()">
-        <span style="font-size:10px;color:var(--dim)" id="proc-count-label">-- processes</span>
+    <!-- CPU DETAIL -->
+    <div class="panel" id="panel-cpu">
+      <div class="detail-hdr">
+        <span class="detail-title">CPU Utilization</span>
+        <span class="detail-val cpu-col" id="det-cpu-val">--%</span>
       </div>
-      <div id="proc-table-wrap">
+      <div class="graph-wrap">
+        <canvas class="graph-canvas" id="gc-cpu-big"></canvas>
+        <div class="graph-time"><span>60s ago</span><span>30s ago</span><span>now</span></div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-cell"><div class="stat-lbl">Cores</div><div class="stat-val" id="det-cores">--</div></div>
+        <div class="stat-cell"><div class="stat-lbl">Frequency</div><div class="stat-val" id="det-freq">--</div><div class="stat-sub">MHz</div></div>
+        <div class="stat-cell"><div class="stat-lbl">Processes</div><div class="stat-val" id="det-procs">--</div></div>
+        <div class="stat-cell"><div class="stat-lbl">Uptime</div><div class="stat-val" id="det-uptime">--</div></div>
+      </div>
+    </div>
+
+    <!-- MEMORY DETAIL -->
+    <div class="panel" id="panel-mem">
+      <div class="detail-hdr">
+        <span class="detail-title">Memory (RAM)</span>
+        <span class="detail-val mem-col" id="det-mem-val">--%</span>
+      </div>
+      <div class="graph-wrap">
+        <canvas class="graph-canvas" id="gc-mem-big"></canvas>
+        <div class="graph-time"><span>60s ago</span><span>30s ago</span><span>now</span></div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-cell"><div class="stat-lbl">In Use</div><div class="stat-val" id="det-mem-used">--</div></div>
+        <div class="stat-cell"><div class="stat-lbl">Available</div><div class="stat-val" id="det-mem-free">--</div></div>
+        <div class="stat-cell"><div class="stat-lbl">Total</div><div class="stat-val" id="det-mem-total">--</div></div>
+        <div class="stat-cell"><div class="stat-lbl">Used %</div><div class="stat-val mem-col" id="det-mem-pct">--%</div></div>
+      </div>
+    </div>
+
+    <!-- DISK DETAIL (dynamic) -->
+    <div class="panel" id="panel-disk">
+      <div class="detail-hdr">
+        <span class="detail-title" id="det-disk-title">Disk</span>
+        <span class="detail-val disk-col" id="det-disk-val">--</span>
+      </div>
+      <div class="graph-wrap">
+        <canvas class="graph-canvas" id="gc-disk-big"></canvas>
+        <div class="graph-time"><span>60s ago</span><span>30s ago</span><span>now</span></div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-cell"><div class="stat-lbl">Used</div><div class="stat-val" id="det-disk-used">--</div></div>
+        <div class="stat-cell"><div class="stat-lbl">Free</div><div class="stat-val" id="det-disk-free">--</div></div>
+        <div class="stat-cell"><div class="stat-lbl">Total</div><div class="stat-val" id="det-disk-total">--</div></div>
+        <div class="stat-cell"><div class="stat-lbl">Drive</div><div class="stat-val" id="det-disk-mount">--</div></div>
+      </div>
+    </div>
+
+    <!-- NETWORK DETAIL (dynamic) -->
+    <div class="panel" id="panel-net">
+      <div class="detail-hdr">
+        <span class="detail-title" id="det-net-title">Network</span>
+        <span class="detail-val net-col" id="det-net-val">--</span>
+      </div>
+      <div class="graph-wrap">
+        <canvas class="graph-canvas" id="gc-net-big"></canvas>
+        <div class="graph-time"><span>60s ago</span><span>30s ago</span><span>now</span></div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-cell"><div class="stat-lbl">Download</div><div class="stat-val" id="det-net-rx">--</div></div>
+        <div class="stat-cell"><div class="stat-lbl">Upload</div><div class="stat-val" id="det-net-tx">--</div></div>
+        <div class="stat-cell"><div class="stat-lbl">Total Down</div><div class="stat-val" id="det-net-trx">--</div></div>
+        <div class="stat-cell"><div class="stat-lbl">Total Up</div><div class="stat-val" id="det-net-ttx">--</div></div>
+      </div>
+    </div>
+
+    <!-- PROCESSES -->
+    <div class="panel" id="panel-proc">
+      <div id="proc-bar">
+        <input id="proc-search" type="text" placeholder="Filter by name…">
+        <span id="proc-count">-- processes</span>
+      </div>
+      <div id="proc-wrap">
         <table>
-          <thead>
-            <tr>
-              <th onclick="sortProcs('name')">Name</th>
-              <th onclick="sortProcs('cpu')">CPU %</th>
-              <th style="width:70px">CPU Bar</th>
-              <th onclick="sortProcs('mem')">Memory</th>
-              <th style="width:70px">Mem Bar</th>
-              <th onclick="sortProcs('pid')">PID</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
+          <thead><tr>
+            <th data-col="name">Name</th>
+            <th data-col="cpu">CPU %</th>
+            <th style="width:55px">—</th>
+            <th data-col="mem">Memory</th>
+            <th style="width:55px">—</th>
+            <th data-col="pid">PID</th>
+            <th>Actions</th>
+          </tr></thead>
           <tbody id="proc-tbody"></tbody>
         </table>
       </div>
-    </div>
-
-    <!-- INTELLIGENCE PANEL -->
-    <div class="panel" id="panel-intel" style="display:none;">
-      <div class="intel-section">
-        <div class="intel-title">Cognitive Load Score</div>
-        <div style="display:flex;align-items:baseline;gap:10px;">
-          <span class="load-score" id="il-score">--</span>
-          <span class="load-tier" id="il-tier">unknown</span>
-        </div>
-        <div class="conf-bar-wrap"><div class="conf-bar" id="il-conf-bar" style="width:0%"></div></div>
-        <div style="font-size:10px;color:var(--dim)">Confidence: <span id="il-conf-val">--%</span></div>
-      </div>
-      <div class="intel-section">
-        <div class="intel-title">Context Detection</div>
-        <div style="font-size:14px;font-weight:700;color:var(--accent)" id="il-ctx">detecting...</div>
-        <div style="font-size:10px;color:var(--dim);margin-top:4px" id="il-ctx-sub">Waiting for foreground events</div>
-      </div>
-      <div class="intel-section">
-        <div class="intel-title">Process Catalog</div>
-        <div class="catalog-row"><span>Known processes</span><span class="cat-known" id="cat-known">--</span></div>
-        <div class="catalog-row"><span>Unknown</span><span class="cat-unknown" id="cat-unknown">--</span></div>
-        <div class="catalog-row"><span>Suspicious</span><span class="cat-suspicious" id="cat-suspicious">--</span></div>
-      </div>
-      <div class="intel-section" style="flex:1;">
-        <div class="intel-title">Sniper Action Log</div>
-        <div class="action-log" id="action-log">
-          <div class="no-data">No actions taken yet</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- DISK PANEL -->
-    <div class="panel" id="panel-disk" style="display:none;">
-      <table>
-        <thead>
-          <tr>
-            <th>Drive</th>
-            <th>Name</th>
-            <th>Total</th>
-            <th>Available</th>
-            <th>Used %</th>
-          </tr>
-        </thead>
-        <tbody id="disk-tbody"></tbody>
-      </table>
-    </div>
-
-    <!-- NETWORK PANEL -->
-    <div class="panel" id="panel-net" style="display:none;">
-      <table>
-        <thead>
-          <tr>
-            <th>Adapter</th>
-            <th>Recv</th>
-            <th>Sent</th>
-            <th>Total Recv</th>
-            <th>Total Sent</th>
-          </tr>
-        </thead>
-        <tbody id="net-tbody"></tbody>
-      </table>
     </div>
 
   </div>
 
   <!-- RIGHT PANEL -->
   <div id="rpanel">
-    <div class="rp-sec">System</div>
-    <div class="rp-row"><span class="rp-label">Uptime</span><span class="rp-val" id="rp-uptime">--</span></div>
-    <div class="rp-row"><span class="rp-label">Cores</span><span class="rp-val" id="rp-cores">--</span></div>
-    <div class="rp-row"><span class="rp-label">Freq</span><span class="rp-val" id="rp-freq">-- MHz</span></div>
-    <div class="rp-row"><span class="rp-label">Processes</span><span class="rp-val" id="rp-procs">--</span></div>
 
-    <div class="rp-sec">Sidecar</div>
-    <div style="font-size:11px;" id="rp-sidecar">
-      <span class="dot dim" id="sidecar-dot"></span><span id="sidecar-status">connecting...</span>
+    <div class="rp-block">
+      <div class="rp-head" data-tip="AEGIS watches which app has focus. After a few switches it identifies what you're working on and adjusts resource management accordingly.">Context</div>
+      <div class="ctx-name" id="rp-ctx">Detecting…</div>
+      <div class="ctx-sub" id="rp-ctx-sub">Switch between apps to help AEGIS learn</div>
+      <div class="conf-track"><div class="conf-fill" id="rp-conf" style="width:0%"></div></div>
+      <div style="font-size:10px;color:var(--dim)">Confidence: <span id="rp-conf-val">--%</span></div>
     </div>
 
-    <div class="rp-sec">Context</div>
-    <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:3px;" id="rp-ctx">--</div>
-    <div style="font-size:10px;color:var(--dim);" id="rp-ctx-conf">Confidence: --%</div>
+    <div class="rp-block">
+      <div class="rp-head" data-tip="AEGIS's assessment of whether intervention is needed. When load is high and context is known, it will act.">AEGIS Status</div>
+      <div class="aegis-status nominal" id="rp-aegis-status">Observing — all clear</div>
+      <div class="aegis-detail" id="rp-aegis-detail">Monitoring 60 processes · No threats</div>
+    </div>
 
-    <div class="rp-sec">Override</div>
-    <div style="font-size:11px;color:var(--mid);" id="rp-override">ambient — auto-managing</div>
+    <div class="rp-block">
+      <div class="rp-head" data-tip="A 0–100 score representing how hard your machine is working overall. AEGIS acts more aggressively when this is high.">System Load</div>
+      <div style="display:flex;align-items:baseline;gap:8px;">
+        <span class="load-num" id="rp-load">--</span>
+        <span class="load-tier" id="rp-tier">unknown</span>
+      </div>
+    </div>
 
-    <div class="rp-sec">IPC</div>
-    <div style="font-size:11px;" id="rp-ipc"><span class="dot dim"></span>checking...</div>
-    <div style="font-size:10px;color:var(--dim);margin-top:3px;" id="rp-events">Events: 0</div>
+    <div class="rp-block">
+      <div class="rp-head" data-tip="AEGIS maintains a database of every process it has seen. Unknown processes with network access are automatically flagged.">Process Catalog</div>
+      <div class="cat-row"><span>Known</span><span class="c-k" id="cat-k">--</span></div>
+      <div class="cat-row"><span>Unknown</span><span class="c-u" id="cat-u">--</span></div>
+      <div class="cat-row" style="border:none"><span>Suspicious</span><span class="c-s" id="cat-s">--</span></div>
+    </div>
+
+    <div class="rp-block">
+      <div class="rp-head" data-tip="Actions AEGIS has taken autonomously — throttling CPU-hungry background processes, suspending idle services, or flagging suspicious activity.">Recent Actions</div>
+      <div class="al-list" id="action-log">
+        <div class="no-data">Observing — no actions yet</div>
+      </div>
+    </div>
+
+    <div class="rp-block">
+      <div class="rp-head">System</div>
+      <div class="s-row"><span class="s-lbl">Uptime</span><span class="s-val" id="rp-uptime">--</span></div>
+      <div class="s-row"><span class="s-lbl">Cores</span><span class="s-val" id="rp-cores">--</span></div>
+      <div class="s-row"><span class="s-lbl">Frequency</span><span class="s-val" id="rp-freq">--</span></div>
+      <div class="s-row"><span class="s-lbl">Processes</span><span class="s-val" id="rp-procs">--</span></div>
+    </div>
+
+    <div class="rp-block">
+      <div class="rp-head">Connections</div>
+      <div class="status-line"><span class="dot d" id="dot-intel"></span><span id="lbl-intel">Intelligence: starting…</span></div>
+      <div class="status-line"><span class="dot d" id="dot-metrics"></span><span id="lbl-metrics">Metrics: waiting…</span></div>
+      <div style="font-size:10px;color:var(--dim);margin-top:4px;">Events: <span id="rp-events">0</span></div>
+    </div>
+
   </div>
-
 </div>
 
 <!-- FOOTER -->
 <div id="ftr">
-  <span id="ftr-dot">●</span>
-  <span>AEGIS v4.0.0</span>
-  <span id="ftr-uptime-s"></span>
+  <span id="ftr-dot" style="color:var(--dim)">●</span>
+  <span id="ftr-aegis">AEGIS v4.0.0</span>
+  <span id="ftr-uptime"></span>
   <span id="ftr-time" style="margin-left:auto;"></span>
 </div>
 
-</div><!-- /#app -->
+</div>
 
 <script>
 'use strict';
 
-// ─────────────────────────────────────────────
-// STATE
-// ─────────────────────────────────────────────
-var SNAP = null;
-var ACTIVE_TAB = 'perf';
-var EVT_COUNT = 0;
-var SORT_COL = 'cpu';
-var SORT_DIR = -1; // -1 = desc, 1 = asc
-var FILTER_TEXT = '';
+// ── STATE ──────────────────────────────────────────────────────────
+var SNAP = null, EVT = 0;
+var PANEL = 'overview';
+var SORT_COL = 'cpu', SORT_DIR = -1, FILTER = '';
 var ACTION_LOG = [];
-var INTEL = { load: null, tier: '--', ctx: '--', conf: 0, known: '--', unknown: '--', suspicious: '--' };
+var ACTED_PIDS = {}; // pid → color for graph color-change feature
 
-// Ring buffers — 60 samples = ~2 min at 2s interval
-var HISTORY_LEN = 60;
-function mkRing() { var a = new Array(HISTORY_LEN).fill(0); return a; }
-var HIST = { cpu: mkRing(), mem: mkRing(), disk: mkRing(), net: mkRing() };
-var HIST_IDX = 0;
+var HL = 60;
+function ring(){ return new Array(HL).fill(0); }
+var H = { cpu:ring(), mem:ring(), disk:ring(), net:ring() };
+var HI = 0;
 
-// ─────────────────────────────────────────────
-// UTILITIES
-// ─────────────────────────────────────────────
-function fmtMem(mb) {
-  if (!mb) return '0 MB';
-  if (mb >= 1024) return (mb/1024).toFixed(1) + ' GB';
-  return Math.round(mb) + ' MB';
-}
-function fmtBytes(bps) {
-  if (!bps) return '0 B/s';
-  if (bps >= 1048576) return (bps/1048576).toFixed(1) + ' MB/s';
-  if (bps >= 1024) return (bps/1024).toFixed(0) + ' KB/s';
-  return Math.round(bps) + ' B/s';
-}
-function fmtUptime(sec) {
-  var h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60);
-  return h + 'h ' + m + 'm';
-}
-function tstamp() {
-  var n = new Date();
-  return n.getHours().toString().padStart(2,'0') + ':' +
-         n.getMinutes().toString().padStart(2,'0') + ':' +
-         n.getSeconds().toString().padStart(2,'0');
-}
-function pct(val, total) { return total > 0 ? (val/total*100) : 0; }
+var DISK_IDX = 0; // which disk is selected in detail view
+var NET_IDX  = 0; // which network adapter is selected
 
-// ─────────────────────────────────────────────
-// GRAPH ENGINE
-// ─────────────────────────────────────────────
-var GRAPH_COLORS = {
-  cpu: { line:'#00e5ff', fill:'rgba(0,229,255,.15)', grid:'rgba(0,229,255,.08)' },
-  mem: { line:'#ffbb00', fill:'rgba(255,187,0,.15)',  grid:'rgba(255,187,0,.08)' },
-  disk:{ line:'#4ade80', fill:'rgba(74,222,128,.15)', grid:'rgba(74,222,128,.08)' },
-  net: { line:'#a78bfa', fill:'rgba(167,139,250,.15)',grid:'rgba(167,139,250,.08)' },
+// ── COLORS ─────────────────────────────────────────────────────────
+var C = {
+  cpu:  { line:'#3b9ddd', fill:'rgba(59,157,221,.08)',  grid:'rgba(59,157,221,.05)'  },
+  mem:  { line:'#9b72cb', fill:'rgba(155,114,203,.08)', grid:'rgba(155,114,203,.05)' },
+  disk: { line:'#4db6ac', fill:'rgba(77,182,172,.08)',  grid:'rgba(77,182,172,.05)'  },
+  net:  { line:'#7cb342', fill:'rgba(124,179,66,.08)',  grid:'rgba(124,179,66,.05)'  },
 };
 
-function drawGraph(canvasId, ring, color, maxVal) {
-  var canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  var W = canvas.offsetWidth, H = canvas.offsetHeight;
-  if (W < 1 || H < 1) return;
-  canvas.width = W; canvas.height = H;
-  var ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, W, H);
+// ── UTILS ──────────────────────────────────────────────────────────
+function fmtMem(mb) { return mb >= 1024 ? (mb/1024).toFixed(1)+' GB' : Math.round(mb||0)+' MB'; }
+function fmtB(bps) {
+  if (!bps||bps<0) return '0 B/s';
+  if (bps>=1048576) return (bps/1048576).toFixed(1)+' MB/s';
+  if (bps>=1024)    return (bps/1024).toFixed(0)+' KB/s';
+  return Math.round(bps)+' B/s';
+}
+function fmtUp(s) { return Math.floor(s/3600)+'h '+Math.floor((s%3600)/60)+'m'; }
+function ts() { return new Date().toTimeString().slice(0,8); }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function $(id){ return document.getElementById(id); }
+function set(id,v){ var e=$(id); if(e) e.textContent=v; }
+function pct(v,t){ return t>0?v/t*100:0; }
 
-  // Grid lines
-  ctx.strokeStyle = color.grid; ctx.lineWidth = 1;
-  for (var g = 1; g < 4; g++) {
-    var gy = H * g / 4;
-    ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke();
-  }
-
-  // Build ordered history starting from oldest
-  var pts = [];
-  var mx = maxVal || 100;
-  for (var i = 0; i < HISTORY_LEN; i++) {
-    var idx = (HIST_IDX + 1 + i) % HISTORY_LEN;
-    var v = ring[idx];
-    if (v > mx) mx = v;
-    pts.push(v);
-  }
-
-  // Draw filled area
+// ── GRAPH ENGINE ───────────────────────────────────────────────────
+function drawG(id, ring, col, max) {
+  var c = $(id); if (!c) return;
+  var W=c.offsetWidth, H=c.offsetHeight;
+  if (W<2||H<2) return;
+  c.width=W; c.height=H;
+  var ctx=c.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  // grid
+  ctx.strokeStyle=col.grid; ctx.lineWidth=1;
+  for(var g=1;g<4;g++){ var gy=H*g/4; ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(W,gy); ctx.stroke(); }
+  var pts=[], mx=max||100;
+  for(var i=0;i<HL;i++){ var v=ring[(HI+1+i)%HL]; if(!max&&v>mx) mx=v; pts.push(v); }
+  if(mx<1) mx=1;
+  // fill
+  ctx.beginPath(); ctx.moveTo(0,H);
+  for(var i=0;i<pts.length;i++){ var x=i/(HL-1)*W, y=H-(pts[i]/mx)*H*.92; ctx.lineTo(x,y); }
+  ctx.lineTo(W,H); ctx.closePath(); ctx.fillStyle=col.fill; ctx.fill();
+  // line
   ctx.beginPath();
-  ctx.moveTo(0, H);
-  for (var i = 0; i < pts.length; i++) {
-    var x = (i / (HISTORY_LEN - 1)) * W;
-    var y = H - (pts[i] / mx) * H * 0.9;
-    if (i === 0) ctx.lineTo(x, y); else ctx.lineTo(x, y);
-  }
-  ctx.lineTo(W, H);
-  ctx.closePath();
-  ctx.fillStyle = color.fill; ctx.fill();
-
-  // Draw line
+  for(var i=0;i<pts.length;i++){ var x=i/(HL-1)*W, y=H-(pts[i]/mx)*H*.92; i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); }
+  ctx.strokeStyle=col.line; ctx.lineWidth=1.5; ctx.stroke();
+}
+function drawSpark(id, ring, lineColor) {
+  var c=$(id); if(!c) return;
+  var W=c.offsetWidth||160, H=18;
+  c.width=W; c.height=H;
+  var ctx=c.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  var pts=[]; for(var i=0;i<HL;i++) pts.push(ring[(HI+1+i)%HL]);
+  var mx=Math.max.apply(null,pts)||1;
   ctx.beginPath();
-  for (var i = 0; i < pts.length; i++) {
-    var x = (i / (HISTORY_LEN - 1)) * W;
-    var y = H - (pts[i] / mx) * H * 0.9;
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-  }
-  ctx.strokeStyle = color.line; ctx.lineWidth = 1.5; ctx.stroke();
+  for(var i=0;i<pts.length;i++){ var x=i/(HL-1)*W, y=H-(pts[i]/mx)*(H-2)-1; i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); }
+  ctx.strokeStyle=lineColor; ctx.lineWidth=1; ctx.stroke();
+}
+function redrawAll() {
+  drawG('gc-cpu', H.cpu, C.cpu, 100);
+  drawG('gc-mem', H.mem, C.mem, 100);
+  drawG('gc-disk',H.disk,C.disk,100);
+  drawG('gc-net', H.net, C.net);
+  drawG('gc-cpu-big',  H.cpu,  C.cpu,  100);
+  drawG('gc-mem-big',  H.mem,  C.mem,  100);
+  drawG('gc-disk-big', H.disk, C.disk, 100);
+  drawG('gc-net-big',  H.net,  C.net);
+  drawSpark('spark-cpu', H.cpu, C.cpu.line);
+  drawSpark('spark-mem', H.mem, C.mem.line);
 }
 
-function drawSparkline(canvasId, ring, color) {
-  var canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  var W = canvas.offsetWidth || 130, H = 24;
-  canvas.width = W; canvas.height = H;
-  var ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, W, H);
-  var pts = [];
-  for (var i = 0; i < HISTORY_LEN; i++) pts.push(ring[(HIST_IDX+1+i)%HISTORY_LEN]);
-  var mx = Math.max.apply(null, pts) || 1;
-  ctx.beginPath();
-  for (var i = 0; i < pts.length; i++) {
-    var x = (i/(HISTORY_LEN-1))*W;
-    var y = H - (pts[i]/mx)*(H-2) - 1;
-    if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-  }
-  ctx.strokeStyle = color; ctx.lineWidth = 1.2; ctx.stroke();
+// ── TOAST ──────────────────────────────────────────────────────────
+function toast(title, body, type) {
+  var wrap = $('toast-container');
+  var div = document.createElement('div');
+  div.className = 'toast' + (type?' '+type:'');
+  div.innerHTML = '<div class="toast-title">'+esc(title)+'</div><div class="toast-body">'+esc(body)+'</div>';
+  wrap.appendChild(div);
+  requestAnimationFrame(function(){ div.classList.add('show'); });
+  setTimeout(function(){ div.classList.remove('show'); setTimeout(function(){ wrap.removeChild(div); }, 250); }, 4000);
 }
 
-function updateGraphs() {
-  drawGraph('gc-cpu',  HIST.cpu,  GRAPH_COLORS.cpu,  100);
-  drawGraph('gc-mem',  HIST.mem,  GRAPH_COLORS.mem,  100);
-  drawGraph('gc-disk', HIST.disk, GRAPH_COLORS.disk, 100);
-  drawGraph('gc-net',  HIST.net,  GRAPH_COLORS.net);
-  drawSparkline('spark-cpu', HIST.cpu, '#00e5ff');
-}
-
-// ─────────────────────────────────────────────
-// PROCESS TABLE
-// ─────────────────────────────────────────────
-function sortProcs(col) {
-  if (SORT_COL === col) SORT_DIR = -SORT_DIR;
-  else { SORT_COL = col; SORT_DIR = -1; }
-  document.querySelectorAll('th').forEach(function(th) {
-    th.classList.remove('sort-asc','sort-desc');
+// ── NAV ────────────────────────────────────────────────────────────
+function setPanel(name) {
+  PANEL = name;
+  document.querySelectorAll('.nav-item').forEach(function(ni) {
+    ni.classList.toggle('active', ni.dataset.panel === name);
   });
-  var thMap = {name:0,cpu:1,mem:3,pid:5};
-  var thIdx = thMap[col];
-  if (thIdx !== undefined) {
-    var ths = document.querySelectorAll('thead th');
-    if (ths[thIdx]) ths[thIdx].classList.add(SORT_DIR===-1?'sort-desc':'sort-asc');
-  }
-  renderProcs();
-}
-function filterProcs() {
-  FILTER_TEXT = document.getElementById('proc-search').value.toLowerCase();
-  renderProcs();
+  document.querySelectorAll('.panel').forEach(function(p) {
+    p.classList.toggle('active', p.id === 'panel-'+name);
+    p.style.display = p.id === 'panel-'+name ? 'flex' : 'none';
+  });
+  if (name==='proc') renderProcs();
+  setTimeout(redrawAll, 30);
 }
 
+function buildDiskNavItems(disks) {
+  var wrap = $('nav-disks'); if (!wrap) return;
+  wrap.innerHTML = '';
+  disks.forEach(function(d, i) {
+    var used = d.total_gb > 0 ? pct(d.total_gb - d.available_gb, d.total_gb) : 0;
+    var ni = document.createElement('div');
+    var panelId = 'disk' + i;
+    ni.className = 'nav-item disk-nav';
+    ni.dataset.panel = panelId;
+    ni.dataset.diskIdx = i;
+    ni.innerHTML =
+      '<div class="ni-top"><span class="ni-label">Disk '+(d.mount||i)+'</span><span class="ni-val disk-col">'+used.toFixed(0)+'%</span></div>'+
+      '<div class="ni-sub">'+(d.available_gb||0).toFixed(0)+' GB free</div>';
+    ni.addEventListener('click', function() {
+      DISK_IDX = i;
+      // Update detail panel content
+      set('det-disk-title', 'Disk — '+(d.mount||'Drive '+i));
+      set('det-disk-val', used.toFixed(0)+'%');
+      set('det-disk-used', (d.total_gb - d.available_gb).toFixed(0)+' GB');
+      set('det-disk-free', (d.available_gb||0).toFixed(1)+' GB');
+      set('det-disk-total', (d.total_gb||0).toFixed(0)+' GB');
+      set('det-disk-mount', d.mount||'—');
+      setPanel('disk');
+    });
+    wrap.appendChild(ni);
+    // wire panel id for setPanel
+    var existing = $('panel-disk');
+    if (existing) existing.id = 'panel-disk'; // keep single disk panel, update content on click
+    ni.dataset.panel = 'disk'; // all disks map to same panel, content updated on click
+  });
+}
+
+function buildNetNavItems(networks) {
+  var wrap = $('nav-nets'); if (!wrap) return;
+  wrap.innerHTML = '';
+  networks.forEach(function(n, i) {
+    var bps = (n.received_bytes_sec||0)+(n.transmitted_bytes_sec||0);
+    var ni = document.createElement('div');
+    ni.className = 'nav-item net-nav';
+    ni.dataset.panel = 'net';
+    ni.dataset.netIdx = i;
+    ni.innerHTML =
+      '<div class="ni-top"><span class="ni-label">'+(n.name||'Net '+i)+'</span><span class="ni-val net-col">'+fmtB(bps)+'</span></div>'+
+      '<div class="ni-sub">↓ '+fmtB(n.received_bytes_sec||0)+'</div>';
+    ni.addEventListener('click', function() {
+      NET_IDX = i;
+      set('det-net-title', n.name||'Network Adapter '+i);
+      set('det-net-val', fmtB(bps));
+      set('det-net-rx', fmtB(n.received_bytes_sec||0));
+      set('det-net-tx', fmtB(n.transmitted_bytes_sec||0));
+      set('det-net-trx', (n.total_received_mb||0).toFixed(1)+' MB');
+      set('det-net-ttx', (n.total_transmitted_mb||0).toFixed(1)+' MB');
+      setPanel('net');
+    });
+    wrap.appendChild(ni);
+  });
+}
+
+var NAV_BUILT = false;
+
+// ── PROCESS TABLE ──────────────────────────────────────────────────
 function renderProcs() {
   if (!SNAP || !SNAP.processes) return;
-  var procs = SNAP.processes.slice();
-  if (FILTER_TEXT) procs = procs.filter(function(p){ return (p.name||'').toLowerCase().includes(FILTER_TEXT); });
-  procs.sort(function(a,b){
-    var va, vb;
-    if (SORT_COL==='name') { va=(a.name||'').toLowerCase(); vb=(b.name||'').toLowerCase(); return SORT_DIR*(va<vb?-1:va>vb?1:0); }
-    if (SORT_COL==='cpu')  { return SORT_DIR*((b.cpu_percent||0)-(a.cpu_percent||0)); }
-    if (SORT_COL==='mem')  { return SORT_DIR*((b.memory_mb||0)-(a.memory_mb||0)); }
-    if (SORT_COL==='pid')  { return SORT_DIR*((a.pid||0)-(b.pid||0)); }
+  var list = SNAP.processes.slice();
+  if (FILTER) list = list.filter(function(p){ return (p.name||'').toLowerCase().includes(FILTER); });
+  list.sort(function(a,b){
+    if (SORT_COL==='name') { var va=(a.name||'').toLowerCase(),vb=(b.name||'').toLowerCase(); return SORT_DIR*(va<vb?-1:va>vb?1:0); }
+    if (SORT_COL==='cpu')  return SORT_DIR*((b.cpu_percent||0)-(a.cpu_percent||0));
+    if (SORT_COL==='mem')  return SORT_DIR*((b.memory_mb||0)-(a.memory_mb||0));
+    if (SORT_COL==='pid')  return SORT_DIR*((a.pid||0)-(b.pid||0));
     return 0;
   });
-  document.getElementById('proc-count-label').textContent = procs.length + ' processes';
-  var maxCpu = 0, maxMem = 0;
-  procs.forEach(function(p){ if((p.cpu_percent||0)>maxCpu) maxCpu=p.cpu_percent; if((p.memory_mb||0)>maxMem) maxMem=p.memory_mb; });
-  if (maxCpu < 1) maxCpu = 1; if (maxMem < 1) maxMem = 1;
-
-  var html = '';
-  procs.slice(0, 200).forEach(function(p) {
-    var cpu = (p.cpu_percent||0).toFixed(1);
-    var mem = fmtMem(p.memory_mb||0);
-    var cpuBar = Math.min(100, (p.cpu_percent||0)/maxCpu*100).toFixed(1);
-    var memBar = Math.min(100, (p.memory_mb||0)/maxMem*100).toFixed(1);
-    var cpuHot = (p.cpu_percent||0) > 10 ? ' hot' : '';
-    html += '<tr>' +
-      '<td class="td-name" title="'+escHtml(p.name||'')+'">'+escHtml(p.name||'')+'</td>' +
-      '<td class="td-num'+cpuHot+'">'+cpu+'%</td>' +
-      '<td class="td-bar-cell"><div class="bar-wrap"><div class="bar cpu" style="width:'+cpuBar+'%"></div></div></td>' +
-      '<td class="td-num">'+mem+'</td>' +
-      '<td class="td-bar-cell"><div class="bar-wrap"><div class="bar mem" style="width:'+memBar+'%"></div></div></td>' +
-      '<td class="td-num" style="color:var(--dim)">'+p.pid+'</td>' +
-      '<td class="td-actions">' +
-        '<button class="act-btn" onclick="actProc(\'throttle\','+p.pid+',\''+escHtml(p.name||'')+'\')">Throttle</button>' +
-        '<button class="act-btn" onclick="actProc(\'suspend\','+p.pid+',\''+escHtml(p.name||'')+'\')">Suspend</button>' +
-        '<button class="act-btn danger" onclick="actProc(\'kill\','+p.pid+',\''+escHtml(p.name||'')+'\')">Kill</button>' +
-      '</td>' +
-    '</tr>';
-  });
-  document.getElementById('proc-tbody').innerHTML = html;
-}
-function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
-function actProc(action, pid, name) {
-  if (action==='kill' && !confirm('Kill '+name+' (PID '+pid+')?')) return;
-  if (window.__TAURI__ && window.__TAURI__.core) {
-    var cmd = action==='throttle'?'set_process_priority':action==='suspend'?'suspend_process':'kill_process';
-    var args = action==='throttle' ? {pid:pid, priority:'below_normal'} : {pid:pid};
-    window.__TAURI__.core.invoke(cmd, args)
-      .then(function(r){ addActionLog(action, name, pid, 'success'); })
-      .catch(function(e){ addActionLog(action, name, pid, 'failed: '+e); });
-  }
-}
-
-// ─────────────────────────────────────────────
-// ACTION LOG
-// ─────────────────────────────────────────────
-function addActionLog(action, name, pid, outcome) {
-  ACTION_LOG.unshift({ ts: tstamp(), action: action, name: name, pid: pid, outcome: outcome });
-  if (ACTION_LOG.length > 50) ACTION_LOG.pop();
-  renderActionLog();
-}
-function renderActionLog() {
-  var el = document.getElementById('action-log');
-  if (!ACTION_LOG.length) { el.innerHTML = '<div class="no-data">No actions taken yet</div>'; return; }
-  el.innerHTML = ACTION_LOG.map(function(a) {
-    var ok = a.outcome.startsWith('success') ? ' al-outcome' : ' al-outcome fail';
-    var acls = 'al-action ' + a.action;
-    return '<div class="al-row"><span class="al-ts">'+a.ts+'</span><span class="'+acls+'">'+a.action.toUpperCase()+'</span><span class="al-name">'+escHtml(a.name)+'</span><span class="'+ok+'">'+a.outcome+'</span></div>';
+  set('proc-count', list.length+' processes');
+  var maxMem = Math.max.apply(null, list.map(function(p){ return p.memory_mb||0; }))||1;
+  $('proc-tbody').innerHTML = list.slice(0,200).map(function(p) {
+    // CPU bar: absolute scale 0–100%
+    var cpuPct = Math.min(100, p.cpu_percent||0);
+    // Memory bar: relative to top memory process
+    var memPct = Math.min(100, (p.memory_mb||0)/maxMem*100);
+    var hot = cpuPct>10?' hot':'';
+    // Color change if this process was acted on
+    var nameColor = ACTED_PIDS[p.pid] ? ' style="color:'+ACTED_PIDS[p.pid]+'"' : '';
+    return '<tr>'+
+      '<td class="td-name" title="'+esc(p.name)+'"'+nameColor+'>'+esc(p.name)+'</td>'+
+      '<td class="td-n'+hot+'">'+cpuPct.toFixed(1)+'%</td>'+
+      '<td class="bar-cell"><div class="bw"><div class="bf cpu-b" style="width:'+cpuPct+'%"></div></div></td>'+
+      '<td class="td-n">'+fmtMem(p.memory_mb||0)+'</td>'+
+      '<td class="bar-cell"><div class="bw"><div class="bf mem-b" style="width:'+memPct+'%"></div></div></td>'+
+      '<td class="td-n" style="color:var(--dim)">'+p.pid+'</td>'+
+      '<td class="td-actions">'+
+        '<button class="ab" data-act="throttle" data-pid="'+p.pid+'" data-name="'+esc(p.name)+'">Throttle</button>'+
+        '<button class="ab" data-act="suspend"  data-pid="'+p.pid+'" data-name="'+esc(p.name)+'">Suspend</button>'+
+        '<button class="ab danger" data-act="kill" data-pid="'+p.pid+'" data-name="'+esc(p.name)+'">Kill</button>'+
+      '</td></tr>';
   }).join('');
 }
 
-// ─────────────────────────────────────────────
-// INTELLIGENCE UPDATE
-// ─────────────────────────────────────────────
-function handleIntelligence(d) {
+// ── ACTION LOG ─────────────────────────────────────────────────────
+function logAct(act, name, pid, out) {
+  ACTION_LOG.unshift({ ts:ts(), act:act, name:name, pid:pid, out:out });
+  if (ACTION_LOG.length>50) ACTION_LOG.pop();
+  // Mark this pid as acted-on with a color
+  if (act!=='feedback') ACTED_PIDS[pid] = out.startsWith('success') ? 'var(--amber)' : 'var(--red)';
+  var el = $('action-log');
+  if (!el) return;
+  el.innerHTML = ACTION_LOG.map(function(a) {
+    var ok = a.out.startsWith('success') ? ' ok' : ' fail';
+    return '<div class="al-row"><span class="al-ts">'+a.ts+'</span><span class="al-name">'+esc(a.name)+'</span><span class="al-out'+ok+'">'+a.act+'</span></div>';
+  }).join('');
+}
+
+// ── INTELLIGENCE ───────────────────────────────────────────────────
+function applyIntel(d) {
   if (!d) return;
-  if (d.context) {
-    INTEL.ctx = d.context;
-    document.getElementById('pill-ctx').textContent = 'CTX: ' + d.context.toUpperCase().replace(/_/g,' ');
-    document.getElementById('rp-ctx').textContent = d.context.replace(/_/g,' ');
-    document.getElementById('il-ctx').textContent = d.context.replace(/_/g,' ');
+  if (d.context && d.context !== 'unknown') {
+    var ctx = d.context.replace(/_/g,' ');
+    set('rp-ctx', ctx);
+    set('rp-ctx-sub', 'Context identified');
   }
   if (d.confidence !== undefined) {
-    INTEL.conf = Math.round(d.confidence * 100);
-    document.getElementById('rp-ctx-conf').textContent = 'Confidence: ' + INTEL.conf + '%';
-    document.getElementById('il-conf-val').textContent = INTEL.conf + '%';
-    document.getElementById('il-conf-bar').style.width = INTEL.conf + '%';
+    var c = Math.round((d.confidence||0)*100);
+    $('rp-conf').style.width = c+'%';
+    set('rp-conf-val', c+'%');
   }
   if (d.cognitive_load !== undefined) {
-    INTEL.load = Math.round(d.cognitive_load);
-    var tier = INTEL.load > 80 ? 'CRITICAL' : INTEL.load > 60 ? 'HIGH' : INTEL.load > 40 ? 'MODERATE' : INTEL.load > 20 ? 'LOW' : 'MINIMAL';
-    INTEL.tier = tier;
-    document.getElementById('il-score').textContent = INTEL.load;
-    document.getElementById('il-tier').textContent = tier;
-    document.getElementById('nav-load-val').textContent = INTEL.load;
-    document.getElementById('nav-load-sub').textContent = tier.toLowerCase() + ' load';
-    document.getElementById('hdr-load').textContent = 'load=' + INTEL.load + ' | events=' + EVT_COUNT;
+    var sc = Math.round(d.cognitive_load||0);
+    var tier = sc>80?'CRITICAL':sc>60?'HIGH':sc>40?'MODERATE':sc>20?'LOW':'MINIMAL';
+    set('rp-load', sc);
+    set('rp-tier', tier);
+    // Update AEGIS status statement
+    var stEl = $('rp-aegis-status');
+    var detEl = $('rp-aegis-detail');
+    var procs = SNAP ? SNAP.processes.length : 0;
+    if (sc > 70) {
+      stEl.textContent = 'Managing — high load detected';
+      stEl.className = 'aegis-status managing';
+      if (detEl) detEl.textContent = 'Actively watching '+procs+' processes · Intervening if needed';
+    } else if (sc > 40) {
+      stEl.textContent = 'Watching — moderate load';
+      stEl.className = 'aegis-status managing';
+      if (detEl) detEl.textContent = 'Monitoring '+procs+' processes · Ready to act';
+    } else {
+      stEl.textContent = 'All clear — running normally';
+      stEl.className = 'aegis-status nominal';
+      if (detEl) detEl.textContent = 'Monitoring '+procs+' processes · No intervention needed';
+    }
   }
   if (d.catalog) {
-    document.getElementById('cat-known').textContent = d.catalog.known || '--';
-    document.getElementById('cat-unknown').textContent = d.catalog.unknown || '--';
-    document.getElementById('cat-suspicious').textContent = d.catalog.suspicious || '--';
+    set('cat-k', d.catalog.known||'--');
+    set('cat-u', d.catalog.unknown||'--');
+    set('cat-s', d.catalog.suspicious||'--');
   }
-  // Sidecar is alive
-  setSidecarStatus('connected');
+  setSidecar('connected');
 }
 
-function setSidecarStatus(status) {
-  var dot = document.getElementById('sidecar-dot');
-  var txt = document.getElementById('sidecar-status');
-  if (status==='connected') { dot.className='dot green'; txt.textContent='connected'; }
-  else if (status==='connecting') { dot.className='dot amber'; txt.textContent='connecting...'; }
-  else { dot.className='dot red'; txt.textContent='error'; }
+function setSidecar(s) {
+  var states = { connected:['dot g','Intelligence: active'], connecting:['dot a','Intelligence: connecting…'], offline:['dot r','Intelligence: offline'] };
+  var st = states[s]||states.connecting;
+  var dot=$('dot-intel'), lbl=$('lbl-intel');
+  if(dot) dot.className=st[0];
+  if(lbl) lbl.textContent=st[1];
 }
 
-// ─────────────────────────────────────────────
-// MAIN METRICS HANDLER
-// ─────────────────────────────────────────────
-function handleMetrics(m) {
+// ── METRICS ────────────────────────────────────────────────────────
+function applyMetrics(m) {
   if (!m) return;
-  EVT_COUNT++;
-  SNAP = m;
+  EVT++; SNAP = m;
 
-  var cpuPct = m.cpu ? m.cpu.percent : 0;
-  var memPct = m.memory && m.memory.total_mb > 0 ? pct(m.memory.used_mb, m.memory.total_mb) : 0;
-  var netTotal = 0;
-  (m.networks||[]).forEach(function(n){ netTotal += (n.received_bytes_sec||0) + (n.transmitted_bytes_sec||0); });
+  var cpuPct = m.cpu ? m.cpu.percent||0 : 0;
+  var memPct = m.memory && m.memory.total_mb>0 ? pct(m.memory.used_mb, m.memory.total_mb) : 0;
+  var netBps  = 0;
+  (m.networks||[]).forEach(function(n){ netBps += (n.received_bytes_sec||0)+(n.transmitted_bytes_sec||0); });
+  var diskPct = 0;
+  if (m.disks && m.disks.length) { var d0=m.disks[0]; diskPct = d0.total_gb>0 ? pct(d0.total_gb-d0.available_gb, d0.total_gb) : 0; }
 
-  // Ring buffer
-  HIST.cpu[HIST_IDX] = cpuPct;
-  HIST.mem[HIST_IDX] = memPct;
-  HIST.net[HIST_IDX] = netTotal / 1024; // KB/s
-  HIST_IDX = (HIST_IDX + 1) % HISTORY_LEN;
+  H.cpu[HI]  = cpuPct;
+  H.mem[HI]  = memPct;
+  H.disk[HI] = diskPct;
+  H.net[HI]  = netBps/1024;
+  HI = (HI+1)%HL;
 
-  // Performance panel
-  var cpuStr = cpuPct.toFixed(1) + '%';
-  document.getElementById('pg-cpu').textContent = cpuStr;
-  document.getElementById('pg-mem').textContent = memPct.toFixed(1) + '%';
-  document.getElementById('pg-net').textContent = fmtBytes(netTotal);
-  document.getElementById('pm-cores').textContent = m.cpu ? m.cpu.core_count : '--';
-  document.getElementById('pm-freq').textContent = m.cpu ? m.cpu.frequency_mhz : '--';
-  document.getElementById('pm-procs').textContent = m.processes ? m.processes.length : '--';
+  // Overview
+  set('ov-cpu', cpuPct.toFixed(1)+'%');
+  set('ov-mem', memPct.toFixed(1)+'%');
+  set('ov-net', fmtB(netBps));
+  set('ov-cores', m.cpu ? m.cpu.core_count : '--');
+  set('ov-freq',  m.cpu ? m.cpu.frequency_mhz : '--');
+  set('ov-procs', m.processes ? m.processes.length : '--');
   if (m.memory) {
-    document.getElementById('pm-mem-used').textContent = (m.memory.used_mb/1024).toFixed(1) + ' GB';
-    document.getElementById('pm-mem-total').textContent = (m.memory.total_mb/1024).toFixed(0) + ' GB';
-    document.getElementById('pm-mem-free').textContent = (m.memory.available_mb/1024).toFixed(1) + ' GB';
+    set('ov-mem-used',  fmtMem(m.memory.used_mb));
+    set('ov-mem-free',  fmtMem(m.memory.available_mb));
+    set('ov-mem-total', fmtMem(m.memory.total_mb));
   }
-  if (m.disks) {
-    document.getElementById('pm-drives').textContent = m.disks.length;
-    var free = m.disks.reduce(function(s,d){ return s + (d.available_gb||0); }, 0);
-    document.getElementById('pm-disk-free').textContent = free.toFixed(0) + ' GB';
-    document.getElementById('pg-disk').textContent = m.disks.length + ' drives';
+  if (m.disks && m.disks.length) {
+    var tot = m.disks.reduce(function(s,d){ return s+(d.available_gb||0); },0);
+    set('ov-disk', diskPct.toFixed(0)+'%');
+    set('ov-drives', m.disks.length);
+    set('ov-disk-free', tot.toFixed(0)+' GB');
+  }
+  var rxBps=0,txBps=0;
+  (m.networks||[]).forEach(function(n){ rxBps+=(n.received_bytes_sec||0); txBps+=(n.transmitted_bytes_sec||0); });
+  set('ov-rx', fmtB(rxBps)); set('ov-tx', fmtB(txBps));
+
+  // CPU detail
+  set('det-cpu-val', cpuPct.toFixed(1)+'%');
+  set('det-cores', m.cpu ? m.cpu.core_count : '--');
+  set('det-freq', m.cpu ? m.cpu.frequency_mhz : '--');
+  set('det-procs', m.processes ? m.processes.length : '--');
+  if (m.uptime_sec !== undefined) { set('det-uptime', fmtUp(m.uptime_sec)); set('ftr-uptime', fmtUp(m.uptime_sec)); }
+
+  // Memory detail
+  if (m.memory) {
+    set('det-mem-val', memPct.toFixed(1)+'%');
+    set('det-mem-used', fmtMem(m.memory.used_mb));
+    set('det-mem-free', fmtMem(m.memory.available_mb));
+    set('det-mem-total', fmtMem(m.memory.total_mb));
+    set('det-mem-pct', memPct.toFixed(1)+'%');
   }
 
-  // Nav cards
-  document.getElementById('nav-cpu-val').textContent = cpuPct.toFixed(0) + '%';
-  document.getElementById('nav-cpu-sub').textContent = cpuPct > 80 ? 'heavy load' : cpuPct > 40 ? 'moderate' : 'idle';
-  document.getElementById('nav-proc-val').textContent = m.processes ? m.processes.length : '--';
-  document.getElementById('nav-disk-val').textContent = m.disks ? m.disks.length : '--';
-  document.getElementById('nav-net-val').textContent = m.networks ? m.networks.length : '--';
+  // Nav items
+  set('nav-cpu-val', cpuPct.toFixed(0)+'%');
+  set('nav-cpu-sub', cpuPct>80?'heavy':cpuPct>40?'moderate':'idle');
+  set('nav-mem-val', memPct.toFixed(0)+'%');
+  set('nav-mem-sub', m.memory ? fmtMem(m.memory.used_mb)+' used' : '—');
+  set('nav-proc-val', m.processes ? m.processes.length : '--');
+  set('nav-proc-sub', 'running');
 
-  // Right panel
-  if (m.uptime_sec !== undefined) {
-    var up = fmtUptime(m.uptime_sec);
-    document.getElementById('rp-uptime').textContent = up;
-    document.getElementById('ftr-uptime-s').textContent = up;
+  // Build dynamic nav items on first data
+  if (!NAV_BUILT && m.disks && m.networks) {
+    buildDiskNavItems(m.disks);
+    buildNetNavItems(m.networks);
+    NAV_BUILT = true;
+  } else if (NAV_BUILT) {
+    // Update disk nav values
+    var diskItems = document.querySelectorAll('#nav-disks .nav-item');
+    diskItems.forEach(function(ni, i) {
+      if (m.disks[i]) {
+        var d = m.disks[i];
+        var u = d.total_gb>0 ? pct(d.total_gb-d.available_gb, d.total_gb) : 0;
+        var valEl = ni.querySelector('.ni-val');
+        var subEl = ni.querySelector('.ni-sub');
+        if (valEl) valEl.textContent = u.toFixed(0)+'%';
+        if (subEl) subEl.textContent = (d.available_gb||0).toFixed(0)+' GB free';
+      }
+    });
+    // Update net nav values
+    var netItems = document.querySelectorAll('#nav-nets .nav-item');
+    netItems.forEach(function(ni, i) {
+      if (m.networks[i]) {
+        var n = m.networks[i];
+        var bps = (n.received_bytes_sec||0)+(n.transmitted_bytes_sec||0);
+        var valEl = ni.querySelector('.ni-val');
+        var subEl = ni.querySelector('.ni-sub');
+        if (valEl) valEl.textContent = fmtB(bps);
+        if (subEl) subEl.textContent = '↓ '+fmtB(n.received_bytes_sec||0);
+      }
+    });
   }
-  document.getElementById('rp-cores').textContent = m.cpu ? m.cpu.core_count : '--';
-  document.getElementById('rp-freq').textContent = (m.cpu ? m.cpu.frequency_mhz : '--') + ' MHz';
-  document.getElementById('rp-procs').textContent = m.processes ? m.processes.length : '--';
-  document.getElementById('rp-events').textContent = 'Events: ' + EVT_COUNT;
 
   // Header
-  document.getElementById('hdr-load').textContent = 'cpu=' + cpuPct.toFixed(0) + '% | events=' + EVT_COUNT;
+  set('hdr-status', 'cpu='+cpuPct.toFixed(0)+'% · mem='+memPct.toFixed(0)+'% · events='+EVT);
 
-  // Disk table
-  if (m.disks) {
-    document.getElementById('disk-tbody').innerHTML = m.disks.map(function(d) {
-      var usedPct = d.total_gb > 0 ? pct(d.total_gb - d.available_gb, d.total_gb) : 0;
-      return '<tr><td>'+escHtml(d.mount||'')+'</td><td>'+escHtml(d.name||'')+'</td><td>'+(d.total_gb||0).toFixed(0)+' GB</td><td>'+(d.available_gb||0).toFixed(1)+' GB</td><td><div class="bar-wrap" style="width:80px"><div class="bar cpu" style="width:'+usedPct.toFixed(0)+'%"></div></div> '+usedPct.toFixed(0)+'%</td></tr>';
-    }).join('');
-  }
-  // Network table
-  if (m.networks) {
-    document.getElementById('net-tbody').innerHTML = m.networks.map(function(n) {
-      return '<tr><td>'+escHtml(n.name||'')+'</td><td>'+fmtBytes(n.received_bytes_sec||0)+'</td><td>'+fmtBytes(n.transmitted_bytes_sec||0)+'</td><td>'+(n.total_received_mb||0).toFixed(1)+' MB</td><td>'+(n.total_transmitted_mb||0).toFixed(1)+' MB</td></tr>';
-    }).join('');
-  }
+  // Right panel
+  set('rp-uptime', m.uptime_sec !== undefined ? fmtUp(m.uptime_sec) : '--');
+  set('rp-cores',  m.cpu ? m.cpu.core_count : '--');
+  set('rp-freq',   m.cpu ? m.cpu.frequency_mhz+'MHz' : '--');
+  set('rp-procs',  m.processes ? m.processes.length : '--');
+  set('rp-events', EVT);
 
-  // Process table (only if visible)
-  if (ACTIVE_TAB === 'proc') renderProcs();
+  // IPC dot
+  var md=$('dot-metrics'), ml=$('lbl-metrics');
+  if(md){md.className='dot g'; ml.textContent='Metrics: live';}
 
-  updateGraphs();
-  document.getElementById('ftr-dot').style.color = 'var(--green)';
-  document.getElementById('rp-ipc').innerHTML = '<span class="dot green"></span>connected';
+  // Footer
+  $('ftr-dot').style.color='var(--green)';
+
+  // Active panel tables
+  if (PANEL==='proc') renderProcs();
+  redrawAll();
 }
 
-// ─────────────────────────────────────────────
-// TAB SWITCHING
-// ─────────────────────────────────────────────
-function setTab(tab) {
-  ACTIVE_TAB = tab;
-  ['perf','proc','intel','disk','net'].forEach(function(t) {
-    var p = document.getElementById('panel-'+t);
-    var tb = document.getElementById('tab-'+t);
-    var nc = document.getElementById('nc-'+t);
-    if (p) p.style.display = (t===tab) ? 'flex' : 'none';
-    if (tb) tb.classList.toggle('active', t===tab);
-    if (nc) nc.classList.toggle('active', t===tab);
-  });
-  if (tab==='proc') renderProcs();
-  if (tab==='intel') renderActionLog();
-  setTimeout(updateGraphs, 50);
-}
-
-// ─────────────────────────────────────────────
-// THEME
-// ─────────────────────────────────────────────
+// ── THEME ──────────────────────────────────────────────────────────
 function toggleTheme() {
-  var html = document.documentElement;
-  var isDark = html.getAttribute('data-theme') === 'dark';
-  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
-  try { localStorage.setItem('aegis-theme', isDark ? 'light' : 'dark'); } catch(e){}
+  var isDark = document.documentElement.getAttribute('data-theme')==='dark';
+  document.documentElement.setAttribute('data-theme', isDark?'light':'dark');
+  $('btn-theme').textContent = isDark ? 'DARK' : 'LIGHT';
+  try { localStorage.setItem('aegis-theme', isDark?'light':'dark'); } catch(e){}
 }
-(function() { try { var t = localStorage.getItem('aegis-theme'); if(t) document.documentElement.setAttribute('data-theme',t); } catch(e){} })();
 
-// ─────────────────────────────────────────────
-// CLOCK
-// ─────────────────────────────────────────────
-setInterval(function() {
-  var n = new Date();
-  var t = n.getHours().toString().padStart(2,'0')+':'+n.getMinutes().toString().padStart(2,'0')+':'+n.getSeconds().toString().padStart(2,'0');
-  document.getElementById('ftr-time').textContent = t;
-}, 1000);
+// ── TOOLTIPS ───────────────────────────────────────────────────────
+var _tipTimer=null, _tipEl=null;
+function initTips() {
+  _tipEl=$('tip');
+  document.querySelectorAll('[data-tip]').forEach(function(el) {
+    el.addEventListener('mouseenter', function(e) {
+      _tipTimer = setTimeout(function() {
+        _tipEl.textContent=el.dataset.tip; _tipEl.className='show'; posTip(e);
+      }, 340);
+    });
+    el.addEventListener('mousemove', posTip);
+    el.addEventListener('mouseleave', function(){ clearTimeout(_tipTimer); if(_tipEl) _tipEl.className=''; });
+  });
+}
+function posTip(e) {
+  if (!_tipEl||!_tipEl.classList.contains('show')) return;
+  var x=e.clientX+14, y=e.clientY+12;
+  if (x+220>window.innerWidth) x=e.clientX-220;
+  if (y+80>window.innerHeight) y=e.clientY-70;
+  _tipEl.style.left=x+'px'; _tipEl.style.top=y+'px';
+}
 
-// ─────────────────────────────────────────────
-// TAURI IPC
-// ─────────────────────────────────────────────
-function connectTauri() {
-  if (!window.__TAURI__ || !window.__TAURI__.core) {
-    setTimeout(connectTauri, 500);
-    return;
-  }
-  document.getElementById('rp-ipc').innerHTML = '<span class="dot green"></span>connected';
+// ── CLOCK ──────────────────────────────────────────────────────────
+setInterval(function(){
+  var n=new Date();
+  set('ftr-time', [n.getHours(),n.getMinutes(),n.getSeconds()].map(function(x){return x.toString().padStart(2,'0')}).join(':'));
+},1000);
 
-  // Live metrics stream
-  window.__TAURI__.event.listen('metrics', function(ev) { handleMetrics(ev.payload); });
+// ── BOOT ───────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  // Restore theme
+  try { var t=localStorage.getItem('aegis-theme'); if(t){ document.documentElement.setAttribute('data-theme',t); $('btn-theme').textContent=t==='dark'?'LIGHT':'DARK'; } } catch(e){}
 
-  // Cached metrics for immediate display
-  window.__TAURI__.core.invoke('get_latest_metrics').then(function(m) { if(m) handleMetrics(m); }).catch(function(){});
+  // Theme btn
+  $('btn-theme').addEventListener('click', toggleTheme);
 
-  // Intelligence events from sidecar
-  window.__TAURI__.event.listen('intelligence_update', function(ev) { handleIntelligence(ev.payload); });
-
-  // Sniper action events
-  window.__TAURI__.event.listen('sniper_action', function(ev) {
-    var d = ev.payload;
-    if (d) addActionLog(d.action||'act', d.name||'unknown', d.pid||0, d.outcome||'?');
-    handleIntelligence({ catalog: null }); // keep sidecar alive flag
+  // Nav items
+  document.querySelectorAll('.nav-item[data-panel]').forEach(function(ni) {
+    ni.addEventListener('click', function(){ setPanel(ni.dataset.panel); });
   });
 
-  // Feedback prompts
-  window.__TAURI__.event.listen('feedback_prompt', function(ev) {
-    var d = ev.payload;
-    if (d) {
-      // Could show a non-blocking notification — for now just log
-      addActionLog('feedback', d.process_name||'?', 0, 'awaiting rating');
+  // Sort headers
+  document.querySelectorAll('th[data-col]').forEach(function(th){
+    th.addEventListener('click', function(){
+      SORT_DIR = SORT_COL===th.dataset.col ? -SORT_DIR : -1;
+      SORT_COL = th.dataset.col;
+      document.querySelectorAll('th[data-col]').forEach(function(t){ t.classList.remove('sort-asc','sort-desc'); });
+      th.classList.add(SORT_DIR===-1?'sort-desc':'sort-asc');
+      renderProcs();
+    });
+  });
+
+  // Process search
+  var ps=$('proc-search');
+  if(ps) ps.addEventListener('input',function(){ FILTER=ps.value.toLowerCase(); renderProcs(); });
+
+  // Process actions (event delegation)
+  var tb=$('proc-tbody');
+  if(tb) tb.addEventListener('click', function(e){
+    var btn=e.target.closest('.ab'); if(!btn) return;
+    var act=btn.dataset.act, pid=parseInt(btn.dataset.pid), name=btn.dataset.name;
+    if(act==='kill' && !confirm('Kill '+name+' (PID '+pid+')?')) return;
+    if(window.__TAURI__ && window.__TAURI__.core) {
+      var cmd=act==='throttle'?'set_process_priority':act==='suspend'?'suspend_process':'kill_process';
+      var args=act==='throttle'?{pid:pid,priority:'below_normal'}:{pid:pid};
+      window.__TAURI__.core.invoke(cmd, args)
+        .then(function(){ logAct(act,name,pid,'success'); toast('Process '+act+'d',name+' (PID '+pid+')','action'); })
+        .catch(function(err){ logAct(act,name,pid,'failed: '+err); toast('Action failed',name+': '+err,'warn'); });
     }
   });
-}
 
-connectTauri();
-setTimeout(connectTauri, 300);
-setTimeout(connectTauri, 1200);
-setTimeout(function() {
-  if (EVT_COUNT === 0) setSidecarStatus('connecting');
-}, 3000);
+  initTips();
+  setSidecar('connecting');
+  connectTauri();
+});
+
+// ── TAURI IPC ──────────────────────────────────────────────────────
+function connectTauri() {
+  if (!window.__TAURI__ || !window.__TAURI__.core) { setTimeout(connectTauri, 400); return; }
+  var md=$('dot-metrics'), ml=$('lbl-metrics');
+  if(md){md.className='dot g'; ml.textContent='Metrics: connected';}
+  window.__TAURI__.event.listen('metrics',             function(ev){ applyMetrics(ev.payload); });
+  window.__TAURI__.event.listen('intelligence_update', function(ev){ applyIntel(ev.payload); });
+  window.__TAURI__.event.listen('sniper_action', function(ev){
+    var d=ev.payload||{};
+    logAct(d.action||'act', d.name||'?', d.pid||0, d.outcome||'?');
+    if (d.outcome==='success') toast('AEGIS acted — '+d.action, d.name+' (PID '+d.pid+')', 'action');
+    setSidecar('connected');
+  });
+  window.__TAURI__.event.listen('feedback_prompt', function(ev){
+    var d=ev.payload||{};
+    toast('How did that go?', 'Did throttling '+d.process_name+' help?', '');
+  });
+  window.__TAURI__.core.invoke('get_latest_metrics').then(function(m){ if(m) applyMetrics(m); }).catch(function(){});
+  setTimeout(function(){ if(EVT===0) setSidecar('connecting'); }, 5000);
+}
 </script>
 </body>
 </html>
