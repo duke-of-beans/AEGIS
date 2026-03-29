@@ -33,6 +33,19 @@ button{font-family:var(--font);cursor:pointer;}
 #hdr-stat{font-size:11px;color:var(--white);}
 #btn-theme{background:none;border:1px solid var(--border);color:var(--dim);padding:2px 8px;font-size:9px;letter-spacing:.04em;}
 #btn-theme:hover{color:var(--white);border-color:var(--border2);}
+  #btn-settings{background:none;border:1px solid var(--border);color:var(--dim);padding:2px 8px;font-size:11px;}
+  #btn-settings:hover{color:var(--white);border-color:var(--border2);}
+
+/* SETTINGS PANEL */
+#settings-panel{display:none;position:fixed;top:44px;right:10px;z-index:9000;background:var(--bg3);border:1px solid var(--border2);width:220px;}
+#settings-panel.open{display:block;}
+.sp-hd{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);padding:10px 14px 6px;border-bottom:1px solid var(--border);font-weight:600;}
+.sp-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);}
+.sp-lbl{font-size:12px;color:var(--mid);}
+.sp-btns{display:flex;gap:4px;align-items:center;}
+.sp-btn{background:none;border:1px solid var(--border2);color:var(--mid);font-size:12px;padding:3px 10px;min-width:28px;}
+.sp-btn:hover{border-color:var(--cpu);color:var(--white);}
+.sp-zoom-val{font-size:12px;color:var(--white);min-width:36px;text-align:center;}
 
 /* TOOLTIP */
 #tip{position:fixed;z-index:9999;background:#1a1a1a;border:1px solid #333;color:#ccc;font-size:10px;padding:5px 9px;max-width:200px;line-height:1.5;pointer-events:none;opacity:0;transition:opacity .1s;}
@@ -52,7 +65,7 @@ button{font-family:var(--font);cursor:pointer;}
 
 /* LEFT NAV */
 #nav{border-right:1px solid var(--border);overflow-y:auto;background:var(--bg2);}
-.nav-sec{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);padding:16px 12px 5px;font-weight:600;border-top:1px solid var(--border2);}
+.nav-sec{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--white);padding:10px 12px 8px;font-weight:700;background:var(--bg3);border-top:2px solid var(--border2);border-bottom:1px solid var(--border);margin-top:4px;display:block;}
 .ni{padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;user-select:none;}
 .ni:hover{background:rgba(255,255,255,.025);}
 .ni.on{background:rgba(255,255,255,.04);border-left:2px solid var(--cpu);padding-left:9px;}
@@ -251,7 +264,29 @@ tr:hover td{background:rgba(255,255,255,.02);}
   <span class="hdr-sub">Cognitive Resource OS</span>
   <span class="hdr-spacer"></span>
   <span id="hdr-stat">cpu=--% · mem=--% · events=0</span>
+  <button id="btn-settings">⚙</button>
   <button id="btn-theme">LIGHT</button>
+</div>
+
+<div id="settings-panel">
+  <div class="sp-hd">Settings</div>
+  <div class="sp-row">
+    <span class="sp-lbl">Theme</span>
+    <div class="sp-btns">
+      <button class="sp-btn" id="sp-theme-btn">Dark</button>
+    </div>
+  </div>
+  <div class="sp-row">
+    <span class="sp-lbl">Zoom</span>
+    <div class="sp-btns">
+      <button class="sp-btn" id="sp-zoom-out">−</button>
+      <span class="sp-zoom-val" id="sp-zoom-val">100%</span>
+      <button class="sp-btn" id="sp-zoom-in">+</button>
+    </div>
+  </div>
+  <div class="sp-row" style="justify-content:center;border:none">
+    <button class="sp-btn" id="sp-zoom-reset" style="width:100%;text-align:center">Reset Zoom</button>
+  </div>
 </div>
 
 <div id="main">
@@ -991,11 +1026,27 @@ function setPanel(name){
 }
 
 // ── THEME ──────────────────────────────────────
+function updateSpThemeBtn(){
+  var isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  var b=$('sp-theme-btn'); if(b) b.textContent=isDark?'Dark':'Light';
+}
 function toggleTheme(){
   var isDark=document.documentElement.getAttribute('data-theme')==='dark';
-  document.documentElement.setAttribute('data-theme',isDark?'light':'dark');
+  var next=isDark?'light':'dark';
+  document.documentElement.setAttribute('data-theme',next);
   $('btn-theme').textContent=isDark?'DARK':'LIGHT';
-  try{ localStorage.setItem('aegis-theme',isDark?'light':'dark'); }catch(e){}
+  updateSpThemeBtn();
+  try{ localStorage.setItem('aegis-theme',next); }catch(e){}
+}
+
+// ── ZOOM ────────────────────────────────────────
+function applyZoom(z){
+  zoom=Math.round(z*10)/10;
+  document.body.style.zoom=zoom;
+  var pct=Math.round(zoom*100)+'%';
+  set('sp-zoom-val',pct);
+  try{ localStorage.setItem('aegis-zoom',zoom); }catch(e){}
+  setTimeout(redrawAll,50);
 }
 
 // ── TOOLTIPS ───────────────────────────────────
@@ -1026,9 +1077,33 @@ setInterval(function(){
 
 // ── BOOT ──────────────────────────────────────
 document.addEventListener('DOMContentLoaded',function(){
-  try{ var t=localStorage.getItem('aegis-theme'); if(t){ document.documentElement.setAttribute('data-theme',t); $('btn-theme').textContent=t==='dark'?'LIGHT':'DARK'; } }catch(e){}
+  // Restore theme
+  try{ var t=localStorage.getItem('aegis-theme'); if(t){ document.documentElement.setAttribute('data-theme',t); $('btn-theme').textContent=t==='dark'?'LIGHT':'DARK'; updateSpThemeBtn(); } }catch(e){}
+
+  // Restore zoom
+  var zoom=1;
+  try{ var z=localStorage.getItem('aegis-zoom'); if(z){ zoom=parseFloat(z)||1; applyZoom(zoom); } }catch(e){}
 
   $('btn-theme').addEventListener('click',toggleTheme);
+
+  // Settings panel toggle
+  $('btn-settings').addEventListener('click',function(e){
+    e.stopPropagation();
+    $('settings-panel').classList.toggle('open');
+  });
+  document.addEventListener('click',function(e){
+    if(!$('settings-panel').contains(e.target)&&e.target!==$('btn-settings')){
+      $('settings-panel').classList.remove('open');
+    }
+  });
+
+  // Settings theme button
+  $('sp-theme-btn').addEventListener('click',toggleTheme);
+
+  // Zoom controls
+  $('sp-zoom-in').addEventListener('click',function(){ applyZoom(Math.min(2, zoom+0.1)); });
+  $('sp-zoom-out').addEventListener('click',function(){ applyZoom(Math.max(0.6, zoom-0.1)); });
+  $('sp-zoom-reset').addEventListener('click',function(){ applyZoom(1); });
 
   // Nav items
   document.querySelectorAll('.ni[data-panel]').forEach(function(ni){
