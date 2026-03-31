@@ -21,6 +21,7 @@ let catalogManager: any = null
 let loadEngine: any = null
 let learningStore: any = null
 let policyManager: any = null
+let policyEngine: any = null        // POL-01: OS policy enforcement
 let activeProfile = 'idle'
 let cognitiveLoad = 0
 let metricsCount = 0
@@ -123,6 +124,31 @@ async function initEngines(): Promise<void> {
     sniperEngine.start()
     log('info', 'SniperEngine started', { rules: sniperEngine.getRules().length })
   } catch (e: any) { log('warn', 'SniperEngine unavailable', { err: e.message }) }
+
+  // POL-01: Policy Enforcement Engine — boot audit
+  try {
+    const { PolicyEngine } = require('./policy/engine')
+    policyEngine = new PolicyEngine()
+    log('info', 'PolicyEngine starting boot audit...')
+    const results = await policyEngine.auditAndEnforce()
+    const drifted = results.filter((r: any) => r.drift_detected)
+    const compliant = results.filter((r: any) => r.compliant).length
+    log('info', `PolicyEngine boot audit complete`, { total: results.length, compliant, drifted: drifted.length })
+    if (drifted.length > 0) {
+      writeEvent({ type: 'policy_drift_detected', drifted: drifted.map((r: any) => ({ id: r.id, description: r.description, enforced: !!r.enforced_at, blocked: r.enforcement_blocked })), timestamp: new Date().toISOString() })
+    }
+    writeEvent({ type: 'policy_audit_complete', total: results.length, compliant, drifted: drifted.length, timestamp: new Date().toISOString() })
+    // Schedule re-audit every 6 hours
+    setInterval(async () => {
+      try {
+        const r = await policyEngine.auditAndEnforce()
+        const d = r.filter((x: any) => x.drift_detected)
+        if (d.length > 0) {
+          writeEvent({ type: 'policy_drift_detected', drifted: d.map((x: any) => ({ id: x.id, description: x.description, enforced: !!x.enforced_at, blocked: x.enforcement_blocked })), timestamp: new Date().toISOString() })
+        }
+      } catch (e: any) { log('warn', 'PolicyEngine scheduled audit failed', { err: e.message }) }
+    }, 6 * 60 * 60 * 1000)
+  } catch (e: any) { log('warn', 'PolicyEngine unavailable', { err: e.message }) }
 }
 
 function buildStateSnapshot(): Record<string, unknown> {
@@ -132,6 +158,7 @@ function buildStateSnapshot(): Record<string, unknown> {
   const confidence = learningStore?.getConfidenceState() ?? null
   const activeWatches = sniperEngine?.getActiveWatches() ?? []
   const policies = policyManager?.getStack() ?? { base: [], overlays: [] }
+  const policyAudit = policyEngine?.getLastAudit() ?? null
   return {
     version: VERSION,
     pid: process.pid,
@@ -142,6 +169,13 @@ function buildStateSnapshot(): Record<string, unknown> {
     active_watches: activeWatches.length,
     watch_details: activeWatches.slice(0, 20).map((w: any) => ({ name: w.name, pid: w.pid, context: w.context, escalation_state: w.escalation_state, max_zscore: w.deviation?.max_zscore ?? 0 })),
     policies: { base: policies.base?.length ?? 0, overlays: policies.overlays?.map((p: any) => ({ id: p.id, name: p.name, domain: p.domain })) ?? [] },
+    policy_enforcement: policyAudit ? {
+      total: policyAudit.length,
+      compliant: policyAudit.filter((r: any) => r.compliant).length,
+      drifted: policyAudit.filter((r: any) => r.drift_detected).length,
+      blocked: policyAudit.filter((r: any) => r.enforcement_blocked).length,
+      policies: policyAudit.map((r: any) => ({ id: r.id, compliant: r.compliant, drifted: r.drift_detected, blocked: r.enforcement_blocked })),
+    } : null,
     unresolved_processes: catalogManager?.getUnresolved().slice(0, 10).map((u: any) => ({ name: u.name, observation_count: u.observation_count, status: u.status })) ?? [],
     suspicious_processes: catalogManager?.getSuspicious().map((u: any) => ({ name: u.name, path: u.path, network_connections: u.network_connections })) ?? [],
     timestamp: new Date().toISOString(),
@@ -245,6 +279,36 @@ function handleRequest(req: any): void {
         base: stack.base.map((p: any) => ({ id: p.id, name: p.name, domain: p.domain })),
         overlays: stack.overlays.map((p: any) => ({ id: p.id, name: p.name, domain: p.domain, trigger_context: p.trigger_context, expires_at: p.expires_at ?? null })),
       })
+      break
+    }
+
+    // POL-01: get current policy enforcement status
+    case 'get_policy_status': {
+      if (!policyEngine) { writeResponse(id, { available: false, policies: [] }); break }
+      const audit = policyEngine.getLastAudit()
+      writeResponse(id, {
+        available: true,
+        last_audit: audit ? audit.map((r: any) => ({
+          id: r.id, description: r.description, type: r.type,
+          compliant: r.compliant, drift_detected: r.drift_detected,
+          enforced_at: r.enforced_at, enforcement_blocked: r.enforcement_blocked,
+          error: r.error,
+        })) : null,
+      })
+      break
+    }
+
+    // POL-01: trigger immediate re-audit on demand
+    case 'audit_policies': {
+      if (!policyEngine) { writeResponse(id, { ok: false, error: 'PolicyEngine not initialized' }); break }
+      policyEngine.auditAndEnforce().then((results: any[]) => {
+        const drifted = results.filter((r: any) => r.drift_detected)
+        writeEvent({ type: 'policy_audit_complete', total: results.length, compliant: results.filter((r: any) => r.compliant).length, drifted: drifted.length, timestamp: new Date().toISOString() })
+        if (drifted.length > 0) {
+          writeEvent({ type: 'policy_drift_detected', drifted: drifted.map((r: any) => ({ id: r.id, description: r.description, enforced: !!r.enforced_at, blocked: r.enforcement_blocked })), timestamp: new Date().toISOString() })
+        }
+      }).catch((e: any) => log('warn', 'audit_policies failed', { err: e.message }))
+      writeResponse(id, { ok: true, message: 'Audit started' })
       break
     }
 

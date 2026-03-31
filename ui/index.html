@@ -1,562 +1,663 @@
-
-<script>
-// ═══════════════════════════════════════════════════════
-// AEGIS Cockpit — UI-01
-// Utilitarian. Dense. Task Manager aesthetic.
-// ═══════════════════════════════════════════════════════
-
-// ── State ────────────────────────────────────────────────
-const HISTORY = 60;
-const history = {
-  cpu: Array(HISTORY).fill(0), mem: Array(HISTORY).fill(0),
-  gpu: Array(HISTORY).fill(0), diskRead: Array(HISTORY).fill(0),
-  diskWrite: Array(HISTORY).fill(0), netRecv: Array(HISTORY).fill(0),
-  netSend: Array(HISTORY).fill(0),
-};
-let metrics = null;
-let intelligence = {};
-let procSort = { col: 'cpu', dir: 'desc' };
-let procView = 'flat';
-let procFilter = '';
-let eventCount = 0;
-let sniperActions = [];
-let treeExpanded = new Set();
-
-// ── Sidebar navigation ───────────────────────────────────
-document.querySelectorAll('.sb-item').forEach(el => {
-  el.addEventListener('click', () => {
-    document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
-    el.classList.add('active');
-    const pane = el.dataset.pane;
-    document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
-    const target = document.getElementById('pane-' + pane);
-    if (target) target.classList.add('active');
-  });
-});
-
-// ── Theme toggle ─────────────────────────────────────────
-const btnTheme = document.getElementById('btn-theme');
-btnTheme.addEventListener('click', () => {
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
-  btnTheme.textContent = isDark ? 'Dark' : 'Light';
-});
-
-// ── Process table sort ───────────────────────────────────
-document.querySelectorAll('#proc-table th[data-col]').forEach(th => {
-  th.addEventListener('click', () => {
-    const col = th.dataset.col;
-    if (procSort.col === col) {
-      procSort.dir = procSort.dir === 'desc' ? 'asc' : 'desc';
-    } else {
-      procSort.col = col;
-      procSort.dir = col === 'name' ? 'asc' : 'desc';
-    }
-    document.querySelectorAll('#proc-table th').forEach(t => t.classList.remove('sa','sd'));
-    th.classList.add(procSort.dir === 'asc' ? 'sa' : 'sd');
-    renderProcesses();
-  });
-});
-
-// ── Process filter ───────────────────────────────────────
-document.getElementById('proc-search').addEventListener('input', e => {
-  procFilter = e.target.value.toLowerCase();
-  renderProcesses();
-});
-
-// ── View toggle ──────────────────────────────────────────
-document.getElementById('btn-flat').addEventListener('click', () => {
-  procView = 'flat';
-  document.getElementById('btn-flat').classList.add('active');
-  document.getElementById('btn-tree').classList.remove('active');
-  renderProcesses();
-});
-document.getElementById('btn-tree').addEventListener('click', () => {
-  procView = 'tree';
-  document.getElementById('btn-tree').classList.add('active');
-  document.getElementById('btn-flat').classList.remove('active');
-  renderProcesses();
-});
-
-// ── Format helpers ────────────────────────────────────────
-const fmt = {
-  pct: v => (v ?? 0).toFixed(1) + '%',
-  mb: v => (v >= 1024 ? (v/1024).toFixed(1) + ' GB' : Math.round(v) + ' MB'),
-  bytes: v => {
-    if (!v) return '0 B/s';
-    if (v >= 1073741824) return (v/1073741824).toFixed(1) + ' GB/s';
-    if (v >= 1048576) return (v/1048576).toFixed(1) + ' MB/s';
-    if (v >= 1024) return (v/1024).toFixed(0) + ' KB/s';
-    return Math.round(v) + ' B/s';
-  },
-  uptime: s => {
-    const h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
-    return h > 0 ? h + 'h ' + m + 'm' : m + 'm';
-  },
-  time: () => new Date().toLocaleTimeString('en-US', {hour12:false}),
-};
-
-// ── Canvas graph ─────────────────────────────────────────
-function drawGraph(canvasId, datasets) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  canvas.width = canvas.offsetWidth * devicePixelRatio;
-  canvas.height = canvas.offsetHeight * devicePixelRatio;
-  ctx.scale(devicePixelRatio, devicePixelRatio);
-  const W = canvas.offsetWidth, H = canvas.offsetHeight;
-  const style = getComputedStyle(document.documentElement);
-  const bg = style.getPropertyValue('--bg-tertiary').trim();
-  const borderColor = style.getPropertyValue('--border').trim();
-
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle = bg;
-  ctx.fillRect(0,0,W,H);
-
-  // Grid lines
-  ctx.strokeStyle = borderColor;
-  ctx.lineWidth = 0.5;
-  [25,50,75].forEach(pct => {
-    const y = H - (pct/100) * H;
-    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
-  });
-
-  // Data lines
-  datasets.forEach(({ data, color, fill }) => {
-    if (!data || data.length < 2) return;
-    const max = Math.max(...data, 1);
-    ctx.beginPath();
-    data.forEach((v, i) => {
-      const x = (i / (data.length-1)) * W;
-      const y = H - (v / max) * H * 0.95;
-      i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
-    });
-    if (fill) {
-      const lastX = W, lastY = H - (data[data.length-1] / max) * H * 0.95;
-      ctx.lineTo(lastX, H); ctx.lineTo(0, H);
-      ctx.closePath();
-      ctx.fillStyle = color + '22';
-      ctx.fill();
-      ctx.beginPath();
-      data.forEach((v, i) => {
-        const x = (i / (data.length-1)) * W;
-        const y = H - (v / max) * H * 0.95;
-        i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
-      });
-    }
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-  });
-
-  // Intervention markers
-  if (window.sniperMarkers && canvasId.startsWith('graph-')) {
-    // future: draw vertical lines at sniper action timestamps
-  }
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AEGIS</title>
+<style>
+:root {
+  --bg-primary:#0f0f0f; --bg-secondary:#161616; --bg-tertiary:#1e1e1e;
+  --border:#2a2a2a; --border2:#333;
+  --text-primary:#e8e8e8; --text-secondary:#9a9a9a; --text-mono:#c8c8c8;
+  --accent:#4a6fa5;
+  --status-ok:#3d8b5e; --status-warn:#b8860b; --status-danger:#8b3a3a;
+  --bar-fill:#4a6fa5; --bar-track:#252525;
+  --cpu:#4a6fa5; --mem:#7a5fa5; --disk-r:#3d7a6a; --disk-w:#8a5a3a;
+  --net-rx:#4a7a4a; --net-tx:#7a4a7a;
+  --font:system-ui,'Segoe UI',sans-serif; --mono:Consolas,'Courier New',monospace;
 }
-
-// ── Sparkline ────────────────────────────────────────────
-function drawSpark(canvasId, data, color) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  canvas.width = canvas.offsetWidth * devicePixelRatio;
-  canvas.height = canvas.offsetHeight * devicePixelRatio;
-  ctx.scale(devicePixelRatio, devicePixelRatio);
-  const W = canvas.offsetWidth, H = canvas.offsetHeight;
-  const max = Math.max(...data, 1);
-  ctx.clearRect(0,0,W,H);
-  ctx.beginPath();
-  data.forEach((v, i) => {
-    const x = (i / (data.length-1)) * W;
-    const y = H - (v / max) * H * 0.9;
-    i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
-  });
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 1;
-  ctx.stroke();
+[data-theme="light"] {
+  --bg-primary:#f5f5f5; --bg-secondary:#ebebeb; --bg-tertiary:#e0e0e0;
+  --border:#c8c8c8; --border2:#b0b0b0;
+  --text-primary:#1a1a1a; --text-secondary:#5a5a5a; --text-mono:#2a2a2a;
+  --accent:#2d5a8e; --status-ok:#2d6e47; --status-warn:#8a6200; --status-danger:#6e2020;
+  --bar-fill:#2d5a8e; --bar-track:#d0d0d0;
+  --cpu:#2d5a8e; --mem:#5a3d8e; --disk-r:#2d6a5a; --disk-w:#6e3d20;
+  --net-rx:#2d5a2d; --net-tx:#5a2d5a;
 }
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100vh;overflow:hidden;background:var(--bg-primary);color:var(--text-primary);font-family:var(--font);font-size:13px;line-height:1.4;}
+button{font-family:var(--font);cursor:pointer;}
+#app{display:flex;flex-direction:column;height:100vh;}
+#hdr{flex-shrink:0;height:32px;display:flex;align-items:center;background:var(--bg-secondary);border-bottom:1px solid var(--border);padding:0 10px;gap:12px;}
+.hdr-wordmark{font-size:12px;font-weight:600;letter-spacing:.06em;}
+.hdr-spacer{flex:1;}
+#hdr-load,#hdr-ctx{font-size:11px;color:var(--text-secondary);}
+#hdr-load span,#hdr-ctx span{color:var(--text-primary);font-family:var(--mono);}
+#btn-theme{background:none;border:1px solid var(--border);color:var(--text-secondary);padding:1px 7px;font-size:10px;}
+#btn-theme:hover{color:var(--text-primary);border-color:var(--border2);}
+#main{flex:1;display:flex;overflow:hidden;}
+#sidebar{width:180px;flex-shrink:0;border-right:1px solid var(--border);overflow-y:auto;background:var(--bg-secondary);}
+.sb-sec-hdr{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-secondary);padding:8px 10px 4px;background:var(--bg-tertiary);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+.sb-item{padding:7px 10px;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;display:flex;justify-content:space-between;align-items:center;}
+.sb-item:hover{background:rgba(255,255,255,.03);}
+.sb-item.active{background:rgba(255,255,255,.05);border-left:2px solid var(--accent);padding-left:8px;}
+.sb-label{font-size:12px;color:var(--text-secondary);}
+.sb-item.active .sb-label{color:var(--text-primary);}
+.sb-value{font-size:11px;font-family:var(--mono);color:var(--text-primary);}
+.sb-spark{width:56px;height:14px;display:block;}
+.sb-status{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.sb-status.ok{background:var(--status-ok);} .sb-status.warn{background:var(--status-warn);} .sb-status.danger{background:var(--status-danger);}
+#detail{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.pane{display:none;flex-direction:column;height:100%;overflow-y:auto;}
+.pane.active{display:flex;}
+.pane-hdr{flex-shrink:0;padding:10px 14px 8px;border-bottom:1px solid var(--border);display:flex;align-items:baseline;gap:12px;background:var(--bg-secondary);}
+.pane-title{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);}
+.pane-big{font-size:26px;font-family:var(--mono);font-weight:400;line-height:1;}
+.pane-sub{font-size:11px;color:var(--text-secondary);margin-left:auto;}
+.graph-wrap{flex-shrink:0;padding:10px 14px;border-bottom:1px solid var(--border);}
+.graph-canvas{width:100%;height:90px;display:block;}
+.graph-time{display:flex;justify-content:space-between;font-size:9px;color:var(--text-secondary);margin-top:2px;font-family:var(--mono);}
+.graph-legend{display:flex;gap:12px;margin-top:3px;}
+.gl-item{display:flex;align-items:center;gap:4px;font-size:9px;color:var(--text-secondary);}
+.gl-line{width:14px;height:2px;display:inline-block;}
+.stat-strip{flex-shrink:0;display:grid;border-bottom:1px solid var(--border);}
+.ss2{grid-template-columns:1fr 1fr;} .ss3{grid-template-columns:1fr 1fr 1fr;} .ss4{grid-template-columns:1fr 1fr 1fr 1fr;}
+.stat-cell{padding:10px 14px;border-right:1px solid var(--border);}
+.stat-cell:last-child{border-right:none;}
+.stat-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-secondary);margin-bottom:3px;}
+.stat-val{font-size:17px;font-family:var(--mono);}
+.sec{padding:10px 14px;border-bottom:1px solid var(--border);}
+.sec-hdr{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary);margin-bottom:8px;display:flex;justify-content:space-between;}
+.sec-note{font-style:italic;}
+.proc-toolbar{flex-shrink:0;padding:5px 10px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;background:var(--bg-secondary);}
+#proc-search{background:var(--bg-tertiary);border:1px solid var(--border);color:var(--text-primary);font-family:var(--font);font-size:11px;padding:3px 8px;flex:1;outline:none;}
+#proc-search::placeholder{color:var(--text-secondary);}
+#proc-search:focus{border-color:var(--border2);}
+.pvt-btn{background:none;border:1px solid var(--border);color:var(--text-secondary);font-size:10px;padding:2px 8px;}
+.pvt-btn.active{background:var(--bg-tertiary);color:var(--text-primary);}
+#proc-count{font-size:10px;color:var(--text-secondary);font-family:var(--mono);}
+.proc-wrap{flex:1;overflow-y:auto;}
+table{width:100%;border-collapse:collapse;}
+thead tr{background:var(--bg-secondary);position:sticky;top:0;z-index:10;}
+th{padding:5px 8px;text-align:left;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-secondary);font-weight:500;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap;}
+th.sa::after{content:" ↑";color:var(--accent);} th.sd::after{content:" ↓";color:var(--accent);}
+td{padding:3px 8px;border-bottom:1px solid var(--bg-tertiary);font-size:11px;vertical-align:middle;white-space:nowrap;}
+tr:hover td{background:rgba(255,255,255,.02);}
+.td-name{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);}
+.td-r{text-align:right;font-family:var(--mono);}
+.td-r.hot{color:var(--status-warn);}
+.bar-cell{position:relative;}
+.bar-cell .bar-bg{position:absolute;left:0;top:0;bottom:0;background:var(--bar-fill);opacity:.18;pointer-events:none;}
+.act-btn{background:none;border:1px solid var(--border);color:var(--text-secondary);font-size:9px;padding:1px 5px;font-family:var(--mono);}
+.act-btn:hover{border-color:var(--border2);color:var(--text-primary);}
+.act-btn.kill:hover{border-color:var(--status-danger);color:var(--status-danger);}
+.sdot{width:5px;height:5px;border-radius:50%;display:inline-block;margin-right:3px;}
+.sdot.ok{background:var(--status-ok);} .sdot.warn{background:var(--status-warn);} .sdot.danger{background:var(--status-danger);} .sdot.idle{background:var(--text-secondary);}
+#statusbar{flex-shrink:0;height:22px;display:flex;align-items:center;gap:14px;padding:0 10px;border-top:1px solid var(--border);background:var(--bg-secondary);font-size:10px;color:var(--text-secondary);font-family:var(--mono);}
+#sb-time{margin-left:auto;}
+.sb-dot{width:5px;height:5px;border-radius:50%;display:inline-block;margin-right:3px;}
+.sb-dot.ok{background:var(--status-ok);} .sb-dot.warn{background:var(--status-warn);}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:var(--bg-primary);}
+::-webkit-scrollbar-thumb{background:var(--border2);}
+#toasts{position:fixed;bottom:26px;right:10px;z-index:9999;display:flex;flex-direction:column;gap:4px;pointer-events:none;}
+.toast{background:var(--bg-tertiary);border:1px solid var(--border2);border-left:3px solid var(--accent);padding:6px 10px;font-size:11px;max-width:280px;opacity:0;transform:translateX(6px);transition:all .15s;}
+.toast.show{opacity:1;transform:none;}
+.toast.warn{border-left-color:var(--status-warn);} .toast.danger{border-left-color:var(--status-danger);}
+.t-title{font-weight:600;margin-bottom:1px;} .t-body{color:var(--text-secondary);font-size:10px;}
+.hbar{height:10px;background:var(--bar-track);overflow:hidden;margin:4px 0;}
+.hbar-fill{height:100%;background:var(--bar-fill);transition:width .4s;}
+.hbar-fill.warn{background:var(--status-warn);} .hbar-fill.danger{background:var(--status-danger);}
+.kv-row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--bg-tertiary);}
+.kv-row:last-child{border:none;}
+.kv-k{font-size:11px;color:var(--text-secondary);} .kv-v{font-size:11px;font-family:var(--mono);}
+.core-bar{display:flex;flex-direction:column;align-items:center;gap:2px;}
+.core-bar-inner{width:100%;background:var(--bar-track);position:relative;height:36px;display:flex;align-items:flex-end;}
+.core-bar-fill{width:100%;background:var(--cpu);transition:height .4s;}
+.top-row{display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--bg-tertiary);}
+.top-row:last-child{border:none;}
+.top-name{flex:1;font-family:var(--mono);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.top-bar-wrap{width:70px;height:4px;background:var(--bar-track);flex-shrink:0;}
+.top-bar-fill{height:100%;transition:width .3s;}
+.top-val{width:55px;text-align:right;font-family:var(--mono);font-size:11px;flex-shrink:0;}
+</style>
+</head>
+<body>
+<div id="app">
+<div id="toasts"></div>
+<div id="hdr">
+  <span class="hdr-wordmark">AEGIS</span>
+  <span id="hdr-load">Load: <span id="v-load">--</span>% [<span id="v-tier">--</span>]</span>
+  <span id="hdr-ctx">CTX: <span id="v-ctx">detecting</span></span>
+  <div class="hdr-spacer"></div>
+  <button id="btn-theme">Light</button>
+</div>
+<div id="main">
+<div id="sidebar">
+  <div class="sb-sec-hdr">Performance</div>
+  <div class="sb-item active" data-pane="cpu">
+    <span class="sb-label">CPU</span>
+    <div style="display:flex;align-items:center;gap:5px;">
+      <canvas class="sb-spark" id="spark-cpu"></canvas>
+      <span class="sb-value" id="sb-cpu">--%</span>
+    </div>
+  </div>
+  <div class="sb-item" data-pane="memory">
+    <span class="sb-label">Memory</span>
+    <div style="display:flex;align-items:center;gap:5px;">
+      <canvas class="sb-spark" id="spark-mem"></canvas>
+      <span class="sb-value" id="sb-mem">--%</span>
+    </div>
+  </div>
+  <div class="sb-item" data-pane="gpu">
+    <span class="sb-label">GPU</span>
+    <span class="sb-value" id="sb-gpu">--%</span>
+  </div>
+  <div class="sb-item" data-pane="disk">
+    <span class="sb-label">Disk D:\</span>
+    <span class="sb-value" id="sb-disk">--</span>
+  </div>
+  <div class="sb-item" data-pane="disk-c">
+    <span class="sb-label">Disk C:\</span>
+    <span class="sb-value" id="sb-disk-c">--</span>
+  </div>
+  <div class="sb-item" data-pane="network">
+    <span class="sb-label">Network</span>
+    <span class="sb-value" id="sb-net">--</span>
+  </div>
+  <div class="sb-sec-hdr">Intelligence</div>
+  <div class="sb-item" data-pane="processes">
+    <span class="sb-label">Processes</span>
+    <span class="sb-value" id="sb-procs">--</span>
+  </div>
+  <div class="sb-item" data-pane="context">
+    <span class="sb-label">Context</span>
+    <span class="sb-value" id="sb-ctx-short">--</span>
+  </div>
+  <div class="sb-item" data-pane="sniper">
+    <span class="sb-label">Sniper</span>
+    <div style="display:flex;align-items:center;gap:5px;">
+      <span class="sb-status ok" id="sb-sniper-dot"></span>
+      <span class="sb-value" id="sb-watches">0</span>
+    </div>
+  </div>
+  <div class="sb-item" data-pane="catalog">
+    <span class="sb-label">Catalog</span>
+    <div style="display:flex;align-items:center;gap:5px;">
+      <span class="sb-status ok" id="sb-cat-dot"></span>
+      <span class="sb-value" id="sb-cat-val">--</span>
+    </div>
+  </div>
+  <div class="sb-item" data-pane="learning">
+    <span class="sb-label">Confidence</span>
+    <span class="sb-value" id="sb-conf">--%</span>
+  </div>
+</div>
+<div id="detail">
 
-// ── Top process rows ─────────────────────────────────────
-function renderTopList(containerId, procs, valueKey, formatFn, color) {
-  const el = document.getElementById(containerId);
-  if (!el || !procs) return;
-  const maxVal = Math.max(...procs.map(p => p[valueKey] || 0), 1);
-  el.innerHTML = procs.slice(0,8).map(p => {
-    const val = p[valueKey] || 0;
-    const barW = Math.round((val / maxVal) * 80);
-    return `<div class="kv-row" style="align-items:center;gap:8px;">
-      <span style="flex:1;font-family:var(--mono);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name}</span>
-      <div style="width:80px;height:4px;background:var(--bar-track);flex-shrink:0;">
-        <div style="width:${barW}px;height:100%;background:${color};"></div>
+  <div class="pane active" id="pane-cpu">
+    <div class="pane-hdr">
+      <span class="pane-title">CPU</span>
+      <span class="pane-big" id="cpu-pct">--%</span>
+      <span class="pane-sub" id="cpu-freq">-- GHz &middot; -- cores</span>
+    </div>
+    <div class="graph-wrap">
+      <canvas class="graph-canvas" id="graph-cpu"></canvas>
+      <div class="graph-time"><span>60s ago</span><span>30s ago</span><span>now</span></div>
+    </div>
+    <div class="stat-strip ss3">
+      <div class="stat-cell"><div class="stat-lbl">Utilization</div><div class="stat-val" id="cpu-util">--%</div></div>
+      <div class="stat-cell"><div class="stat-lbl">Processes</div><div class="stat-val" id="cpu-procs">--</div></div>
+      <div class="stat-cell"><div class="stat-lbl">Uptime</div><div class="stat-val" id="cpu-uptime">--</div></div>
+    </div>
+    <div class="sec">
+      <div class="sec-hdr"><span>Per-Core</span></div>
+      <div id="cpu-cores" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;"></div>
+    </div>
+    <div class="sec">
+      <div class="sec-hdr"><span>Top CPU</span><span class="sec-note">live</span></div>
+      <div id="cpu-top"></div>
+    </div>
+  </div>
+
+  <div class="pane" id="pane-memory">
+    <div class="pane-hdr">
+      <span class="pane-title">Memory</span>
+      <span class="pane-big" id="mem-pct">--%</span>
+      <span class="pane-sub" id="mem-total">-- GB total</span>
+    </div>
+    <div class="graph-wrap">
+      <canvas class="graph-canvas" id="graph-mem"></canvas>
+      <div class="graph-time"><span>60s ago</span><span>30s ago</span><span>now</span></div>
+    </div>
+    <div class="stat-strip ss4">
+      <div class="stat-cell"><div class="stat-lbl">In Use</div><div class="stat-val" id="mem-used">--</div></div>
+      <div class="stat-cell"><div class="stat-lbl">Available</div><div class="stat-val" id="mem-avail">--</div></div>
+      <div class="stat-cell"><div class="stat-lbl">Total</div><div class="stat-val" id="mem-total2">--</div></div>
+      <div class="stat-cell"><div class="stat-lbl">%</div><div class="stat-val" id="mem-pct2">--%</div></div>
+    </div>
+    <div class="sec">
+      <div class="sec-hdr"><span>Usage</span></div>
+      <div class="hbar"><div class="hbar-fill" id="mem-bar" style="width:0%"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text-secondary);font-family:var(--mono);">
+        <span>0</span><span id="mem-bar-used">--</span><span id="mem-bar-max">--</span>
       </div>
-      <span style="width:60px;text-align:right;font-family:var(--mono);font-size:11px;flex-shrink:0;">${formatFn(val)}</span>
-      <button class="act-btn" onclick="throttleProc(${p.pid})">T</button>
-      <button class="act-btn kill" onclick="killProc(${p.pid})">K</button>
-    </div>`;
-  }).join('');
-}
+    </div>
+    <div class="sec">
+      <div class="sec-hdr"><span>Top Memory</span><span class="sec-note">live</span></div>
+      <div id="mem-top"></div>
+    </div>
+  </div>
 
-// ── Process table ─────────────────────────────────────────
-function renderProcesses() {
-  if (!metrics || !metrics.processes) return;
-  let procs = [...metrics.processes];
+  <div class="pane" id="pane-gpu">
+    <div class="pane-hdr">
+      <span class="pane-title">GPU</span>
+      <span class="pane-big" id="gpu-util-val">--%</span>
+      <span class="pane-sub" id="gpu-name">Pending AEGIS-GPU-01</span>
+    </div>
+    <div class="sec" style="margin-top:20px;">
+      <div class="kv-row"><span class="kv-k">VRAM Used</span><span class="kv-v" id="gpu-vram-used">--</span></div>
+      <div class="kv-row"><span class="kv-k">VRAM Total</span><span class="kv-v" id="gpu-vram-total">--</span></div>
+      <div class="kv-row"><span class="kv-k">Temperature</span><span class="kv-v" id="gpu-temp">--</span></div>
+    </div>
+    <div class="sec"><p style="color:var(--text-secondary);font-size:11px;">Full GPU metrics in AEGIS-GPU-01 sprint.</p></div>
+  </div>
 
-  // Filter
-  if (procFilter) {
-    procs = procs.filter(p => p.name.toLowerCase().includes(procFilter));
-  }
+  <div class="pane" id="pane-disk">
+    <div class="pane-hdr">
+      <span class="pane-title">Disk D:\</span>
+      <span class="pane-big" id="disk-d-rate">-- MB/s</span>
+      <span class="pane-sub" id="disk-d-space">-- GB free</span>
+    </div>
+    <div class="graph-wrap">
+      <canvas class="graph-canvas" id="graph-disk"></canvas>
+      <div class="graph-time"><span>60s ago</span><span>30s ago</span><span>now</span></div>
+      <div class="graph-legend">
+        <div class="gl-item"><span class="gl-line" style="background:var(--disk-r)"></span>Read</div>
+        <div class="gl-item"><span class="gl-line" style="background:var(--disk-w)"></span>Write</div>
+      </div>
+    </div>
+    <div class="stat-strip ss2">
+      <div class="stat-cell"><div class="stat-lbl">Read</div><div class="stat-val" id="disk-d-read">--</div></div>
+      <div class="stat-cell"><div class="stat-lbl">Write</div><div class="stat-val" id="disk-d-write">--</div></div>
+    </div>
+  </div>
 
-  // Sort
-  procs.sort((a, b) => {
-    let av = a[procSort.col] ?? 0, bv = b[procSort.col] ?? 0;
-    if (procSort.col === 'name') { av = a.name; bv = b.name; }
-    if (procSort.col === 'mem') { av = a.memory_mb; bv = b.memory_mb; }
-    if (procSort.col === 'cpu') { av = a.cpu_percent; bv = b.cpu_percent; }
-    if (procSort.col === 'pid') { av = a.pid; bv = b.pid; }
-    if (typeof av === 'string') return procSort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-    return procSort.dir === 'asc' ? av - bv : bv - av;
+  <div class="pane" id="pane-disk-c">
+    <div class="pane-hdr">
+      <span class="pane-title">Disk C:\</span>
+      <span class="pane-big" id="disk-c-rate">-- MB/s</span>
+      <span class="pane-sub" id="disk-c-space">-- GB free</span>
+    </div>
+    <div class="stat-strip ss2">
+      <div class="stat-cell"><div class="stat-lbl">Read</div><div class="stat-val" id="disk-c-read">--</div></div>
+      <div class="stat-cell"><div class="stat-lbl">Write</div><div class="stat-val" id="disk-c-write">--</div></div>
+    </div>
+    <div class="sec">
+      <div class="sec-hdr"><span>Space</span></div>
+      <div class="hbar"><div class="hbar-fill danger" id="disk-c-bar" style="width:0%"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-secondary);font-family:var(--mono);">
+        <span id="disk-c-used-lbl">--</span><span id="disk-c-free-lbl">--</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="pane" id="pane-network">
+    <div class="pane-hdr">
+      <span class="pane-title">Network</span>
+      <span class="pane-big" id="net-total">--</span>
+    </div>
+    <div class="graph-wrap">
+      <canvas class="graph-canvas" id="graph-net"></canvas>
+      <div class="graph-time"><span>60s ago</span><span>30s ago</span><span>now</span></div>
+      <div class="graph-legend">
+        <div class="gl-item"><span class="gl-line" style="background:var(--net-rx)"></span>Recv</div>
+        <div class="gl-item"><span class="gl-line" style="background:var(--net-tx)"></span>Send</div>
+      </div>
+    </div>
+    <div class="stat-strip ss2">
+      <div class="stat-cell"><div class="stat-lbl">Receive</div><div class="stat-val" id="net-recv">--</div></div>
+      <div class="stat-cell"><div class="stat-lbl">Send</div><div class="stat-val" id="net-send">--</div></div>
+    </div>
+    <div class="sec"><div class="sec-hdr"><span>Adapters</span></div><div id="net-adapters"></div></div>
+  </div>
+
+  <div class="pane" id="pane-processes" style="overflow:hidden;">
+    <div class="proc-toolbar">
+      <input id="proc-search" type="text" placeholder="Filter processes...">
+      <button class="pvt-btn active" id="btn-flat">Flat</button>
+      <button class="pvt-btn" id="btn-tree">Tree</button>
+      <span id="proc-count">--</span>
+    </div>
+    <div class="proc-wrap">
+      <table id="proc-table">
+        <thead><tr>
+          <th data-col="name">Name</th>
+          <th data-col="pid">PID</th>
+          <th data-col="cpu" class="sd">CPU %</th>
+          <th data-col="mem">Memory</th>
+          <th>Status</th>
+          <th>Act</th>
+        </tr></thead>
+        <tbody id="proc-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="pane" id="pane-context">
+    <div class="pane-hdr">
+      <span class="pane-title">Context</span>
+      <span class="pane-big" id="ctx-name" style="font-size:20px;text-transform:capitalize;">--</span>
+      <span class="pane-sub" id="ctx-conf">--</span>
+    </div>
+    <div class="sec"><div class="sec-hdr"><span>Focus Weights</span></div><div id="ctx-weights"></div></div>
+    <div class="sec"><div class="sec-hdr"><span>Recent Transitions</span></div><div id="ctx-history"></div></div>
+  </div>
+
+  <div class="pane" id="pane-sniper">
+    <div class="pane-hdr">
+      <span class="pane-title">Sniper</span>
+      <span class="pane-big" id="sniper-watches">0</span>
+      <span class="pane-sub">active watches</span>
+    </div>
+    <div class="sec"><div class="sec-hdr"><span>Watches</span></div><div id="sniper-watch-list"><span style="color:var(--text-secondary);font-size:11px;">No deviations detected</span></div></div>
+    <div class="sec"><div class="sec-hdr"><span>Recent Actions</span></div><div id="sniper-actions"><span style="color:var(--text-secondary);font-size:11px;">Observing &mdash; no actions yet</span></div></div>
+  </div>
+
+  <div class="pane" id="pane-catalog">
+    <div class="pane-hdr"><span class="pane-title">Catalog</span></div>
+    <div class="stat-strip ss3">
+      <div class="stat-cell"><div class="stat-lbl">Known</div><div class="stat-val" id="cat-known" style="color:var(--status-ok)">--</div></div>
+      <div class="stat-cell"><div class="stat-lbl">Unknown</div><div class="stat-val" id="cat-unknown" style="color:var(--status-warn)">--</div></div>
+      <div class="stat-cell"><div class="stat-lbl">Suspicious</div><div class="stat-val" id="cat-suspicious" style="color:var(--status-danger)">--</div></div>
+    </div>
+    <div class="sec"><div class="sec-hdr"><span>Unknown</span></div><div id="cat-unknown-list"><span style="color:var(--text-secondary);font-size:11px;">Loading...</span></div></div>
+  </div>
+
+  <div class="pane" id="pane-learning">
+    <div class="pane-hdr">
+      <span class="pane-title">Learning</span>
+      <span class="pane-big" id="learn-score">--%</span>
+      <span class="pane-sub" id="learn-mode">Manual mode</span>
+    </div>
+    <div class="sec">
+      <div class="sec-hdr"><span>Confidence</span></div>
+      <div class="hbar"><div class="hbar-fill" id="learn-bar" style="width:0%"></div></div>
+    </div>
+    <div class="sec"><div id="learn-stats"></div></div>
+  </div>
+
+</div>
+</div>
+<div id="statusbar">
+  <span><span class="sb-dot ok" id="sb-intel-dot"></span><span id="sb-intel">Intelligence active</span></span>
+  <span><span class="sb-dot ok" id="sb-metrics-dot"></span><span id="sb-metrics">Metrics live</span></span>
+  <span id="sb-watching"></span>
+  <span id="sb-events">0 events</span>
+  <span>AEGIS v4.0.0</span>
+  <span id="sb-uptime">--</span>
+  <span id="sb-time"></span>
+</div>
+</div>
+<script>
+const HIST=60;
+const H={cpu:Array(HIST).fill(0),mem:Array(HIST).fill(0),dR:Array(HIST).fill(0),dW:Array(HIST).fill(0),nR:Array(HIST).fill(0),nT:Array(HIST).fill(0)};
+let metrics=null,procSort={col:'cpu',dir:'desc'},procFilter='',eventCount=0,sniperActions=[];
+
+const fmt={
+  pct:v=>(v??0).toFixed(1)+'%',
+  mb:v=>v>=1024?(v/1024).toFixed(1)+' GB':Math.round(v)+' MB',
+  bs:v=>{if(!v)return'0 B/s';if(v>=1073741824)return(v/1073741824).toFixed(1)+' GB/s';if(v>=1048576)return(v/1048576).toFixed(1)+' MB/s';if(v>=1024)return(v/1024).toFixed(0)+' KB/s';return Math.round(v)+' B/s';},
+  up:s=>{const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?h+'h '+m+'m':m+'m';},
+  time:()=>new Date().toLocaleTimeString('en-US',{hour12:false})
+};
+
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+
+function drawGraph(id,datasets){
+  const c=document.getElementById(id);if(!c)return;
+  const ctx=c.getContext('2d');
+  c.width=c.offsetWidth*devicePixelRatio;c.height=c.offsetHeight*devicePixelRatio;
+  ctx.scale(devicePixelRatio,devicePixelRatio);
+  const W=c.offsetWidth,H=c.offsetHeight;
+  ctx.fillStyle=css('--bg-tertiary');ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle=css('--border');ctx.lineWidth=0.5;
+  [25,50,75].forEach(p=>{const y=H-(p/100)*H;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();});
+  datasets.forEach(({data,color,fill})=>{
+    if(!data||data.length<2)return;
+    const max=Math.max(...data,1);
+    ctx.beginPath();
+    data.forEach((v,i)=>{const x=(i/(data.length-1))*W,y=H-(v/max)*H*.94;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+    if(fill){ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.fillStyle=color+'25';ctx.fill();ctx.beginPath();data.forEach((v,i)=>{const x=(i/(data.length-1))*W,y=H-(v/max)*H*.94;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});}
+    ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.stroke();
   });
+}
 
-  document.getElementById('proc-count').textContent = procs.length + ' processes';
+function drawSpark(id,data,color){
+  const c=document.getElementById(id);if(!c)return;
+  const ctx=c.getContext('2d');
+  c.width=c.offsetWidth*devicePixelRatio;c.height=c.offsetHeight*devicePixelRatio;
+  ctx.scale(devicePixelRatio,devicePixelRatio);
+  const W=c.offsetWidth,Ht=c.offsetHeight,max=Math.max(...data,1);
+  ctx.clearRect(0,0,W,Ht);ctx.beginPath();
+  data.forEach((v,i)=>{const x=(i/(data.length-1))*W,y=Ht-(v/max)*Ht*.9;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+  ctx.strokeStyle=color;ctx.lineWidth=1;ctx.stroke();
+}
 
-  const maxCpu = Math.max(...procs.map(p => p.cpu_percent || 0), 1);
-  const maxMem = Math.max(...procs.map(p => p.memory_mb || 0), 1);
-
-  const rows = procs.map(p => {
-    const cpuPct = ((p.cpu_percent || 0) / maxCpu * 100).toFixed(0);
-    const memPct = ((p.memory_mb || 0) / maxMem * 100).toFixed(0);
-    const cpuHot = (p.cpu_percent || 0) > 50 ? ' hot' : (p.cpu_percent || 0) > 20 ? '' : '';
-    const status = p.status === 'running' ? '<span class="sdot ok"></span>' :
-                   p.status === 'stopped' ? '<span class="sdot danger"></span>' :
-                   '<span class="sdot idle"></span>';
-    return `<tr>
-      <td class="td-name" title="${p.name}">${p.name}</td>
-      <td class="td-r">${p.pid}</td>
-      <td class="bar-cell td-r${cpuHot}">
-        <div class="bar-bg" style="width:${cpuPct}%;background:var(--cpu);"></div>
-        ${fmt.pct(p.cpu_percent)}
-      </td>
-      <td class="bar-cell td-r">
-        <div class="bar-bg" style="width:${memPct}%;background:var(--mem);"></div>
-        ${fmt.mb(p.memory_mb)}
-      </td>
-      <td class="td-r">${p.disk_bytes_sec ? fmt.bytes(p.disk_bytes_sec) : '--'}</td>
-      <td>${status}</td>
-      <td><button class="act-btn" onclick="throttleProc(${p.pid})">T</button> <button class="act-btn kill" onclick="killProc(${p.pid})">K</button></td>
-    </tr>`;
+function topList(id,procs,key,fmtFn,color){
+  const el=document.getElementById(id);if(!el||!procs)return;
+  const max=Math.max(...procs.map(p=>p[key]||0),1);
+  el.innerHTML=procs.slice(0,8).map(p=>{
+    const v=p[key]||0,bw=Math.round((v/max)*70);
+    return`<div class="top-row"><span class="top-name" title="${p.name}">${p.name}</span><div class="top-bar-wrap"><div class="top-bar-fill" style="width:${bw}px;background:${color};"></div></div><span class="top-val">${fmtFn(v)}</span><button class="act-btn" onclick="thr(${p.pid})">T</button><button class="act-btn kill" onclick="kll(${p.pid})">K</button></div>`;
   }).join('');
-
-  document.getElementById('proc-tbody').innerHTML = rows;
 }
 
-// ── Actions ───────────────────────────────────────────────
-async function throttleProc(pid) {
-  if (window.__TAURI__) {
-    await window.__TAURI__.core.invoke('set_process_priority', { pid, priority: 'below_normal' });
-    showToast('Throttled PID ' + pid, 'Priority set to below normal', 'warn');
-  }
-}
-async function killProc(pid) {
-  if (window.__TAURI__) {
-    await window.__TAURI__.core.invoke('kill_process_cmd', { pid });
-    showToast('Killed PID ' + pid, 'Process terminated', 'danger');
-  }
+function renderProcs(){
+  if(!metrics?.processes)return;
+  let procs=[...metrics.processes];
+  if(procFilter)procs=procs.filter(p=>p.name.toLowerCase().includes(procFilter));
+  procs.sort((a,b)=>{
+    let av=a[procSort.col]??0,bv=b[procSort.col]??0;
+    if(procSort.col==='mem'){av=a.memory_mb;bv=b.memory_mb;}
+    if(procSort.col==='cpu'){av=a.cpu_percent;bv=b.cpu_percent;}
+    if(procSort.col==='name'){return procSort.dir==='asc'?a.name.localeCompare(b.name):b.name.localeCompare(a.name);}
+    return procSort.dir==='asc'?av-bv:bv-av;
+  });
+  document.getElementById('proc-count').textContent=procs.length+' processes';
+  const mc=Math.max(...procs.map(p=>p.cpu_percent||0),1),mm=Math.max(...procs.map(p=>p.memory_mb||0),1);
+  document.getElementById('proc-tbody').innerHTML=procs.map(p=>{
+    const cp=((p.cpu_percent||0)/mc*100).toFixed(0),mp=((p.memory_mb||0)/mm*100).toFixed(0);
+    const shot=p.cpu_percent>50?' hot':'';
+    const sdot=p.status==='running'?'ok':p.status==='stopped'?'danger':'idle';
+    return`<tr><td class="td-name" title="${p.name}">${p.name}</td><td class="td-r">${p.pid}</td><td class="bar-cell td-r${shot}"><div class="bar-bg" style="width:${cp}%"></div>${fmt.pct(p.cpu_percent)}</td><td class="bar-cell td-r"><div class="bar-bg" style="width:${mp}%;background:var(--mem)"></div>${fmt.mb(p.memory_mb)}</td><td><span class="sdot ${sdot}"></span></td><td><button class="act-btn" onclick="thr(${p.pid})">T</button> <button class="act-btn kill" onclick="kll(${p.pid})">K</button></td></tr>`;
+  }).join('');
 }
 
-// ── Toast ────────────────────────────────────────────────
-function showToast(title, body, type) {
-  const el = document.createElement('div');
-  el.className = 'toast' + (type ? ' ' + type : '');
-  el.innerHTML = `<div class="t-title">${title}</div><div class="t-body">${body}</div>`;
+async function thr(pid){if(window.__TAURI__)await window.__TAURI__.core.invoke('set_process_priority',{pid,priority:'below_normal'});toast('Throttled PID '+pid,'Priority: below normal','warn');}
+async function kll(pid){if(window.__TAURI__)await window.__TAURI__.core.invoke('kill_process_cmd',{pid});toast('Killed PID '+pid,'Process terminated','danger');}
+
+function toast(title,body,type){
+  const el=document.createElement('div');el.className='toast'+(type?' '+type:'');
+  el.innerHTML=`<div class="t-title">${title}</div><div class="t-body">${body}</div>`;
   document.getElementById('toasts').appendChild(el);
-  requestAnimationFrame(() => el.classList.add('show'));
-  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 200); }, 4000);
+  requestAnimationFrame(()=>el.classList.add('show'));
+  setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),200);},4000);
 }
 
-// ── Clock ────────────────────────────────────────────────
-setInterval(() => { document.getElementById('sb-time').textContent = fmt.time(); }, 1000);
-document.getElementById('sb-time').textContent = fmt.time();
-
-// ── Main metrics handler ──────────────────────────────────
-function handleMetrics(m) {
-  metrics = m;
-  const cpu = m.cpu?.percent ?? 0;
-  const mem = m.memory?.percent ?? 0;
-
-  // History
-  history.cpu.push(cpu); history.cpu.shift();
-  history.mem.push(mem); history.mem.shift();
-
-  // Header
-  document.getElementById('v-load').textContent = cpu.toFixed(0);
-  document.getElementById('v-tier').textContent = cpu < 40 ? 'LOW' : cpu < 70 ? 'MED' : 'HIGH';
-
-  // Sidebar values
-  document.getElementById('sb-cpu').textContent = cpu.toFixed(0) + '%';
-  document.getElementById('sb-mem').textContent = mem.toFixed(0) + '%';
-  document.getElementById('sb-procs').textContent = m.processes?.length ?? '--';
-
-  // Sparklines
-  const cpuColor = getComputedStyle(document.documentElement).getPropertyValue('--cpu').trim();
-  const memColor = getComputedStyle(document.documentElement).getPropertyValue('--mem').trim();
-  drawSpark('spark-cpu', history.cpu, cpuColor);
-  drawSpark('spark-mem', history.mem, memColor);
-
-  // CPU pane
-  document.getElementById('cpu-pct').textContent = fmt.pct(cpu);
-  document.getElementById('cpu-util').textContent = fmt.pct(cpu);
-  document.getElementById('cpu-freq').textContent = ((m.cpu?.frequency_mhz || 0)/1000).toFixed(1) + ' GHz · ' + (m.cpu?.core_count || '--') + ' cores';
-  document.getElementById('cpu-procs').textContent = m.processes?.length ?? '--';
-  document.getElementById('cpu-uptime').textContent = fmt.uptime(m.uptime_sec || 0);
-
-  // Per-core bars
-  if (m.cpu?.per_core) {
-    const cores = document.getElementById('cpu-cores');
-    cores.innerHTML = m.cpu.per_core.map((v, i) =>
-      `<div style="text-align:center;">
-        <div style="font-size:9px;color:var(--text-secondary);margin-bottom:2px;">C${i}</div>
-        <div style="height:40px;background:var(--bar-track);position:relative;display:flex;align-items:flex-end;">
-          <div style="width:100%;height:${v}%;background:var(--cpu);transition:height .4s;"></div>
-        </div>
-        <div style="font-size:9px;font-family:var(--mono);color:var(--text-primary);margin-top:2px;">${v.toFixed(0)}%</div>
-      </div>`
-    ).join('');
+function handleMetrics(m){
+  metrics=m;
+  const cpu=m.cpu?.percent??0,mem=m.memory?.percent??0;
+  H.cpu.push(cpu);H.cpu.shift();H.mem.push(mem);H.mem.shift();
+  document.getElementById('v-load').textContent=cpu.toFixed(0);
+  document.getElementById('v-tier').textContent=cpu<40?'LOW':cpu<70?'MED':'HIGH';
+  document.getElementById('sb-cpu').textContent=cpu.toFixed(0)+'%';
+  document.getElementById('sb-mem').textContent=mem.toFixed(0)+'%';
+  document.getElementById('sb-procs').textContent=m.processes?.length??'--';
+  drawSpark('spark-cpu',H.cpu,css('--cpu'));
+  drawSpark('spark-mem',H.mem,css('--mem'));
+  document.getElementById('cpu-pct').textContent=fmt.pct(cpu);
+  document.getElementById('cpu-util').textContent=fmt.pct(cpu);
+  document.getElementById('cpu-freq').textContent=((m.cpu?.frequency_mhz||0)/1000).toFixed(1)+' GHz \u00b7 '+(m.cpu?.core_count||'--')+' cores';
+  document.getElementById('cpu-procs').textContent=m.processes?.length??'--';
+  document.getElementById('cpu-uptime').textContent=fmt.up(m.uptime_sec||0);
+  drawGraph('graph-cpu',[{data:H.cpu,color:css('--cpu'),fill:true}]);
+  if(m.cpu?.per_core){
+    document.getElementById('cpu-cores').innerHTML=m.cpu.per_core.map((v,i)=>`<div class="core-bar"><div class="core-bar-inner"><div class="core-bar-fill" style="height:${v}%"></div></div><div style="font-size:9px;color:var(--text-secondary);font-family:var(--mono);">${v.toFixed(0)}%</div><div style="font-size:8px;color:var(--text-secondary);">C${i}</div></div>`).join('');
   }
-
-  // CPU graph
-  drawGraph('graph-cpu', [{ data: history.cpu, color: cpuColor, fill: true }]);
-
-  // Top CPU processes
-  if (m.processes) {
-    const topCpu = [...m.processes].sort((a,b) => (b.cpu_percent||0)-(a.cpu_percent||0)).slice(0,8);
-    renderTopList('cpu-top', topCpu, 'cpu_percent', v => v.toFixed(1)+'%', cpuColor);
+  if(m.processes){
+    const tc=[...m.processes].sort((a,b)=>(b.cpu_percent||0)-(a.cpu_percent||0));
+    topList('cpu-top',tc,'cpu_percent',v=>v.toFixed(1)+'%',css('--cpu'));
+    const tm=[...m.processes].sort((a,b)=>(b.memory_mb||0)-(a.memory_mb||0));
+    topList('mem-top',tm,'memory_mb',v=>fmt.mb(v),css('--mem'));
   }
-
-  // Memory pane
-  const usedMb = m.memory?.used_mb ?? 0;
-  const totalMb = m.memory?.total_mb ?? 0;
-  const availMb = m.memory?.available_mb ?? 0;
-  document.getElementById('mem-pct').textContent = fmt.pct(mem);
-  document.getElementById('mem-pressure').textContent = fmt.pct(mem);
-  document.getElementById('mem-used').textContent = fmt.mb(usedMb);
-  document.getElementById('mem-avail').textContent = fmt.mb(availMb);
-  document.getElementById('mem-total').textContent = fmt.mb(totalMb) + ' total';
-  document.getElementById('mem-total2').textContent = fmt.mb(totalMb);
-  document.getElementById('mem-bar').style.width = mem + '%';
-  document.getElementById('mem-bar').className = 'hbar-fill' + (mem > 90 ? ' danger' : mem > 75 ? ' warn' : '');
-  document.getElementById('mem-bar-mid').textContent = fmt.mb(usedMb);
-  document.getElementById('mem-bar-max').textContent = fmt.mb(totalMb);
-
-  // Memory graph
-  drawGraph('graph-mem', [{ data: history.mem, color: memColor, fill: true }]);
-
-  // Top memory
-  if (m.processes) {
-    const topMem = [...m.processes].sort((a,b) => (b.memory_mb||0)-(a.memory_mb||0)).slice(0,8);
-    renderTopList('mem-top', topMem, 'memory_mb', v => fmt.mb(v), memColor);
-  }
-
-  // Disk
-  if (m.disks?.length) {
-    const diskD = m.disks.find(d => d.mount?.startsWith('D')) || m.disks[0];
-    const diskC = m.disks.find(d => d.mount?.startsWith('C'));
-    if (diskD) {
-      const dRate = (diskD.read_bytes_sec + diskD.write_bytes_sec) / 1048576;
-      history.diskRead.push(diskD.read_bytes_sec / 1048576); history.diskRead.shift();
-      history.diskWrite.push(diskD.write_bytes_sec / 1048576); history.diskWrite.shift();
-      document.getElementById('sb-disk').textContent = dRate.toFixed(1) + ' MB/s';
-      document.getElementById('disk-d-rate').textContent = dRate.toFixed(1) + ' MB/s';
-      document.getElementById('disk-d-space').textContent = fmt.mb(diskD.available_gb * 1024) + ' free';
-      document.getElementById('disk-d-read').textContent = fmt.bytes(diskD.read_bytes_sec);
-      document.getElementById('disk-d-write').textContent = fmt.bytes(diskD.write_bytes_sec);
-      const diskRColor = getComputedStyle(document.documentElement).getPropertyValue('--disk-r').trim();
-      const diskWColor = getComputedStyle(document.documentElement).getPropertyValue('--disk-w').trim();
-      drawGraph('graph-disk', [
-        { data: history.diskRead, color: diskRColor },
-        { data: history.diskWrite, color: diskWColor },
-      ]);
+  const used=m.memory?.used_mb??0,total=m.memory?.total_mb??0,avail=m.memory?.available_mb??0;
+  document.getElementById('mem-pct').textContent=fmt.pct(mem);
+  document.getElementById('mem-pct2').textContent=fmt.pct(mem);
+  document.getElementById('mem-used').textContent=fmt.mb(used);
+  document.getElementById('mem-avail').textContent=fmt.mb(avail);
+  document.getElementById('mem-total').textContent=fmt.mb(total)+' total';
+  document.getElementById('mem-total2').textContent=fmt.mb(total);
+  document.getElementById('mem-bar').style.width=mem+'%';
+  document.getElementById('mem-bar').className='hbar-fill'+(mem>90?' danger':mem>75?' warn':'');
+  document.getElementById('mem-bar-used').textContent=fmt.mb(used);
+  document.getElementById('mem-bar-max').textContent=fmt.mb(total);
+  drawGraph('graph-mem',[{data:H.mem,color:css('--mem'),fill:true}]);
+  if(m.disks?.length){
+    const dD=m.disks.find(d=>d.mount?.startsWith('D'))||m.disks[0];
+    const dC=m.disks.find(d=>d.mount?.startsWith('C'));
+    if(dD){
+      H.dR.push(dD.read_bytes_sec/1048576);H.dR.shift();
+      H.dW.push(dD.write_bytes_sec/1048576);H.dW.shift();
+      const rate=(dD.read_bytes_sec+dD.write_bytes_sec)/1048576;
+      document.getElementById('sb-disk').textContent=rate.toFixed(1)+' MB/s';
+      document.getElementById('disk-d-rate').textContent=rate.toFixed(1)+' MB/s';
+      document.getElementById('disk-d-space').textContent=dD.available_gb.toFixed(0)+' GB free';
+      document.getElementById('disk-d-read').textContent=fmt.bs(dD.read_bytes_sec);
+      document.getElementById('disk-d-write').textContent=fmt.bs(dD.write_bytes_sec);
+      drawGraph('graph-disk',[{data:H.dR,color:css('--disk-r')},{data:H.dW,color:css('--disk-w')}]);
     }
-    if (diskC) {
-      const cRate = (diskC.read_bytes_sec + diskC.write_bytes_sec) / 1048576;
-      document.getElementById('sb-disk-c').textContent = cRate.toFixed(1) + ' MB/s';
-      document.getElementById('disk-c-rate').textContent = cRate.toFixed(1) + ' MB/s';
-      document.getElementById('disk-c-read').textContent = fmt.bytes(diskC.read_bytes_sec);
-      document.getElementById('disk-c-write').textContent = fmt.bytes(diskC.write_bytes_sec);
-      const usedC = diskC.total_gb - diskC.available_gb;
-      const usedPct = (usedC / diskC.total_gb) * 100;
-      document.getElementById('disk-c-space').textContent = fmt.mb(diskC.available_gb * 1024) + ' free';
-      document.getElementById('disk-c-bar').style.width = usedPct + '%';
-      document.getElementById('disk-c-used-lbl').textContent = usedC.toFixed(1) + ' GB used';
-      document.getElementById('disk-c-free-lbl').textContent = diskC.available_gb.toFixed(1) + ' GB free';
+    if(dC){
+      const cRate=(dC.read_bytes_sec+dC.write_bytes_sec)/1048576;
+      const usedPct=((dC.total_gb-dC.available_gb)/dC.total_gb)*100;
+      document.getElementById('sb-disk-c').textContent=cRate.toFixed(1)+' MB/s';
+      document.getElementById('disk-c-rate').textContent=cRate.toFixed(1)+' MB/s';
+      document.getElementById('disk-c-space').textContent=dC.available_gb.toFixed(0)+' GB free';
+      document.getElementById('disk-c-read').textContent=fmt.bs(dC.read_bytes_sec);
+      document.getElementById('disk-c-write').textContent=fmt.bs(dC.write_bytes_sec);
+      document.getElementById('disk-c-bar').style.width=usedPct+'%';
+      document.getElementById('disk-c-used-lbl').textContent=(dC.total_gb-dC.available_gb).toFixed(1)+' GB used';
+      document.getElementById('disk-c-free-lbl').textContent=dC.available_gb.toFixed(1)+' GB free';
     }
   }
-
-  // Network
-  if (m.networks?.length) {
-    const activeNets = m.networks.filter(n => n.received_bytes_sec > 0 || n.transmitted_bytes_sec > 0);
-    const totalRecv = activeNets.reduce((s,n) => s + n.received_bytes_sec, 0);
-    const totalSend = activeNets.reduce((s,n) => s + n.transmitted_bytes_sec, 0);
-    history.netRecv.push(totalRecv / 1024); history.netRecv.shift();
-    history.netSend.push(totalSend / 1024); history.netSend.shift();
-    document.getElementById('sb-net').textContent = fmt.bytes(totalRecv + totalSend);
-    document.getElementById('net-total').textContent = fmt.bytes(totalRecv + totalSend);
-    document.getElementById('net-recv').textContent = fmt.bytes(totalRecv);
-    document.getElementById('net-send').textContent = fmt.bytes(totalSend);
-    const netRxColor = getComputedStyle(document.documentElement).getPropertyValue('--net-rx').trim();
-    const netTxColor = getComputedStyle(document.documentElement).getPropertyValue('--net-tx').trim();
-    drawGraph('graph-net', [
-      { data: history.netRecv, color: netRxColor },
-      { data: history.netSend, color: netTxColor },
-    ]);
-    document.getElementById('net-adapters').innerHTML = m.networks.map(n =>
-      `<div class="kv-row">
-        <span class="kv-k">${n.name.substring(0,30)}</span>
-        <span class="kv-v">↓${fmt.bytes(n.received_bytes_sec)} ↑${fmt.bytes(n.transmitted_bytes_sec)}</span>
-      </div>`
-    ).join('');
+  if(m.networks?.length){
+    const tR=m.networks.reduce((s,n)=>s+n.received_bytes_sec,0);
+    const tS=m.networks.reduce((s,n)=>s+n.transmitted_bytes_sec,0);
+    H.nR.push(tR/1024);H.nR.shift();H.nT.push(tS/1024);H.nT.shift();
+    document.getElementById('sb-net').textContent=fmt.bs(tR+tS);
+    document.getElementById('net-total').textContent=fmt.bs(tR+tS);
+    document.getElementById('net-recv').textContent=fmt.bs(tR);
+    document.getElementById('net-send').textContent=fmt.bs(tS);
+    drawGraph('graph-net',[{data:H.nR,color:css('--net-rx')},{data:H.nT,color:css('--net-tx')}]);
+    document.getElementById('net-adapters').innerHTML=m.networks.filter(n=>n.received_bytes_sec>0||n.transmitted_bytes_sec>0).map(n=>`<div class="kv-row"><span class="kv-k">${n.name.substring(0,28)}</span><span class="kv-v">&darr;${fmt.bs(n.received_bytes_sec)} &uarr;${fmt.bs(n.transmitted_bytes_sec)}</span></div>`).join('');
   }
-
-  // Status bar
-  document.getElementById('sb-uptime').textContent = fmt.uptime(m.uptime_sec || 0);
-  document.getElementById('sb-events').textContent = (++eventCount) + ' events';
-
-  // Processes pane
-  renderProcesses();
+  document.getElementById('sb-uptime').textContent=fmt.up(m.uptime_sec||0);
+  document.getElementById('sb-events').textContent=(++eventCount)+' events';
+  renderProcs();
 }
 
-// ── Intelligence handler ──────────────────────────────────
-function handleIntelligence(data) {
-  intelligence = { ...intelligence, ...data };
-
-  // Context
-  if (data.context) {
-    document.getElementById('v-ctx').textContent = data.context;
-    document.getElementById('sb-ctx-short').textContent = data.context;
-    document.getElementById('ctx-name').textContent = data.context;
+function handleIntel(data){
+  if(data.context){const v=data.context;document.getElementById('v-ctx').textContent=v;document.getElementById('sb-ctx-short').textContent=v;document.getElementById('ctx-name').textContent=v;}
+  if(data.confidence!==undefined)document.getElementById('ctx-conf').textContent=((data.confidence*100).toFixed(0))+'% confidence';
+  if(data.score!==undefined){document.getElementById('v-load').textContent=data.score;document.getElementById('v-tier').textContent=(data.tier||'LOW').toUpperCase();}
+  if(data.catalog){
+    document.getElementById('cat-known').textContent=data.catalog.total??'--';
+    document.getElementById('cat-unknown').textContent=data.catalog.unknown??'--';
+    document.getElementById('cat-suspicious').textContent=data.catalog.suspicious??'--';
+    document.getElementById('sb-cat-val').textContent=(data.catalog.unknown||0)+' unk';
+    const d=document.getElementById('sb-cat-dot');
+    d.className='sb-status '+((data.catalog.suspicious||0)>0?'danger':(data.catalog.unknown||0)>0?'warn':'ok');
   }
-  if (data.confidence !== undefined) {
-    document.getElementById('ctx-conf').textContent = (data.confidence * 100).toFixed(0) + '% confidence';
+  if(data.learning_confidence){
+    const s=data.learning_confidence.score||0;
+    document.getElementById('sb-conf').textContent=s+'%';
+    document.getElementById('learn-score').textContent=s+'%';
+    document.getElementById('learn-bar').style.width=s+'%';
+    document.getElementById('learn-mode').textContent=data.learning_confidence.auto_mode_unlocked?'Auto mode':'Manual mode';
+    document.getElementById('learn-stats').innerHTML=`<div class="kv-row"><span class="kv-k">Decisions</span><span class="kv-v">${data.learning_confidence.total_decisions??0}</span></div><div class="kv-row"><span class="kv-k">Until auto</span><span class="kv-v">${data.learning_confidence.decisions_until_auto??'--'}</span></div>`;
   }
-
-  // Cognitive load → header
-  if (data.score !== undefined) {
-    document.getElementById('v-load').textContent = data.score;
-    const tier = data.tier || (data.score < 40 ? 'LOW' : data.score < 70 ? 'MED' : 'HIGH');
-    document.getElementById('v-tier').textContent = tier;
-  }
-
-  // Catalog
-  if (data.catalog) {
-    document.getElementById('cat-known').textContent = data.catalog.total ?? '--';
-    document.getElementById('cat-unknown').textContent = data.catalog.unknown ?? '--';
-    document.getElementById('cat-suspicious').textContent = data.catalog.suspicious ?? '--';
-    document.getElementById('sb-cat-val').textContent = (data.catalog.unknown || 0) + ' unknown';
-    const catDot = document.getElementById('sb-cat-dot');
-    if ((data.catalog.suspicious || 0) > 0) catDot.className = 'sb-status danger';
-    else if ((data.catalog.unknown || 0) > 0) catDot.className = 'sb-status warn';
-    else catDot.className = 'sb-status ok';
-  }
-
-  // Confidence
-  if (data.learning_confidence) {
-    const score = data.learning_confidence.score || 0;
-    document.getElementById('sb-conf').textContent = score + '%';
-    document.getElementById('learn-score').textContent = score + '%';
-    document.getElementById('learn-bar').style.width = score + '%';
-    document.getElementById('learn-mode').textContent = data.learning_confidence.auto_mode_unlocked ? 'Auto mode' : 'Manual mode';
-    document.getElementById('learn-stats').innerHTML = `
-      <div class="kv-row"><span class="kv-k">Decisions</span><span class="kv-v">${data.learning_confidence.total_decisions ?? 0}</span></div>
-      <div class="kv-row"><span class="kv-k">Until auto</span><span class="kv-v">${data.learning_confidence.decisions_until_auto ?? '--'}</span></div>`;
-  }
-
-  // Sniper watches
-  if (data.active_watches !== undefined) {
-    document.getElementById('sb-watches').textContent = data.active_watches + ' watching';
-    document.getElementById('sniper-watches').textContent = data.active_watches;
-    const sniperDot = document.getElementById('sb-sniper-dot');
-    sniperDot.className = 'sb-status ' + (data.active_watches > 0 ? 'warn' : 'ok');
-    const sbWatching = document.getElementById('sb-watching');
-    sbWatching.textContent = data.active_watches > 0 ? 'Monitoring ' + data.active_watches + ' processes' : '';
+  if(data.active_watches!==undefined){
+    document.getElementById('sb-watches').textContent=data.active_watches;
+    document.getElementById('sniper-watches').textContent=data.active_watches;
+    document.getElementById('sb-sniper-dot').className='sb-status '+(data.active_watches>0?'warn':'ok');
+    document.getElementById('sb-watching').textContent=data.active_watches>0?'Monitoring '+data.active_watches+' processes':'';
   }
 }
 
-// ── Tauri IPC connection ──────────────────────────────────
-async function connectTauri() {
-  if (!window.__TAURI__) {
-    setTimeout(connectTauri, 500);
-    return;
-  }
-
-  // Status bar
-  document.getElementById('sb-intel').textContent = 'Intelligence active';
-  document.getElementById('sb-metrics').textContent = 'Metrics live';
-  document.getElementById('sb-intel-dot').className = 'sb-dot ok';
-  document.getElementById('sb-metrics-dot').className = 'sb-dot ok';
-
-  // Listen for metrics
-  window.__TAURI__.event.listen('metrics', e => {
-    handleMetrics(e.payload);
+// Sidebar nav
+document.querySelectorAll('.sb-item').forEach(el=>{
+  el.addEventListener('click',()=>{
+    document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));
+    el.classList.add('active');
+    document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
+    const t=document.getElementById('pane-'+el.dataset.pane);
+    if(t)t.classList.add('active');
   });
+});
 
-  // Listen for intelligence events
-  window.__TAURI__.event.listen('intelligence', e => {
-    handleIntelligence(e.payload);
+// Theme
+document.getElementById('btn-theme').addEventListener('click',()=>{
+  const dark=document.documentElement.getAttribute('data-theme')==='dark';
+  document.documentElement.setAttribute('data-theme',dark?'light':'dark');
+  document.getElementById('btn-theme').textContent=dark?'Dark':'Light';
+});
+
+// Process table sort
+document.querySelectorAll('#proc-table th[data-col]').forEach(th=>{
+  th.addEventListener('click',()=>{
+    const col=th.dataset.col;
+    if(procSort.col===col)procSort.dir=procSort.dir==='desc'?'asc':'desc';
+    else{procSort.col=col;procSort.dir=col==='name'?'asc':'desc';}
+    document.querySelectorAll('#proc-table th').forEach(t=>t.classList.remove('sa','sd'));
+    th.classList.add(procSort.dir==='asc'?'sa':'sd');
+    renderProcs();
   });
+});
 
-  // Sidecar events
-  const sidecarEvents = ['context_changed','load_score_updated','confidence_updated',
-    'sniper_action_requested','policies_updated','heartbeat','started'];
-  sidecarEvents.forEach(evtName => {
-    window.__TAURI__.event.listen(evtName, e => {
-      const p = e.payload;
-      if (evtName === 'context_changed') {
-        document.getElementById('v-ctx').textContent = p.context || '--';
-        document.getElementById('sb-ctx-short').textContent = p.context || '--';
-        document.getElementById('ctx-name').textContent = p.context || '--';
-        document.getElementById('ctx-conf').textContent = ((p.confidence || 0)*100).toFixed(0) + '% confidence';
-      }
-      if (evtName === 'load_score_updated') {
-        document.getElementById('v-load').textContent = p.score;
-        document.getElementById('v-tier').textContent = (p.tier || 'LOW').toUpperCase();
-      }
-      if (evtName === 'confidence_updated') {
-        document.getElementById('sb-conf').textContent = p.score + '%';
-        document.getElementById('learn-score').textContent = p.score + '%';
-        document.getElementById('learn-bar').style.width = p.score + '%';
-      }
-      if (evtName === 'sniper_action_requested') {
-        sniperActions.unshift(p);
-        if (sniperActions.length > 20) sniperActions.pop();
-        renderSniperActions();
-        showToast('AEGIS ' + p.action + ' ' + p.name, p.reason?.substring(0,80) || '', 'warn');
+document.getElementById('proc-search').addEventListener('input',e=>{procFilter=e.target.value.toLowerCase();renderProcs();});
+document.getElementById('btn-flat').addEventListener('click',()=>{document.getElementById('btn-flat').classList.add('active');document.getElementById('btn-tree').classList.remove('active');renderProcs();});
+document.getElementById('btn-tree').addEventListener('click',()=>{document.getElementById('btn-tree').classList.add('active');document.getElementById('btn-flat').classList.remove('active');renderProcs();});
+
+// Clock
+setInterval(()=>{document.getElementById('sb-time').textContent=fmt.time();},1000);
+document.getElementById('sb-time').textContent=fmt.time();
+
+// Tauri connection
+async function connectTauri(){
+  if(!window.__TAURI__){setTimeout(connectTauri,500);return;}
+  window.__TAURI__.event.listen('metrics',e=>handleMetrics(e.payload));
+  window.__TAURI__.event.listen('intelligence',e=>handleIntel(e.payload));
+  ['context_changed','load_score_updated','confidence_updated','sniper_action_requested','heartbeat','started'].forEach(n=>{
+    window.__TAURI__.event.listen(n,e=>{
+      const p=e.payload;
+      if(n==='context_changed'){document.getElementById('v-ctx').textContent=p.context||'--';document.getElementById('sb-ctx-short').textContent=p.context||'--';document.getElementById('ctx-name').textContent=p.context||'--';}
+      if(n==='load_score_updated'){document.getElementById('v-load').textContent=p.score;document.getElementById('v-tier').textContent=(p.tier||'LOW').toUpperCase();}
+      if(n==='confidence_updated'){document.getElementById('sb-conf').textContent=p.score+'%';document.getElementById('learn-score').textContent=p.score+'%';document.getElementById('learn-bar').style.width=p.score+'%';}
+      if(n==='sniper_action_requested'){
+        sniperActions.unshift(p);if(sniperActions.length>20)sniperActions.pop();
+        document.getElementById('sniper-actions').innerHTML=sniperActions.map(a=>`<div class="kv-row"><span class="kv-k" style="font-family:var(--mono)">${a.name}</span><span style="color:var(--status-warn);font-size:10px">${a.action}</span></div>`).join('');
+        toast('AEGIS '+a.action+' '+a.name,(a.reason||'').substring(0,80),'warn');
       }
     });
   });
-
-  // Initial data pull
-  try {
-    const m = await window.__TAURI__.core.invoke('get_latest_metrics');
-    if (m) handleMetrics(m);
-    const intel = await window.__TAURI__.core.invoke('get_intelligence');
-    if (intel) handleIntelligence(typeof intel === 'string' ? JSON.parse(intel) : intel);
-  } catch(e) { /* not ready yet */ }
+  try{
+    const m=await window.__TAURI__.core.invoke('get_latest_metrics');
+    if(m)handleMetrics(m);
+    const intel=await window.__TAURI__.core.invoke('get_intelligence');
+    if(intel)handleIntel(typeof intel==='string'?JSON.parse(intel):intel);
+  }catch(e){}
 }
-
-function renderSniperActions() {
-  const el = document.getElementById('sniper-actions');
-  if (!sniperActions.length) {
-    el.innerHTML = '<span style="color:var(--text-secondary);font-size:11px;">Observing — no actions yet</span>';
-    return;
-  }
-  el.innerHTML = sniperActions.map(a =>
-    `<div class="kv-row">
-      <span class="kv-k" style="font-family:var(--mono);">${a.name}</span>
-      <span style="color:var(--status-warn);font-size:10px;font-family:var(--mono);">${a.action}</span>
-    </div>`
-  ).join('');
-}
-
 connectTauri();
 </script>
 </body>

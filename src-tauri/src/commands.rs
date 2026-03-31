@@ -572,3 +572,17 @@ pub async fn sidecar_lock_context(
 pub fn get_latest_metrics() -> Option<crate::metrics::SystemMetrics> {
     crate::metrics::get_cached_snapshot()
 }
+
+#[tauri::command]
+pub async fn get_policy_status(app: tauri::AppHandle) -> Result<String, String> {
+    use crate::sidecar::send_to_sidecar;
+    send_to_sidecar(&app, "get_policy_status", serde_json::json!({}));
+    Ok("policy_status_requested".to_string())
+}
+
+#[tauri::command]
+pub async fn audit_policies(app: tauri::AppHandle) -> Result<String, String> {
+    use crate::sidecar::send_to_sidecar;
+    send_to_sidecar(&app, "audit_policies", serde_json::json!({}));
+    Ok("policy_audit_started".to_string())
+}

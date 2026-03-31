@@ -33,8 +33,6 @@ fn main() {
             tray::setup_tray(app)?;
 
             // ── FIX: Briefly show cockpit so WebView JS context initializes ──
-            // Tauri 2 does not deliver emit() events to a WebView that has
-            // never been shown. Show it, let JS register listeners, then hide.
             if let Some(window) = app.get_webview_window("cockpit") {
                 let _ = window.show();
                 let w = window.clone();
@@ -42,7 +40,6 @@ fn main() {
                 tauri::async_runtime::spawn(async move {
                     tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
                     let _ = w.hide();
-                    // Sync CockpitVisible flag so tray toggle still works
                     if let Some(vis) = app_handle_vis.try_state::<tray::CockpitVisible>() {
                         let mut state = vis.lock().unwrap();
                         state.visible = false;
@@ -50,10 +47,10 @@ fn main() {
                 });
             }
 
-            // Start disk I/O background thread (WMI needs a dedicated non-async thread)
+            // Start disk I/O background thread
             disk_io::start_disk_io_thread();
 
-            // Start metrics polling — emits "metrics" events to cockpit every 2s
+            // Start metrics polling
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 metrics::start_polling(app_handle).await;
@@ -65,7 +62,7 @@ fn main() {
                 sidecar::start_sidecar(app_handle2).await;
             });
 
-            // Load and apply default profile — delay 1s so WebView is ready
+            // Load and apply default profile
             let app_handle3 = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
@@ -91,14 +88,14 @@ fn main() {
             commands::sidecar_feedback,
             commands::sidecar_lock_context,
             commands::get_latest_metrics,
+            commands::get_policy_status,
+            commands::audit_policies,
         ])
         .on_window_event(|window, event| {
-            // Only intercept close on the cockpit — hide to tray instead of quit
             if window.label() == "cockpit" {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     let _ = window.hide();
                     api.prevent_close();
-                    // Sync tray toggle flag so next left-click opens correctly
                     if let Some(vis) = window.app_handle().try_state::<tray::CockpitVisible>() {
                         let mut state = vis.inner().lock().unwrap();
                         state.visible = false;
@@ -109,4 +106,3 @@ fn main() {
         .run(tauri::generate_context!())
         .expect("AEGIS failed to start");
 }
-

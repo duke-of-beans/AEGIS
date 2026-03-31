@@ -5,6 +5,7 @@
   "identifier": "com.borrowedlight.aegis",
   "build": {
     "frontendDist": "../ui",
+    "devUrl": "http://localhost:1420",
     "beforeDevCommand": "",
     "beforeBuildCommand": ""
   },
@@ -26,7 +27,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src ipc: http://ipc.localhost"
+      "csp": "default-src 'self' http://localhost:1420; script-src 'self' 'unsafe-inline' http://localhost:1420; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com http://localhost:1420; font-src https://fonts.gstatic.com; connect-src ipc: http://ipc.localhost http://localhost:1420"
     }
   },
   "bundle": {
