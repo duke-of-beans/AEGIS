@@ -1,5 +1,5 @@
 // metrics.rs — System metrics polling via sysinfo crate
-// No elevation required. No subprocess. Reads same PDH counters as Task Manager.
+// CPU-01: adds per_core vec to CpuMetrics
 
 use serde::Serialize;
 use sysinfo::{Disks, Networks, System, ProcessStatus};
@@ -8,14 +8,10 @@ use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use tokio::time;
 
-// ── Cached latest snapshot for get_latest_metrics command ──
 static LATEST: OnceLock<Mutex<Option<SystemMetrics>>> = OnceLock::new();
-
 fn cache() -> &'static Mutex<Option<SystemMetrics>> {
     LATEST.get_or_init(|| Mutex::new(None))
 }
-
-/// Returns the most recent metrics snapshot, or None if polling hasn't started yet.
 pub fn get_cached_snapshot() -> Option<SystemMetrics> {
     cache().lock().unwrap().clone()
 }
@@ -25,6 +21,8 @@ pub struct CpuMetrics {
     pub percent: f32,
     pub core_count: usize,
     pub frequency_mhz: u64,
+    pub per_core: Vec<f32>,          // CPU-01: per-core utilization %
+    pub thread_count_total: u32,     // CPU-01: total threads across all processes
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -80,8 +78,6 @@ pub async fn start_polling<R: Runtime>(app: AppHandle<R>) {
     let mut disks = Disks::new_with_refreshed_list();
     let mut networks = Networks::new_with_refreshed_list();
 
-    // Warmup: sysinfo needs two refresh cycles to compute CPU percentages.
-    // Without this, the first tick returns 0% CPU.
     sys.refresh_all();
     time::sleep(Duration::from_millis(500)).await;
     sys.refresh_all();
@@ -90,47 +86,37 @@ pub async fn start_polling<R: Runtime>(app: AppHandle<R>) {
 
     loop {
         interval.tick().await;
-
         sys.refresh_all();
         disks.refresh(true);
         networks.refresh(true);
 
         let metrics = collect_metrics(&sys, &disks, &networks);
-
-        // Cache snapshot for get_latest_metrics IPC command
         *cache().lock().unwrap() = Some(metrics.clone());
 
-        // Push CPU + memory to sidecar for cognitive load computation.
-        // Best-effort — if sidecar is not running, send_to_sidecar is a no-op.
         crate::sidecar::send_to_sidecar(&app, "update_metrics", serde_json::json!({
             "cpu_percent": metrics.cpu.percent,
             "memory_percent": metrics.memory.percent
         }));
 
-        // Feed process snapshots to sidecar for baseline tracking + sniper evaluation.
-        // Best-effort — if sidecar is not running, send_to_sidecar is a no-op.
         let proc_payload: Vec<serde_json::Value> = metrics.processes.iter().map(|p| serde_json::json!({
-            "pid": p.pid,
-            "name": p.name,
-            "cpu_percent": p.cpu_percent,
-            "memory_mb": p.memory_mb,
-            "handle_count": 0
+            "pid": p.pid, "name": p.name,
+            "cpu_percent": p.cpu_percent, "memory_mb": p.memory_mb, "handle_count": 0
         })).collect();
         crate::sidecar::send_to_sidecar(&app, "update_processes", serde_json::json!({
             "processes": proc_payload
         }));
 
         let _ = app.emit("metrics", &metrics);
-
-        // Also emit directly to the cockpit window — ensures delivery even if
-        // the window was hidden when the global event fired.
         if let Some(window) = app.get_webview_window("cockpit") {
             let _ = window.emit("metrics", &metrics);
         }
 
-        log::info!("metrics: cpu={:.1}% mem={}/{} MB procs={}",
+        // TRAY-01: update tray tooltip with live stats
+        crate::tray::update_tray_metrics(&app, metrics.cpu.percent, metrics.memory.percent);
+
+        log::info!("metrics: cpu={:.1}% mem={}/{} MB procs={} cores={}",
             metrics.cpu.percent, metrics.memory.used_mb,
-            metrics.memory.total_mb, metrics.processes.len());
+            metrics.memory.total_mb, metrics.processes.len(), metrics.cpu.per_core.len());
     }
 }
 
@@ -139,41 +125,30 @@ fn collect_metrics(sys: &System, disks: &Disks, networks: &Networks) -> SystemMe
     let cpu_count = sys.cpus().len();
     let cpu_freq = sys.cpus().first().map(|c| c.frequency()).unwrap_or(0);
 
-    let total_mem = sys.total_memory() / 1024 / 1024;
-    let used_mem = sys.used_memory() / 1024 / 1024;
-    let avail_mem = sys.available_memory() / 1024 / 1024;
-    let mem_pct = if total_mem > 0 { (used_mem as f32 / total_mem as f32) * 100.0 } else { 0.0 };
+    // CPU-01: collect per-core utilization
+    let per_core: Vec<f32> = sys.cpus().iter().map(|c| c.cpu_usage()).collect();
 
-    // Fetch per-drive I/O from WMI once before the loop; empty map on failure (graceful degradation)
+    let total_mem  = sys.total_memory() / 1024 / 1024;
+    let used_mem   = sys.used_memory() / 1024 / 1024;
+    let avail_mem  = sys.available_memory() / 1024 / 1024;
+    let mem_pct    = if total_mem > 0 { (used_mem as f32 / total_mem as f32) * 100.0 } else { 0.0 };
+
     let io_map = crate::disk_io::get_disk_io();
 
     let disk_metrics: Vec<DiskMetrics> = disks.list().iter().map(|d| {
         let total = d.total_space();
         let avail = d.available_space();
-        let used = total.saturating_sub(avail);
-        let pct = if total > 0 { (used as f32 / total as f32) * 100.0 } else { 0.0 };
-
-        // Extract drive letter from mount point (e.g. "C:\\" -> "C")
-        let drive_letter = d.mount_point()
-            .to_string_lossy()
-            .chars()
-            .next()
-            .map(|c| c.to_ascii_uppercase().to_string())
-            .unwrap_or_default();
-
-        let (read_bytes_sec, write_bytes_sec) = io_map
-            .get(&drive_letter)
-            .copied()
-            .unwrap_or((0, 0));
-
+        let used  = total.saturating_sub(avail);
+        let pct   = if total > 0 { (used as f32 / total as f32) * 100.0 } else { 0.0 };
+        let drive_letter = d.mount_point().to_string_lossy().chars().next()
+            .map(|c| c.to_ascii_uppercase().to_string()).unwrap_or_default();
+        let (read_bytes_sec, write_bytes_sec) = io_map.get(&drive_letter).copied().unwrap_or((0, 0));
         DiskMetrics {
             name: d.name().to_string_lossy().to_string(),
             mount: d.mount_point().to_string_lossy().to_string(),
             total_gb: total as f64 / 1_073_741_824.0,
             available_gb: avail as f64 / 1_073_741_824.0,
-            read_bytes_sec,
-            write_bytes_sec,
-            percent_used: pct,
+            read_bytes_sec, write_bytes_sec, percent_used: pct,
         }
     }).collect();
 
@@ -185,20 +160,22 @@ fn collect_metrics(sys: &System, disks: &Disks, networks: &Networks) -> SystemMe
             transmitted_bytes_sec: data.transmitted(),
         }).collect();
 
-    // Top 60 processes by memory, sorted
+    // CPU-01: sum thread counts
+    let thread_count_total: u32 = sys.processes().values()
+        .map(|p| p.tasks().map(|t| t.len() as u32).unwrap_or(1))
+        .sum();
+
     let mut procs: Vec<ProcessMetric> = sys.processes().iter().map(|(pid, p)| {
         let status = match p.status() {
-            ProcessStatus::Run => "running",
+            ProcessStatus::Run   => "running",
             ProcessStatus::Sleep => "sleeping",
-            ProcessStatus::Stop => "stopped",
-            _ => "unknown",
+            ProcessStatus::Stop  => "stopped",
+            _                    => "unknown",
         };
         ProcessMetric {
-            pid: pid.as_u32(),
-            parent_pid: p.parent().map(|p| p.as_u32()),
+            pid: pid.as_u32(), parent_pid: p.parent().map(|p| p.as_u32()),
             name: p.name().to_string_lossy().to_string(),
-            cpu_percent: p.cpu_usage(),
-            memory_mb: p.memory() as f64 / 1_048_576.0,
+            cpu_percent: p.cpu_usage(), memory_mb: p.memory() as f64 / 1_048_576.0,
             status: status.to_string(),
         }
     }).collect();
@@ -207,21 +184,9 @@ fn collect_metrics(sys: &System, disks: &Disks, networks: &Networks) -> SystemMe
 
     SystemMetrics {
         timestamp: chrono::Utc::now().to_rfc3339(),
-        cpu: CpuMetrics {
-            percent: cpu_percent,
-            core_count: cpu_count,
-            frequency_mhz: cpu_freq,
-        },
-        memory: MemMetrics {
-            used_mb: used_mem,
-            total_mb: total_mem,
-            available_mb: avail_mem,
-            percent: mem_pct,
-        },
-        disks: disk_metrics,
-        networks: net_metrics,
-        processes: procs,
-        uptime_sec: System::uptime(),
-        worker_status: "native".to_string(),
+        cpu: CpuMetrics { percent: cpu_percent, core_count: cpu_count, frequency_mhz: cpu_freq, per_core, thread_count_total },
+        memory: MemMetrics { used_mb: used_mem, total_mb: total_mem, available_mb: avail_mem, percent: mem_pct },
+        disks: disk_metrics, networks: net_metrics, processes: procs,
+        uptime_sec: System::uptime(), worker_status: "native".to_string(),
     }
 }

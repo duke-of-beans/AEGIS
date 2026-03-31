@@ -2,67 +2,70 @@
 # READ ARCHITECTURE.md BEFORE TOUCHING THIS PROJECT.
 
 **Status:** active
-**Phase:** v4.0 — Cockpit rewritten with verified IPC, first live data confirmed
-**Last Sprint:** AEGIS-COCKPIT-REWRITE (2026-03-26, in-chat, Filesystem:write_file)
-**Last Updated:** 2026-03-26
+**Phase:** v4.0 — REFACTOR-01 complete, BUILD-01 in progress
+**Last Sprint:** AEGIS-REFACTOR-01 (2026-03-30, dfce302)
+**Last Updated:** 2026-03-30
 
 ## Architecture
 
-AEGIS is a **Tauri 2 desktop application** with a **Node.js sidecar**.
+AEGIS is a **Tauri 2 desktop application** with a **Node.js sidecar** and a **separate MCP server binary**.
 See ARCHITECTURE.md for the definitive reference.
+See MCP_SEPARATION_DECISION.md for the MCP separation decision.
 
 ## What's Built — VERIFIED WORKING
 
 ### Tauri App Shell (src-tauri/) — ALL REAL
-- [x] TAURI-01: Tauri 2 scaffold + Rust metrics core (18f3812)
-- [x] TAURI-02-04: tray, live metrics, sidecar, cockpit WebView (d7967f5)
-- [x] TAURI-05: NSIS installer (36772a2)
-- [x] Custom icon (7c6e7d8)
-- [x] AMBIENT-01: ambient-first tray, profiles as override (0c63805)
-- [x] TRAY-FIX: CockpitState debounce — fixes Windows double-fire (5b91c2c)
-- [x] DEBUG-01 Rust portions: tray debounce struct, metrics emit_to cockpit (c796043)
-- [x] EVENTS-01 Rust portions: show-then-hide WebView init, metrics cache, get_latest_metrics IPC, WMI one-shot disable (326b18c)
+- [x] TAURI-01 through TAURI-05: full Tauri 2 scaffold, metrics, tray, sidecar, installer
+- [x] AMBIENT-01: ambient-first tray, profiles as override
+- [x] TRAY-FIX + DEBUG-01 + EVENTS-01: all runtime bugs fixed
+- [x] COCKPIT-REWRITE (2026-03-26): verified IPC, real data confirmed
 
-### Intelligence Sidecar (sidecar/) — ALL REAL
-- [x] CATALOG-01: 210-process knowledge base (1c4df3f)
+### Intelligence Sidecar (sidecar/) — REFACTORED 2026-03-30
+- [x] CATALOG-01: 210-process knowledge base
 - [x] INTEL-01 through INTEL-06: full intelligence stack
 - [x] LEARN-01: learning loop, sacred context weighting
-- [x] MCP-02: 8 MCP tools, stdio transport
-- [x] PROCS-01: process management with implications (685dd89)
+- [x] MCP-02: now SEPARATE binary at mcp-server/ (see MCP_SEPARATION_DECISION.md)
+- [x] PROCS-01: process management with implications
+- [x] REFACTOR-01: MCP split, localhost:7474 query endpoint, dead v2 code removed
+- [x] sidecar tsc: 0 errors ✓
+- [x] sidecar pkg bundle: SUCCESS (58MB, 2026-03-30) ✓
 
-### Cockpit UI (ui/index.html) — REWRITTEN 2026-03-26
-- [x] Tauri IPC wiring (connectTauri + __TAURI__.event.listen)
-- [x] handleMetrics() maps Rust SystemMetrics to UI
-- [x] Tab switching (CPU, Memory, Disk, Network, Processes)
-- [x] Process list sorted by CPU or memory
-- [x] Disk table with free/total/used
-- [x] Network adapter table with recv/sent
-- [x] Sidebar with uptime, cores, freq, IPC status, event count
-- [x] get_latest_metrics invoke fallback
-- [x] VERIFIED: debug page confirmed TAURI FOUND + 72 events with real data
+### MCP Server (mcp-server/) — NEW 2026-03-30
+- [x] Standalone ESM Node.js package
+- [x] 7 MCP tools reading from localhost:7474
+- [x] Decoupled from sidecar — separate stdin/stdout, separate binary
+- [ ] npm install + tsc build (pending)
+- [ ] claude_desktop_config.json update (pending)
 
-## WASTED SPRINTS — Phantom Edits (wrote to Claude container, not disk)
-- RUNTIME-01 UI portions — never reached disk
-- DEBUG-01 UI portions — never reached disk
-- EVENTS-01 UI portions — never reached disk
-- See: D:\Meta\BUG_REPORT_CLAUDE_PHANTOM_EDITS_2026-03-26.md
+### Cockpit UI (ui/index.html)
+- [x] Tauri IPC wiring, handleMetrics(), tab switching, process list
+- [x] VERIFIED: real data confirmed 2026-03-26
 
 ## Open Work
-- [ ] **[P1]** Rebuild with new cockpit (cargo tauri build) — cockpit on disk, needs compile
-- [ ] **[P2]** AEGIS-UI-01: Visual polish pass (the new cockpit is functional but minimal)
-- [ ] **[P2]** Fix better-sqlite3 native module in sidecar pkg bundle
-- [ ] **[P3]** Fix WMI disk I/O class (HRESULT 0x80041010)
+- [ ] **[P0]** cargo tauri build — IN PROGRESS (running now)
+- [ ] **[P0]** Runtime verification after build
+- [ ] **[P1]** AEGIS-UI-01: Cockpit redesign (utilitarian, sidebar layout)
+- [ ] **[P1]** AEGIS-SNP-05: Instance count baseline + 3 new Sniper rules
+- [ ] **[P1]** AEGIS-POL-01: Policy Enforcement Engine
+- [ ] **[P1]** AEGIS-GPU-01: GPU metrics + VRAM monitor
+- [ ] **[P2]** mcp-server: npm install + build + config wiring
+- [ ] **[P2]** Python migration C:\→D:\ (separate session)
+- [ ] **[P3]** DISM WinSxS cleanup on C:\
+
+## CRITICAL RULE
+To edit files on David's machine: ONLY use Filesystem:write_file or Filesystem:edit_file.
+str_replace, create_file, Desktop Commander write to Claude's container, NOT disk.
 
 ## Key Paths
 | What | Path |
 |------|------|
 | Canonical source | D:\Dev\aegis |
+| Sidecar binary | D:\Dev\aegis\src-tauri\binaries\aegis-sidecar-x86_64-pc-windows-msvc.exe |
 | Build output | D:\Tools\.cargo-target\release\aegis.exe |
 | Installer | D:\Tools\.cargo-target\release\bundle\nsis\AEGIS_4.0.0_x64-setup.exe |
-| Cockpit UI | D:\Dev\aegis\ui\index.html |
+| MCP server | D:\Dev\aegis\mcp-server\ |
 | Architecture | D:\Dev\aegis\ARCHITECTURE.md |
-| Bug report | D:\Meta\BUG_REPORT_CLAUDE_PHANTOM_EDITS_2026-03-26.md |
-
-## CRITICAL RULE
-To edit files on David's machine: ONLY use Filesystem:write_file or Filesystem:edit_file.
-str_replace, create_file, Desktop Commander:edit_block write to Claude's container, NOT disk.
+| MCP decision | D:\Dev\aegis\MCP_SEPARATION_DECISION.md |
+| Competitive analysis | D:\Dev\aegis\COMPETITIVE_ANALYSIS.md |
+| Improvements spec | D:\Dev\aegis\IMPROVEMENTS_SPEC.md |
+| Mega-sprint | D:\Dev\aegis\sprints\AEGIS-MEGA-SPRINT.md |
