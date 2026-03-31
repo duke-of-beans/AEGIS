@@ -1,162 +1,133 @@
 
 ---
 
-## GAP 6: GPU ACCELERATION POLICY (PolicyEngine Extension — 2026-03-30)
+## PRODUCT PHILOSOPHY — LIGHTWEIGHT + HARDWARE-AWARE
 
-### Problem
-Claude Desktop's GPU hardware acceleration is enabled by default and survives
-app updates. On a 4GB VRAM card with 13 Electron processes, this caused VRAM
-exhaustion and a VIDEO_MEMORY_MANAGEMENT_INTERNAL kernel panic (BSOD stop code
-0x0000010e) — twice in one day.
+### The Core Constraint
+AEGIS must never become the problem it solves.
+A system optimizer that is itself a resource hog is self-defeating.
+Target at idle: <0.5% CPU, <80MB RAM for the full stack.
+If AEGIS drifts above this, it is failing its own mission.
 
-The fix (writing hardware_acceleration_mode: false to Local State) is a one-time
-patch. App updates can overwrite Local State or reset it. Same drift problem as
-Defender.
+### Hardware Profile (AEGIS-HW-PROFILE-01)
+On first run, AEGIS performs a one-time hardware discovery:
+  - Total RAM + baseline available RAM after normal startup
+  - Physical cores + logical threads
+  - GPU name + VRAM total + typical idle VRAM usage
+  - Disk type (NVMe/SSD/HDD) + benchmark read/write speeds
+  - Thermal sensors (if available)
 
-### What's needed
-Extend PolicyEngine (AEGIS-POL-01) with app-level policy entries that check
-and enforce JSON file settings, not just registry keys.
+From this it derives a SAFE OPERATING ENVELOPE — calculated ratios, not hardcoded numbers:
+  - Compiler parallelism: floor(cores * 0.4) [cargo, MSBuild, tsc, etc.]
+  - Sniper RAM threshold: baseline_available_MB * 0.85 before aggressive action
+  - GPU acceleration: disabled if VRAM < 4GB (Electron apps)
+  - Background process limits: scaled to core count and available RAM
+  - Boot sequence delays: scaled to disk speed (NVMe = shorter delays)
 
-New policy type in policy manifest:
-```yaml
-- id: claude-gpu-acceleration-off
-  description: "Claude Desktop GPU hardware acceleration disabled"
-  type: json_file
-  path: "%APPDATA%\\Claude\\Local State"
-  json_key: hardware_acceleration_mode.enabled
-  expected_value: false
-  auto_enforce: true
-  requires_elevation: false
-```
+The envelope is stored in %APPDATA%\AEGIS\hardware_profile.yaml.
+PolicyEngine revalidates it on every boot.
+Windows Updates cannot overwrite it without triggering a policy drift alert.
 
-PolicyEngine needs a second enforcement path alongside registry:
-- json_file type: read the file, parse JSON, check nested key, rewrite if drifted
-- Use the no-BOM UTF-8 write pattern (never JSON.stringify with BOM)
-- Preserve all other keys in the file — only modify the target key
+### Adaptive Polling (AEGIS-ADAPTIVE-01)
+Three states — not constant 2s polling regardless of activity:
 
-Additional json_file policies to add for the same reason:
-```yaml
-- id: claude-gpu-local-state
-  description: "Claude Local State GPU acceleration off"
-  type: json_file
-  path: "%APPDATA%\\Claude\\Local State"
-  json_key: hardware_acceleration_mode.enabled
-  expected_value: false
-  auto_enforce: true
-  requires_elevation: false
-```
+IDLE state (nothing anomalous):
+  - Metrics poll: every 8 seconds
+  - Sniper evaluation: every 30 seconds
+  - Context engine: every 5 seconds
+  - Sidecar CPU: <0.3%, RAM: <60MB
 
-### Acceptance criteria
-- PolicyEngine handles type: json_file in addition to type: DWORD/STRING
-- On boot, AEGIS checks Claude's Local State and re-applies GPU disable if drifted
-- Policy tab in cockpit shows this entry with current value and compliance status
-- Works for any Electron app with a similar Local State pattern
+WATCH state (process flagged, deviation detected):
+  - Metrics poll: every 2 seconds
+  - Sniper evaluation: every 10 seconds
+  - Context engine: every 2 seconds
 
----
+ACTION state (active intervention, build running, VRAM pressure):
+  - Metrics poll: every 500ms
+  - Sniper evaluation: every 5 seconds
+  - Full cockpit data stream active
 
-## GAP 7: GPU METRICS + VRAM MONITOR (New Subsystem — 2026-03-30)
+Transition triggers:
+  IDLE → WATCH: any Sniper flag, VRAM > 75%, CPU sustained > 80%
+  WATCH → ACTION: Sniper action taken, VRAM > 90%, user opens cockpit
+  ACTION → WATCH: threat resolved, load drops
+  WATCH → IDLE: 5 minutes with no flags
 
-### Problem
-AEGIS has no GPU visibility. Today's BSOD was caused by VRAM exhaustion —
-13 Claude Electron processes + 10 WebView2 processes + 5 NVIDIA Container
-processes collectively exceeded the 4GB VRAM limit on a Max-Q card.
+This is the sniper metaphor applied to AEGIS itself.
+It waits, watches, and acts precisely. It does not spray.
 
-The Sniper saw normal CPU/RAM and did nothing. VRAM was never measured.
-The kernel panic was the first signal AEGIS received.
+### Three Control Tiers (UI)
+Surfaced in cockpit Settings as a deliberate first-run choice:
 
-VISION.md explicitly lists GPU-Z and MSI Afterburner as tools AEGIS should
-absorb. Neither has been implemented. This is the sprint that does it.
+AUTOMATIC (default, ships on all installs):
+  - Hardware profile drives all limits
+  - PolicyEngine enforces silently
+  - Sniper acts within learned confidence
+  - Zero configuration required
+  - Most users never leave this mode and shouldn't need to
 
-### What's needed
-A `GpuMonitor` module in the sidecar that:
-1. Polls GPU metrics every 10s via NVIDIA-SMI (if available) or WMI
-2. Tracks: GPU utilization %, VRAM used MB, VRAM total MB, VRAM % used,
-   GPU temperature, GPU power draw
-3. Feeds VRAM % into the Sniper as a machine-level alert threshold
-4. Surfaces GPU data in the cockpit Performance sidebar (GPU item)
+BALANCED (intermediate):
+  - Same as Automatic but each action is explained before executing
+  - User can approve, reject, or modify
+  - This is the learning/trust-building mode
+  - Recommended for new power users
 
-### VRAM alert thresholds
-- VRAM > 75%: warn (amber in cockpit GPU item)
-- VRAM > 90%: alert — SniperEvent type 'flagged', reason 'vram_pressure'
-  Action: notify only. Identify top VRAM-consuming processes and list them.
-- VRAM > 95%: critical — SniperEvent type 'flagged', reason 'vram_critical'
-  Tray notification: "VRAM critical (95%). Claude GPU acceleration may need
-  disabling. Open cockpit to review."
+MANUAL (power users):
+  - User sets explicit limits in cockpit
+  - AEGIS monitors and alerts only — never acts without instruction
+  - Full cockpit visibility into everything
+  - David's mode once AEGIS is fully trusted
 
-### NVIDIA-SMI query (preferred path)
-```
-nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw --format=csv,noheader,nounits
-```
-Output: `8, 2847, 4096, 71, 42.3`
-Parse CSV, store as GpuMetrics object.
+Safe default is always AUTOMATIC with conservative thresholds.
+Machine runs better on day one with zero user effort.
+Power users unlock more aggressive behavior with explicit opt-in.
 
-Fallback path (if nvidia-smi not in PATH):
-WMI class `Win32_VideoController` — provides AdapterRAM but not live VRAM usage.
-In fallback mode: report AdapterRAM as total, flag as "usage unavailable",
-still show GPU name and driver version.
+### Sidecar Lightweight Constraints (enforced, not aspirational)
+  - SQLite: WAL mode, page_size=4096, cache_size=-2000 (2MB max cache)
+  - Baseline DB: prune samples older than 30 days on startup
+  - Context engine PowerShell poller: only persistent subprocess
+  - All other subprocesses: on-demand, killed after response
+  - Learning store: flush to disk every 5 minutes, not every action
+  - Catalog: loaded into memory once, not re-read per query
+  - Intelligence evaluation loops: gated by lastActivityMs
+    If machine quiet for > 5 minutes: skip evaluation entirely
 
-### Per-process VRAM attribution (best-effort)
-nvidia-smi can report per-process VRAM:
-```
-nvidia-smi --query-compute-apps=pid,used_memory --format=csv,noheader,nounits
-```
-Cross-reference with running process list to name the consumers.
-Show top 5 VRAM consumers in cockpit GPU detail pane.
+### GregLite / GREGORE Integration
+AEGIS as the hardware awareness layer for the whole portfolio.
 
-### Implementation targets
-- New module: sidecar/src/gpu/monitor.ts
-- GpuMetrics interface: utilization, vram_used_mb, vram_total_mb, vram_pct,
-  temp_c, power_w, per_process: Array<{pid, name, vram_mb}>
-- Poll every 10s via nvidia-smi one-shot spawn
-- Feed into Sniper via new ingestGpu(metrics: GpuMetrics) method
-- Cockpit GPU item in sidebar: sparkline of VRAM % + current utilization
-- GPU detail pane: full metrics + per-process VRAM table
-- ARCHITECTURE.md: add GpuMonitor to component map
+GregLite query before spawning MCP servers:
+  GET localhost:7474/state → { cognitive_load, available_ram_mb, recommended_jobs }
 
-### Sprint ID: AEGIS-GPU-01
-Depends on: AEGIS-UI-01 (sidebar GPU item uses SIDEBAR_SECTIONS extension point)
-Priority: P1 — VRAM exhaustion caused kernel panics. This is not cosmetic.
+GREGORE pre-build signal:
+  "COVOS sprint starting, Node-heavy, 3hr"
+  → AEGIS receives intent via MCP apply_policy_overlay
+  → AEGIS adjusts thresholds, warns if RAM insufficient, sets compiler limits
+  → Build starts in optimal environment without manual configuration
 
----
+The closed loop: intent flows in, AEGIS configures, work runs at capacity.
 
-## UPDATED SPRINT QUEUE
+### Sprint: AEGIS-HW-PROFILE-01
+Priority: P1 — prerequisite for meaningful defaults
+Depends on: BUILD-01 (binary must exist)
+Parallel with: UI-01
 
-| Sprint | Subsystem | Effort | Value |
-|--------|-----------|--------|-------|
-| AEGIS-BUILD-01 | Clean binary compile + runtime verify | Small | Prerequisite |
-| AEGIS-UI-01 | Cockpit redesign — utilitarian + sidebar | Large | Prerequisite for all UI |
-| AEGIS-SNP-05 | Instance count baseline + 3 new rules | Small | Immediate — catches sprawl |
-| AEGIS-POL-01 | Policy Engine (Defender + Claude GPU) | Medium | Immediate — stops drift |
-| AEGIS-GPU-01 | GPU metrics + VRAM monitor | Medium | P1 — prevented today's BSOD |
-| AEGIS-STA-01 | Startup Auditor | Medium | High — boot visibility |
-| AEGIS-SRV-01 | Service Health Monitor | Medium | High — catches retry loops |
-| AEGIS-BOT-01 | Boot Sequencer | Small | Medium — replaces bat hacks |
-| AEGIS-BUILD-02 | Rebuild binary after code sprints | Small | Required after each Rust change |
+Tasks:
+1. Hardware discovery module (sidecar/src/hw/profile.ts)
+   - Runs once on first launch
+   - Writes hardware_profile.yaml to %APPDATA%\AEGIS\
+   - Re-reads on every subsequent start (no re-discovery)
+2. Safe envelope calculator
+   - compiler_jobs, sniper_thresholds, gpu_accel_enabled, boot_delay_multiplier
+3. PolicyEngine extension: hardware_profile policies auto-generated from envelope
+4. Adaptive polling state machine in sidecar/src/main.ts
+   - IDLE / WATCH / ACTION states with transition logic
+5. ~/.cargo/config.toml auto-written with hardware-derived jobs count
+6. Cockpit Settings: three-tier control selector (Automatic/Balanced/Manual)
+   - First-run modal if no preference set
 
----
-
-## INCIDENT LOG — 2026-03-30
-
-What happened:
-- 12 Claude processes on fresh boot → 1.4GB RAM, VRAM consumed by GPU rendering
-- Windows Defender re-enabled by update → 300MB RAM overhead, disk scan activity
-- Litestream checksum retry loop on startup → disk spike, failed S3 uploads
-- SoftLanding scheduled tasks running silently → unknown Microsoft content delivery
-- BrainSignalWatcher racing with litestream at boot → both hammering brain.db
-- VRAM exhaustion (Claude×13 + WebView2×10 + NVIDIA Container×5 > 4GB) → 2× BSOD
-  Stop code: 0x0000010e VIDEO_MEMORY_MANAGEMENT_INTERNAL
-
-Manual fixes applied 2026-03-30:
-- Claude Local State: hardware_acceleration_mode disabled (GPU off)
-- LitestreamBrain startup: bat → silent VBScript, 30s delay
-- BrainSignalWatcher: AUTO → DELAYED-AUTO service start
-- NVIDIA Container telemetry: AUTO → MANUAL service start
-- Defender policy keys: all 7 re-applied with real elevation
-- Search web results: Bing disabled, suggestions disabled
-- SoftLanding tasks: both disabled
-- litestream run.bat: replaced with silent VBScript
-
-All manual fixes above should become AEGIS-enforced policies.
-The incident was preventable with SNP-05 + POL-01 + GPU-01 in place.
+### Sprint: AEGIS-ADAPTIVE-01
+Priority: P2 — depends on HW-PROFILE-01
+Refactor sidecar polling from fixed 2s to adaptive state machine.
+Expected result: idle CPU drops from ~0.8% to ~0.2%, RAM drops ~15MB.
 
 Last updated: 2026-03-30
