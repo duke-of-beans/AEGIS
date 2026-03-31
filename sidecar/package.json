@@ -1,7 +1,7 @@
 {
   "name": "aegis-sidecar",
   "version": "4.0.0",
-  "description": "AEGIS Intelligence Sidecar — context engine, sniper, learning, catalog, MCP",
+  "description": "AEGIS Intelligence Sidecar — context engine, sniper, learning, catalog",
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc",
@@ -10,17 +10,15 @@
     "dev": "node dist/main.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
     "better-sqlite3": "^12.8.0",
     "js-yaml": "^4.1.0",
-    "winston": "^3.11.0",
-    "zod": "^3.22.4"
+    "winston": "^3.11.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.11.0",
-    "pkg": "^5.8.1",
+    "@yao-pkg/pkg": "^5.11.0",
     "typescript": "^5.3.3"
   },
   "pkg": {

@@ -2,16 +2,10 @@
 // AEGIS Cognitive Load Score
 // One number. Zero to one hundred.
 // Computed from weighted stress signals.
-// Weights start equal and are learned from feedback over time.
 // ============================================================
 
 import { getLogger } from '../logger/index.js'
-import type { SystemSnapshot } from '../config/types.js'
 import type { LearningStore } from './store.js'
-
-// ============================================================
-// Types
-// ============================================================
 
 export interface LoadWeights {
   cpu: number
@@ -23,8 +17,8 @@ export interface LoadWeights {
 }
 
 export interface LoadBreakdown {
-  score: number              // 0-100 composite
-  cpu_pressure: number       // 0-1 normalized component
+  score: number
+  cpu_pressure: number
   memory_pressure: number
   disk_queue_pressure: number
   dpc_pressure: number
@@ -33,29 +27,25 @@ export interface LoadBreakdown {
   weights: LoadWeights
 }
 
-// Default equal weights — all components contribute equally
+// Minimal snapshot shape used by compute() — avoids importing deleted types.ts
+interface SystemSnapshotMinimal {
+  cpu_percent?: number
+  memory_mb_used?: number
+  memory_mb_available?: number
+  disk_stats?: { drives: Array<{ queue_depth?: number }> }
+  system_extended?: { dpc_rate?: number }
+  browser_tabs?: { active?: number }
+}
+
 const DEFAULT_WEIGHTS: LoadWeights = {
-  cpu: 1.0,
-  memory: 1.0,
-  disk_queue: 1.0,
-  dpc_rate: 1.0,
-  runaway_count: 1.0,
-  tab_pressure: 1.0,
+  cpu: 1.0, memory: 1.0, disk_queue: 1.0,
+  dpc_rate: 1.0, runaway_count: 1.0, tab_pressure: 1.0,
 }
 
-// Normalization reference values — what "100%" looks like per signal
 const NORM = {
-  cpu: 100,           // % CPU
-  memory: 95,         // % RAM used
-  disk_queue: 8,      // queue depth (saturated disk)
-  dpc_rate: 10000,    // DPCs/sec (very high)
-  runaway_count: 5,   // 5 runaways = max pressure
-  tab_pressure: 20,   // 20 unsuspended tabs = max
+  cpu: 100, memory: 95, disk_queue: 8,
+  dpc_rate: 10000, runaway_count: 5, tab_pressure: 20,
 }
-
-// ============================================================
-// CognitiveLoadEngine
-// ============================================================
 
 export class CognitiveLoadEngine {
   private weights: LoadWeights
@@ -63,18 +53,11 @@ export class CognitiveLoadEngine {
   private lastScore = 0
   private logger = getLogger()
 
-  // store is optional — can be instantiated without LearningStore
-  // for the basic update()/getScore() path used in INTEL-02.
-  // Full compute() path with store is wired in INTEL-04.
   constructor(store?: LearningStore) {
     this.store = store ?? null
     this.weights = { ...DEFAULT_WEIGHTS }
   }
 
-  // ── Simple adapter used by main.ts update_metrics handler ──────────────
-  // Computes a score from raw CPU%, memory%, and context string.
-  // Formula: (cpu * 0.5) + (mem * 0.3) + (context !== 'idle' ? 20 : 0), clamped 0-100.
-  // This is the baseline — INTEL-04 replaces it with the full weighted compute().
   update(cpuPercent: number, memPercent: number, context: string): void {
     const contextLoad = (context === 'idle' || context === 'unknown') ? 0 : 20
     const raw = (cpuPercent * 0.5) + (memPercent * 0.3) + contextLoad
@@ -85,84 +68,42 @@ export class CognitiveLoadEngine {
     return this.lastScore
   }
 
-  // Sprint spec convenience method: returns score + tier + pressure breakdown
-  // Uses the last values from update() when full SystemSnapshot is not available
   computeLoad(): { score: number; tier: 'green' | 'amber' | 'red'; cpu_pressure: number; memory_pressure: number; disk_queue_pressure: number; dpc_pressure: number } {
     const score = this.lastScore
     return {
       score,
       tier: CognitiveLoadEngine.getTier(score),
-      cpu_pressure: 0,    // populated by full compute() path when SystemSnapshot available
+      cpu_pressure: 0,
       memory_pressure: 0,
       disk_queue_pressure: 0,
       dpc_pressure: 0,
     }
   }
 
-  // ── Full weighted compute — used when SystemSnapshot is available ───────
-  compute(snapshot: SystemSnapshot, activeWatches: number): LoadBreakdown {
-    // Normalize each signal to 0-1
+  compute(snapshot: SystemSnapshotMinimal, activeWatches: number): LoadBreakdown {
     const cpuP = Math.min(1, (snapshot.cpu_percent ?? 0) / NORM.cpu)
-
     const memUsed = snapshot.memory_mb_used ?? 0
     const memAvail = snapshot.memory_mb_available ?? 0
     const memTotal = memUsed + memAvail
     const memP = memTotal > 0 ? Math.min(1, memUsed / memTotal / (NORM.memory / 100)) : 0
-
-    const dq = snapshot.disk_stats?.drives.reduce((max, d) => Math.max(max, d.queue_depth ?? 0), 0) ?? 0
+    const dq = snapshot.disk_stats?.drives.reduce((max: number, d: { queue_depth?: number }) => Math.max(max, d.queue_depth ?? 0), 0) ?? 0
     const diskP = Math.min(1, dq / NORM.disk_queue)
-
     const dpc = snapshot.system_extended?.dpc_rate ?? 0
     const dpcP = Math.min(1, dpc / NORM.dpc_rate)
-
-    const runaways = activeWatches
-    const runP = Math.min(1, runaways / NORM.runaway_count)
-
+    const runP = Math.min(1, activeWatches / NORM.runaway_count)
     const tabs = snapshot.browser_tabs?.active ?? 0
     const tabP = Math.min(1, tabs / NORM.tab_pressure)
-
-    // Weighted sum
     const w = this.weights
     const totalWeight = w.cpu + w.memory + w.disk_queue + w.dpc_rate + w.runaway_count + w.tab_pressure
-    const rawScore =
-      (cpuP * w.cpu +
-       memP * w.memory +
-       diskP * w.disk_queue +
-       dpcP * w.dpc_rate +
-       runP * w.runaway_count +
-       tabP * w.tab_pressure) / totalWeight
-
+    const rawScore = (cpuP * w.cpu + memP * w.memory + diskP * w.disk_queue + dpcP * w.dpc_rate + runP * w.runaway_count + tabP * w.tab_pressure) / totalWeight
     const score = Math.round(rawScore * 100)
     this.lastScore = score
-
-    return {
-      score,
-      cpu_pressure: cpuP,
-      memory_pressure: memP,
-      disk_queue_pressure: diskP,
-      dpc_pressure: dpcP,
-      runaway_pressure: runP,
-      tab_pressure: tabP,
-      weights: { ...this.weights },
-    }
+    return { score, cpu_pressure: cpuP, memory_pressure: memP, disk_queue_pressure: diskP, dpc_pressure: dpcP, runaway_pressure: runP, tab_pressure: tabP, weights: { ...this.weights } }
   }
 
-  getLastScore(): number {
-    return this.lastScore
-  }
-
-  getWeights(): LoadWeights {
-    return { ...this.weights }
-  }
-
-  // Called after enough data accumulates (30+ days) — adjust weights
-  // based on correlation of each signal with negative feedback outcomes.
-  // Currently a stub — weight tuning is Phase 2 after data exists.
-  tuneWeights(): void {
-    this.logger.info('Weight tuning not yet available — insufficient data')
-  }
-
-  // Tray icon color tier
+  getLastScore(): number { return this.lastScore }
+  getWeights(): LoadWeights { return { ...this.weights } }
+  tuneWeights(): void { this.logger.info('Weight tuning not yet available') }
   static getTier(score: number): 'green' | 'amber' | 'red' {
     if (score < 40) return 'green'
     if (score < 70) return 'amber'
