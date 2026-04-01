@@ -105,3 +105,22 @@ Mega-sprint orchestration: D:\Dev\aegis\sprints\AEGIS-MEGA-SPRINT.md
 Competitive analysis: D:\Dev\aegis\COMPETITIVE_ANALYSIS.md
 Improvements spec: D:\Dev\aegis\IMPROVEMENTS_SPEC.md
 MCP separation: D:\Dev\aegis\MCP_SEPARATION_DECISION.md
+
+## AEGIS-REAPER-01: Orphan Process Reaper
+
+**Priority:** HIGH  
+**Added:** 2026-03-31  
+**Trigger:** 12 zombie git.exe processes caused persistent EBUSY lock on THICCLES, blocking git operations for hours.
+
+### Problem
+Desktop Commander and Claude sessions spawn git.exe, node.exe, powershell.exe, and cmd.exe processes that don't always exit cleanly. Over a long session, dozens of zombie processes accumulate, holding file locks and consuming memory. On 2026-03-31, 12 orphaned git.exe processes (228MB+ each) caused a persistent index.lock that survived a reboot.
+
+### Specification
+- Scan every 60 seconds for processes matching watchlist: git.exe, git-remote-https.exe, node.exe, powershell.exe, cmd.exe
+- Kill criteria (ALL must be true): spawned by Claude Desktop / Desktop Commander parent, running longer than configurable threshold (5min for git, 15min for node), parent process is dead OR process has no active terminal
+- Grace period: 30s warning before kill (log intent, wait, then terminate)
+- Logging: every detection and kill logged to AEGIS telemetry
+- Dashboard: show orphan process count in AEGIS cockpit, with kill history
+
+### Architecture
+Candidate for AEGIS watchdog module. Runs as part of the sidecar intelligence layer. Uses Windows API (via Rust or Node) to inspect process trees and parent PIDs.
