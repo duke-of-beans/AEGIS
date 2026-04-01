@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0",
+  "slug": "aegis",
+  "name": "AEGIS",
+  "brain_entity_id": "NEEDS_BRAIN_ENTITY_SEED",
+  "type": "infrastructure",
+  "owner": "tech_holdco",
+  "environment": "dev",
+  "display_register": "project",
+  "tier": 1,
+  "description": "AEGIS is a Tauri 2 desktop app providing cognitive resource management for Windows. Monitors CPU, IO, network, memory, and power. Three-component architecture: Rust tray, Node intelligence sidecar, WebView cockpit UI.",
+  "purpose": "Direct system resources intelligently — ambient awareness layer between KERNL and the OS.",
+  "success_criteria": [
+    "Runs stably at boot with <50MB RAM",
+    "tray.rs fixed and cargo tauri build produces working installer"
+  ],
+  "upstream": [],
+  "downstream": [
+    "greglite",
+    "gregore"
+  ],
+  "peers": [
+    "kernl"
+  ],
+  "repo": null,
+  "local_url": null,
+  "vercel_url": null,
+  "tech_stack": [
+    "Rust",
+    "Tauri 2",
+    "Node.js",
+    "TypeScript"
+  ],
+  "language": "Rust",
+  "tagline": "Cognitive resource manager for Windows.",
+  "philosophy": [],
+  "notes": "Build output redirected to D:\\Tools\\.cargo-target\\release\\. Never installs to C:\\. ARCHITECTURE.md is single source of truth. Obsolete v2 src/ daemon code deleted.",
+  "key_decisions": [],
+  "created_date": "2026-03-31",
+  "last_updated": "2026-03-31",
+  "author": "dk-001"
+}
