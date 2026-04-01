@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "slug": "aegis",
   "name": "AEGIS",
-  "brain_entity_id": "NEEDS_BRAIN_ENTITY_SEED",
+  "brain_entity_id": "proj1860EC66F82E2950",
   "type": "infrastructure",
   "owner": "tech_holdco",
   "environment": "dev",
