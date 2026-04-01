@@ -3,8 +3,22 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'PROJECT_DNA.json'
+      - 'PROJECT_DNA.yaml'
+      - 'PROJECT_STATE.json'
+      - 'STATUS.md'
+      - 'BACKLOG.md'
+      - 'CHANGELOG.md'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'PROJECT_DNA.json'
+      - 'PROJECT_DNA.yaml'
+      - 'PROJECT_STATE.json'
+      - 'STATUS.md'
+      - 'BACKLOG.md'
+      - 'CHANGELOG.md'
 
 jobs:
   check:
