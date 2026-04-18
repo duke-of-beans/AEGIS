@@ -1,0 +1,11 @@
+{"ts":"2026-03-26T05:35:41.573Z","level":"info","msg":"AEGIS sidecar starting","version":"4.0.0","pid":4896}
+{"ts":"2026-03-26T05:35:41.576Z","level":"info","msg":"MCP mode detected — starting MCP tool server"}
+{"ts":"2026-03-26T05:35:42.618Z","level":"info","msg":"ContextEngine started"}
+{"ts":"2026-03-26T05:35:42.620Z","level":"info","msg":"PolicyManager started"}
+{"ts":"2026-03-26T05:35:42.622Z","level":"info","msg":"CognitiveLoadEngine started"}
+{"ts":"2026-03-26T05:35:42.781Z","level":"info","msg":"CatalogManager ready"}
+{"ts":"2026-03-26T05:35:42.800Z","level":"info","msg":"LearningStore started"}
+{"ts":"2026-03-26T05:35:42.818Z","level":"info","msg":"BaselineEngine started","dbPath":"C:\\Users\\DKdKe\\AppData\\Roaming\\AEGIS\\baseline.db"}
+{"ts":"2026-03-26T05:35:42.819Z","level":"info","msg":"SniperEngine started","rules":3}
+{"ts":"2026-03-26T05:35:45.348Z","level":"info","msg":"AEGIS MCP server started","tools":8,"transport":"stdio"}
+{"ts":"2026-03-26T05:35:45.348Z","level":"info","msg":"MCP server connected and ready"}

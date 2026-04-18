@@ -1,46 +1,23 @@
-# ══════════════════════════════════════════════════════════════
-# AEGIS is a TAURI APP. See ARCHITECTURE.md.
-# These ignores prevent v2 Node.js daemon artifacts from returning.
-# ══════════════════════════════════════════════════════════════
-
-# === V2 ARTIFACTS — THESE DO NOT BELONG IN THIS REPO ===
-# If you see these directories, read ARCHITECTURE.md immediately.
-/src/
-assets/
-scripts/
-installer/
-dist/
-release/
-build-release.mjs
-AEGIS-silent.vbs
-AEGIS.cmd
-AEGIS-Setup-*.exe
-VERSION
-.npmrc
-_*.py
-_*.txt
-_*.cjs
-git-*.txt
-lint-*.txt
-tsc-*.txt
-
-# === STANDARD IGNORES ===
 node_modules/
-*.exe
-!src-tauri/binaries/*.exe
+dist/
+target/
 *.log
-.env
-state.json
 .DS_Store
-Thumbs.db
-*.js.map
 
-# === SIDECAR BUILD OUTPUT ===
-sidecar/dist/
-
-# === RUST BUILD OUTPUT ===
-src-tauri/target/
-
-# === TRANSIENT ===
+# Session artifacts
+PROJECT_DNA.json
+PROJECT_STATE.json
+MORNING_BRIEFING.md
 commit-msg.txt
-# MORNING_BRIEFING.md is tracked — included in commits per session-close spec
+BACKLOG.md
+IMPROVEMENTS_SPEC.md
+COMPETITIVE_ANALYSIS.md
+VISION.md
+MCP_INTEGRATION.md
+MCP_SEPARATION_DECISION.md
+build_output.log
+build_stderr.log
+build_stdout.log
+sidecar-build.log
+tauri-build.log
+cleanup.bat
